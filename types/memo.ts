@@ -3,6 +3,8 @@ export interface Memo {
   title: string;
   content: string;
   createdAt: string;
+  updatedAt?: string;
+  isEdited?: boolean;
   ageAtCreation?: number;
   tags: string[];
   aiComment?: string;

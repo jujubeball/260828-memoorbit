@@ -7,9 +7,9 @@ import { MemoModal, type MemoDraft } from "@/src/components/MemoModal";
 import type { Memo } from "@/types/memo";
 
 const initialMemos: Memo[] = [
-  { id: "memo-1", title: "Morning walk", content: "A quiet walk helped me slow down and find my own rhythm again.", createdAt: "2026. 08. 28 | 08:42", ageAtCreation: 29, tags: ["daily", "mind"], aiComment: "You found a small moment of recovery in a familiar routine." },
-  { id: "memo-2", title: "First project milestone", content: "Our ideas connected naturally today, and the project began to feel real.", createdAt: "2026. 08. 27 | 16:18", ageAtCreation: 29, tags: ["work", "growth"], aiComment: "Collaboration seems to be an important source of energy for you." },
-  { id: "memo-3", title: "A rainy afternoon", content: "Rain at the window made every sentence in my book feel slower and deeper.", createdAt: "2026. 08. 25 | 14:06", tags: ["reading", "record"], aiComment: "You are carefully collecting the quiet details that make up your orbit." },
+  { id: "memo-1", title: "오랜만에 찾은 나만의 리듬", content: "아침 산책을 하며 좋아하는 팟캐스트를 들었다. 서두르지 않아도 괜찮다는 생각이 들어 마음이 한결 가벼워졌다.", createdAt: "2026. 08. 28. 오전 08:42:12", ageAtCreation: 29, tags: ["일상", "마음"], aiComment: "작은 루틴에서 회복의 감각을 발견하고 있네요. 이 리듬을 오래 지켜보세요." },
+  { id: "memo-2", title: "프로젝트의 첫 번째 이정표", content: "팀과 함께 정리한 기획안이 생각보다 빠르게 방향을 잡았다. 서로의 아이디어가 자연스럽게 이어지는 순간이 좋았다.", createdAt: "2026. 08. 27. 오후 04:18:35", ageAtCreation: 29, tags: ["일", "성장"], aiComment: "협업의 흐름을 소중히 기록했어요. 당신은 연결 속에서 동력을 얻는 사람입니다." },
+  { id: "memo-3", title: "비 오는 날의 책갈피", content: "창가에 앉아 책을 읽었다. 빗소리 사이로 문장들이 더 천천히, 깊게 마음에 들어오는 오후였다.", createdAt: "2026. 08. 25. 오후 02:06:48", tags: ["독서", "기록"], aiComment: "고요한 순간을 섬세하게 포착했네요. 이런 기억들이 당신만의 궤적을 만듭니다." },
 ];
 
 interface NavigationItem {
@@ -30,6 +30,17 @@ const toTags = (tags: string): string[] =>
     .split(",")
     .map((tag: string) => tag.trim())
     .filter((tag: string) => tag.length > 0);
+
+const padNumber = (value: number): string => String(value).padStart(2, "0");
+
+// 시계의 시침과 분침, 초침을 모두 읽어 카드에 같은 모양으로 적어 주는 함수예요.
+const formatMemoDateTime = (date: Date): string => {
+  const hour = date.getHours();
+  const period = hour < 12 ? "오전" : "오후";
+  const displayHour = hour % 12 || 12;
+
+  return `${date.getFullYear()}. ${padNumber(date.getMonth() + 1)}. ${padNumber(date.getDate())}. ${period} ${padNumber(displayHour)}:${padNumber(date.getMinutes())}:${padNumber(date.getSeconds())}`;
+};
 
 export default function Home(): React.JSX.Element {
   // useState는 현재 메모 상자와 열려 있는 공책을 기억하는 서랍이에요.
@@ -58,9 +69,9 @@ export default function Home(): React.JSX.Element {
       id: crypto.randomUUID(),
       title: draft.title,
       content: draft.content,
-      createdAt: new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date()),
+      createdAt: formatMemoDateTime(new Date()),
       tags: toTags(draft.tags),
-      aiComment: "Your new thought has started another gentle orbit.",
+      aiComment: "작성하신 생각으로 새로운 궤적이 시작되었습니다.",
     };
 
     // 기존 카드 묶음은 그대로 두고 새 카드가 맨 앞에 든 새 묶음을 만들어요.
@@ -75,7 +86,14 @@ export default function Home(): React.JSX.Element {
 
   // map은 모든 카드를 새 상자에 옮기되, 같은 id 카드만 수정한 카드로 바꿔 끼워요.
   const handleUpdateMemo = (updatedMemo: Memo): void => {
-    setMemos((currentMemos: Memo[]) => currentMemos.map((memo: Memo) => (memo.id === updatedMemo.id ? updatedMemo : memo)));
+    const memoWithUpdateInfo: Memo = {
+      ...updatedMemo,
+      updatedAt: formatMemoDateTime(new Date()),
+      isEdited: true,
+      aiComment: updatedMemo.aiComment ?? "작성하신 생각으로 새로운 궤적이 시작되었습니다.",
+    };
+
+    setMemos((currentMemos: Memo[]) => currentMemos.map((memo: Memo) => (memo.id === memoWithUpdateInfo.id ? memoWithUpdateInfo : memo)));
     handleCloseModal();
   };
 
