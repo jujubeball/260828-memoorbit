@@ -1,7 +1,7 @@
 "use client";
 
 // 이 컴포넌트는 부모가 열어 달라고 할 때만 펼쳐지는 작은 메모 공책이에요.
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type MouseEvent, useEffect, useState } from "react";
 
 // MemoDraft는 아직 저장 전인 메모 초안이에요. 공책에 연필로 적는 내용이라고 생각하면 돼요.
 export interface MemoDraft {
@@ -35,6 +35,16 @@ export function MemoModal({ isOpen, onClose, onSubmit }: MemoModalProps) {
     return null;
   }
 
+  // 배경은 팝업을 덮는 큰 덮개예요. 덮개를 누르면 공책을 닫도록 부모에게 알려 줘요.
+  const handleBackdropClick = (): void => {
+    onClose();
+  };
+
+  // 팝업 종이 안쪽을 누른 일은 배경까지 전달하지 않아요. 공책 안을 눌렀다고 덮개가 닫히면 안 되기 때문이에요.
+  const handleContentClick = (event: MouseEvent<HTMLDivElement>): void => {
+    event.stopPropagation();
+  };
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     // 폼의 기본 새로고침을 막아야, 공책에 적은 내용이 화면 전환으로 사라지지 않아요.
     event.preventDefault();
@@ -50,8 +60,9 @@ export function MemoModal({ isOpen, onClose, onSubmit }: MemoModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="memo-modal-title">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl sm:p-6">
+    // z-[100]은 팝업을 화면의 다른 종이보다 위에 올려 두는 높은 책장 칸이에요.
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/40 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="memo-modal-title" onClick={handleBackdropClick}>
+      <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl sm:p-6" onClick={handleContentClick}>
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-bold tracking-wide text-violet-600">NEW MEMO</p>
