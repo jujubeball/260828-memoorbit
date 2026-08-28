@@ -7,9 +7,9 @@ import { MemoModal, type MemoDraft } from "@/src/components/MemoModal";
 import type { Memo } from "@/types/memo";
 
 const initialMemos: Memo[] = [
-  { id: "memo-1", title: "오랜만에 찾은 나만의 리듬", content: "아침 산책을 하며 좋아하는 팟캐스트를 들었다. 서두르지 않아도 괜찮다는 생각이 들어 마음이 한결 가벼워졌다.", createdAt: "2026. 08. 28. 오전 08:42:12", ageAtCreation: 29, tags: ["일상", "마음"], aiComment: "작은 루틴에서 회복의 감각을 발견하고 있네요. 이 리듬을 오래 지켜보세요." },
-  { id: "memo-2", title: "프로젝트의 첫 번째 이정표", content: "팀과 함께 정리한 기획안이 생각보다 빠르게 방향을 잡았다. 서로의 아이디어가 자연스럽게 이어지는 순간이 좋았다.", createdAt: "2026. 08. 27. 오후 04:18:35", ageAtCreation: 29, tags: ["일", "성장"], aiComment: "협업의 흐름을 소중히 기록했어요. 당신은 연결 속에서 동력을 얻는 사람입니다." },
-  { id: "memo-3", title: "비 오는 날의 책갈피", content: "창가에 앉아 책을 읽었다. 빗소리 사이로 문장들이 더 천천히, 깊게 마음에 들어오는 오후였다.", createdAt: "2026. 08. 25. 오후 02:06:48", tags: ["독서", "기록"], aiComment: "고요한 순간을 섬세하게 포착했네요. 이런 기억들이 당신만의 궤적을 만듭니다." },
+  { id: "memo-1", title: "오랜만에 찾은 나만의 리듬", content: "아침 산책을 하며 좋아하는 팟캐스트를 들었다. 서두르지 않아도 괜찮다는 생각이 들어 마음이 한결 가벼워졌다.", createdAt: "2026. 8. 28. 오전 8:42:12", ageAtCreation: 29, tags: ["일상", "마음"], aiComment: "작은 루틴에서 회복의 감각을 발견하고 있네요. 이 리듬을 오래 지켜보세요." },
+  { id: "memo-2", title: "프로젝트의 첫 번째 이정표", content: "팀과 함께 정리한 기획안이 생각보다 빠르게 방향을 잡았다. 서로의 아이디어가 자연스럽게 이어지는 순간이 좋았다.", createdAt: "2026. 8. 27. 오후 4:18:35", ageAtCreation: 29, tags: ["일", "성장"], aiComment: "협업의 흐름을 소중히 기록했어요. 당신은 연결 속에서 동력을 얻는 사람입니다." },
+  { id: "memo-3", title: "비 오는 날의 책갈피", content: "창가에 앉아 책을 읽었다. 빗소리 사이로 문장들이 더 천천히, 깊게 마음에 들어오는 오후였다.", createdAt: "2026. 8. 25. 오후 2:06:48", tags: ["독서", "기록"], aiComment: "고요한 순간을 섬세하게 포착했네요. 이런 기억들이 당신만의 궤적을 만듭니다." },
 ];
 
 interface NavigationItem {
@@ -39,7 +39,7 @@ const formatMemoDateTime = (date: Date): string => {
   const period = hour < 12 ? "오전" : "오후";
   const displayHour = hour % 12 || 12;
 
-  return `${date.getFullYear()}. ${padNumber(date.getMonth() + 1)}. ${padNumber(date.getDate())}. ${period} ${padNumber(displayHour)}:${padNumber(date.getMinutes())}:${padNumber(date.getSeconds())}`;
+  return `${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()}. ${period} ${displayHour}:${padNumber(date.getMinutes())}:${padNumber(date.getSeconds())}`;
 };
 
 export default function Home(): React.JSX.Element {
