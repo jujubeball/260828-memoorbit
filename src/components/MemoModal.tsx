@@ -141,13 +141,13 @@ export function MemoModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex w-full min-w-full items-end justify-center overflow-hidden bg-stone-950/45 sm:items-center sm:p-5"
+      className="fixed inset-0 z-[100] flex w-full min-w-full items-stretch justify-center overflow-hidden bg-[#faf9f6] sm:items-center sm:bg-stone-950/45 sm:p-5"
       role="dialog"
       aria-modal="true"
       aria-labelledby="memo-modal-title"
     >
-      <div className="flex h-[90dvh] max-h-[90vh] w-full min-w-full flex-col overflow-hidden rounded-t-3xl bg-[#faf9f6] shadow-2xl sm:min-w-0 sm:max-w-2xl sm:rounded-3xl">
-        <header className="z-20 flex shrink-0 items-center justify-between gap-4 border-b border-stone-200 bg-[#faf9f6]/95 px-4 py-4 backdrop-blur sm:px-6">
+      <div className="flex h-dvh max-h-none w-full min-w-full flex-col overflow-hidden bg-[#faf9f6] sm:h-[90dvh] sm:max-h-[90vh] sm:min-w-0 sm:max-w-2xl sm:rounded-3xl sm:shadow-2xl">
+        <header className="z-20 flex shrink-0 items-center justify-between gap-4 border-b border-stone-200 bg-[#faf9f6]/95 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur sm:px-6 sm:py-4">
           <h2 id="memo-modal-title" className="text-xl font-bold text-stone-900">
             {editingMemo ? "메모 수정" : "새 메모"}
           </h2>
