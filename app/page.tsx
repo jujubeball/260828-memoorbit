@@ -1,154 +1,37 @@
 "use client";
-
-// 이 페이지는 메모 카드 상자를 관리하는 선생님이에요. 생성, 수정, 삭제 요청을 한곳에서 처리해요.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { MemoCard } from "@/src/components/MemoCard";
 import { MemoModal, type MemoDraft } from "@/src/components/MemoModal";
 import type { Memo } from "@/types/memo";
 
 const initialMemos: Memo[] = [
-  { id: "memo-1", title: "오랜만에 찾은 나만의 리듬", content: "아침 산책을 하며 좋아하는 팟캐스트를 들었다. 서두르지 않아도 괜찮다는 생각이 들어 마음이 한결 가벼워졌다.", createdAt: "2026. 8. 28. 오전 8:42:12", ageAtCreation: 29, tags: ["일상", "마음"], aiComment: "작은 루틴에서 회복의 감각을 발견하고 있네요. 이 리듬을 오래 지켜보세요." },
-  { id: "memo-2", title: "프로젝트의 첫 번째 이정표", content: "팀과 함께 정리한 기획안이 생각보다 빠르게 방향을 잡았다. 서로의 아이디어가 자연스럽게 이어지는 순간이 좋았다.", createdAt: "2026. 8. 27. 오후 4:18:35", ageAtCreation: 29, tags: ["일", "성장"], aiComment: "협업의 흐름을 소중히 기록했어요. 당신은 연결 속에서 동력을 얻는 사람입니다." },
-  { id: "memo-3", title: "비 오는 날의 책갈피", content: "창가에 앉아 책을 읽었다. 빗소리 사이로 문장들이 더 천천히, 깊게 마음에 들어오는 오후였다.", createdAt: "2026. 8. 25. 오후 2:06:48", tags: ["독서", "기록"], aiComment: "고요한 순간을 섬세하게 포착했네요. 이런 기억들이 당신만의 궤적을 만듭니다." },
+  { id: "memo-1", title: "오랜만에 찾은 나만의 리듬", content: "아침 산책을 하며 좋아하는 팟캐스트를 들었다.", updatedAt: "2026-08-28T08:42:12+09:00", isPinned: true, tags: ["일상", "마음"] },
+  { id: "memo-2", title: "프로젝트의 첫 번째 이정표", content: "팀과 함께 정리한 기획안이 방향을 잡았다.", updatedAt: "2026-08-27T16:18:35+09:00", isPinned: false, tags: ["일", "성장"] },
+  { id: "memo-3", title: "비 오는 날의 책갈피", content: "", updatedAt: "2026-08-25T14:06:48+09:00", isPinned: false, tags: ["독서", "기록"] },
 ];
-
-interface NavigationItem {
-  label: string;
-  icon: string;
-  active: boolean;
-}
-
-const navigation: NavigationItem[] = [
-  { label: "\uC804\uCCB4 \uBA54\uBAA8", icon: "O", active: true },
-  { label: "\uC0DD\uAC01 \uBCC0\uD654 \uD0C0\uC784\uB77C\uC778", icon: "T", active: false },
-  { label: "AI \uC778\uC0AC\uC774\uD2B8", icon: "*", active: false },
-];
-
-// 쉼표로 적은 태그를 메모가 사용할 수 있는 태그 목록으로 바꿔 주는 작은 번역기예요.
-const toTags = (tags: string): string[] =>
-  tags
-    .split(",")
-    .map((tag: string) => tag.trim())
-    .filter((tag: string) => tag.length > 0);
-
-const padNumber = (value: number): string => String(value).padStart(2, "0");
-
-// 시계의 시침과 분침, 초침을 모두 읽어 카드에 같은 모양으로 적어 주는 함수예요.
-const formatMemoDateTime = (date: Date): string => {
-  const hour = date.getHours();
-  const period = hour < 12 ? "오전" : "오후";
-  const displayHour = hour % 12 || 12;
-
-  return `${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()}. ${period} ${displayHour}:${padNumber(date.getMinutes())}:${padNumber(date.getSeconds())}`;
-};
+interface MemoGroup { label: string; memos: Memo[]; }
+const toTags = (value: string): string[] => value.split(",").map((tag) => tag.trim()).filter(Boolean);
+const splitText = (text: string): Pick<Memo, "title" | "content"> => { const [title, ...content] = text.split("\n"); return { title: title.trim(), content: content.join("\n").trim() }; };
+const groupLabel = (iso: string): string => { const date = new Date(iso); const today = new Date(); const day = Math.floor((new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() - new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()) / 86400000); if (day === 0) return "오늘"; if (day <= 7) return "이전 7일"; if (day <= 30) return "이전 30일"; return `${date.getMonth() + 1}월`; };
 
 export default function Home(): React.JSX.Element {
-  // useState는 현재 메모 상자와 열려 있는 공책을 기억하는 서랍이에요.
   const [memos, setMemos] = useState<Memo[]>(initialMemos);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingMemo, setEditingMemo] = useState<Memo | null>(null);
-
-  const handleOpenModal = (): void => {
-    setEditingMemo(null);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = (): void => {
-    setIsModalOpen(false);
-    setEditingMemo(null);
-  };
-
-  // 수정할 카드를 공책에 넣고 열면, 모달은 생성이 아닌 수정 모드가 돼요.
-  const handleEditMemo = (memo: Memo): void => {
-    setEditingMemo(memo);
-    setIsModalOpen(true);
-  };
-
-  const handleAddMemo = (draft: MemoDraft): void => {
-    const newMemo: Memo = {
-      id: crypto.randomUUID(),
-      title: draft.title,
-      content: draft.content,
-      createdAt: formatMemoDateTime(new Date()),
-      tags: toTags(draft.tags),
-      aiComment: "작성하신 생각으로 새로운 궤적이 시작되었습니다.",
-    };
-
-    // 기존 카드 묶음은 그대로 두고 새 카드가 맨 앞에 든 새 묶음을 만들어요.
-    setMemos((currentMemos: Memo[]) => [newMemo, ...currentMemos]);
-    handleCloseModal();
-  };
-
-  // filter는 지울 카드만 빼고 새 상자를 만드는 체예요. 원래 상자를 직접 바꾸지 않아요.
-  const handleDeleteMemo = (id: string): void => {
-    setMemos((currentMemos: Memo[]) => currentMemos.filter((memo: Memo) => memo.id !== id));
-  };
-
-  // map은 모든 카드를 새 상자에 옮기되, 같은 id 카드만 수정한 카드로 바꿔 끼워요.
-  const handleUpdateMemo = (updatedMemo: Memo): void => {
-    const memoWithUpdateInfo: Memo = {
-      ...updatedMemo,
-      updatedAt: formatMemoDateTime(new Date()),
-      isEdited: true,
-      aiComment: updatedMemo.aiComment ?? "작성하신 생각으로 새로운 궤적이 시작되었습니다.",
-    };
-
-    setMemos((currentMemos: Memo[]) => currentMemos.map((memo: Memo) => (memo.id === memoWithUpdateInfo.id ? memoWithUpdateInfo : memo)));
-    handleCloseModal();
-  };
-
-  // 모달은 초안만 건네고, 이 페이지는 새 메모인지 수정 메모인지 결정하는 교통정리 역할을 해요.
-  const handleSubmitMemo = (draft: MemoDraft): void => {
-    if (editingMemo) {
-      handleUpdateMemo({ ...editingMemo, title: draft.title, content: draft.content, tags: toTags(draft.tags) });
-      return;
-    }
-
-    handleAddMemo(draft);
-  };
-
-  return (
-    <div className="min-h-screen bg-[#f8f8fb] text-slate-800">
-      <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <a href="#main-content" className="flex items-center gap-2.5" aria-label="MemoOrbit home">
-            <span className="flex size-8 items-center justify-center rounded-xl bg-violet-600 text-lg text-white shadow-sm">O</span>
-            <span className="text-xl font-bold tracking-tight text-slate-900">MemoOrbit</span>
-          </a>
-          <button type="button" onClick={handleOpenModal} className="rounded-xl bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 sm:px-4">
-            <span className="mr-1.5 text-base leading-none">+</span>{"\uC0C8 \uBA54\uBAA8 \uC4F0\uAE30"}
-          </button>
-        </div>
-      </header>
-
-      <div className="mx-auto flex max-w-7xl flex-col lg:flex-row">
-        <aside className="border-b border-slate-200 bg-white px-4 py-3 lg:min-h-[calc(100vh-4rem)] lg:w-60 lg:border-r lg:border-b-0 lg:px-5 lg:py-8">
-          <nav aria-label="Main navigation" className="flex gap-2 overflow-x-auto lg:flex-col">
-            {navigation.map((item: NavigationItem) => (
-              <a key={item.label} href="#main-content" className={`flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${item.active ? "bg-violet-50 text-violet-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"}`}>
-                <span className="text-sm leading-none" aria-hidden="true">{item.icon}</span>
-                {item.label}
-              </a>
-            ))}
-          </nav>
-        </aside>
-
-        <main id="main-content" className="min-w-0 flex-1 px-4 py-8 sm:px-8 sm:py-10 lg:px-12">
-          <div className="mx-auto max-w-3xl">
-            <div className="mb-8">
-              <p className="mb-2 text-sm font-semibold text-violet-600">MY MEMO ORBIT</p>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{"\uB098\uC758 \uBAA8\uB4E0 \uBA54\uBAA8"}</h1>
-              <p className="mt-2 text-sm text-slate-500 sm:text-base">{"\uC0DD\uAC01\uACFC \uC21C\uAC04\uB4E4\uC774 \uD558\uB098\uC758 \uADA4\uC801\uC744 \uB9CC\uB4E4\uC5B4\uAC00\uACE0 \uC788\uC5B4\uC694."}</p>
-            </div>
-            <section className="space-y-4" aria-label="Memo list">
-              {/* map은 메모 상자에서 카드를 하나씩 꺼내 액자 컴포넌트에 끼워 보여 줘요. */}
-              {memos.map((memo: Memo) => <MemoCard key={memo.id} memo={memo} onEdit={handleEditMemo} onDelete={handleDeleteMemo} />)}
-            </section>
-          </div>
-        </main>
-      </div>
-
-      {isModalOpen ? <MemoModal isOpen={isModalOpen} editingMemo={editingMemo} onClose={handleCloseModal} onSubmit={handleSubmitMemo} /> : null}
-    </div>
-  );
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Memo | null>(null);
+  const sorted = useMemo(() => [...memos].sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), [memos]);
+  const pinned = sorted.filter((memo) => memo.isPinned);
+  const groups = sorted.filter((memo) => !memo.isPinned).reduce<MemoGroup[]>((result, memo) => { const label = groupLabel(memo.updatedAt); const group = result.find((item) => item.label === label); return group ? result.map((item) => item.label === label ? { ...item, memos: [...item.memos, memo] } : item) : [...result, { label, memos: [memo] }]; }, []);
+  const closeEditor = (): void => { setIsEditorOpen(false); setEditingMemo(null); };
+  const submitMemo = (draft: MemoDraft): void => { const value = splitText(draft.text); const now = new Date().toISOString(); if (editingMemo) setMemos((current) => [{ ...editingMemo, ...value, tags: toTags(draft.tags), updatedAt: now }, ...current.filter((memo) => memo.id !== editingMemo.id)]); else setMemos((current) => [{ id: crypto.randomUUID(), ...value, tags: toTags(draft.tags), updatedAt: now, isPinned: false }, ...current]); closeEditor(); };
+  const renderCard = (memo: Memo): React.JSX.Element => <MemoCard key={memo.id} memo={memo} onEdit={(value) => { setEditingMemo(value); setIsEditorOpen(true); }} onDelete={setDeleteTarget} onTogglePin={(id) => setMemos((current) => current.map((item) => item.id === id ? { ...item, isPinned: !item.isPinned } : item))} />;
+  return <div className="min-h-screen bg-[#f8f8fb] text-slate-800">
+    <header className="sticky top-0 z-10 border-b border-slate-200 bg-white"><div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4"><div><span className="text-xl font-bold">MemoOrbit</span><span className="ml-3 text-sm text-slate-500">전체 {memos.length}개의 메모</span></div><button type="button" onClick={() => setIsEditorOpen(true)} className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white">+ 새 메모 쓰기</button></div></header>
+    <main className="mx-auto max-w-3xl px-4 py-8"><h1 className="mb-7 text-3xl font-bold">나의 모든 메모</h1>
+      {pinned.length > 0 && <section className="mb-9 space-y-4"><h2 className="text-sm font-bold uppercase tracking-wider text-amber-600">고정된 메모</h2>{pinned.map(renderCard)}</section>}
+      {groups.map((group) => <section key={group.label} className="mb-9 space-y-4"><h2 className="text-sm font-bold text-slate-500">{group.label}</h2>{group.memos.map(renderCard)}</section>)}
+    </main>
+    {isEditorOpen && <MemoModal key={editingMemo?.id ?? "new"} isOpen editingMemo={editingMemo} onClose={closeEditor} onSubmit={submitMemo} />}
+    {deleteTarget && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/40 p-4" role="alertdialog" aria-modal="true" aria-labelledby="delete-title"><div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"><h2 id="delete-title" className="text-lg font-bold">메모를 삭제할까요?</h2><p className="mt-2 text-sm text-slate-500">“{deleteTarget.title}” 메모는 삭제 후 되돌릴 수 없습니다.</p><div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setDeleteTarget(null)} className="rounded-xl px-4 py-2">취소</button><button type="button" onClick={() => { setMemos((current) => current.filter((memo) => memo.id !== deleteTarget.id)); setDeleteTarget(null); }} className="rounded-xl bg-rose-600 px-4 py-2 font-semibold text-white">삭제</button></div></div></div>}
+  </div>;
 }
