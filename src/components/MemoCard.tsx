@@ -105,14 +105,14 @@ export function MemoCard({
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-stone-200">
-      <div className="absolute inset-y-0 left-0 flex w-24 items-center justify-center bg-stone-700 text-white" aria-hidden="true">
+      <div className="absolute inset-y-0 left-0 flex w-24 items-center justify-center bg-stone-700 text-white md:hidden" aria-hidden="true">
         <span className="text-2xl">⌖</span>
         <span className="ml-1 text-xs font-semibold">
           {memo.isPinned ? "고정 해제" : "고정"}
         </span>
       </div>
 
-      <div className="absolute inset-y-0 right-0 flex w-[152px]">
+      <div className="absolute inset-y-0 right-0 flex w-[152px] md:hidden">
         <button
           type="button"
           onClick={handleShare}
@@ -150,16 +150,65 @@ export function MemoCard({
         }`}
         style={{ transform: `translateX(${offset}px)` }}
       >
-        <header>
-          {!memo.richContent && (
-            <h2 className="break-words text-lg font-bold text-stone-900">
-              {memo.title}
-            </h2>
-          )}
-          <p className="mt-1 text-xs text-stone-500">
-            {new Date(memo.updatedAt).toLocaleString("ko-KR")}
-            {memo.isPinned ? " · 고정됨" : ""}
-          </p>
+        <header className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            {!memo.richContent && (
+              <h2 className="break-words text-lg font-bold text-stone-900">
+                {memo.title}
+              </h2>
+            )}
+            <p className="mt-1 text-xs text-stone-500">
+              {new Date(memo.updatedAt).toLocaleString("ko-KR")}
+              {memo.isPinned ? " · 고정됨" : ""}
+            </p>
+          </div>
+
+          <div className="hidden shrink-0 items-center gap-1 md:flex">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onTogglePin(memo.id);
+              }}
+              aria-label={memo.isPinned ? `${memo.title} 고정 해제` : `${memo.title} 고정`}
+              className="interactive-control rounded-lg px-2.5 py-2 text-sm font-semibold text-stone-700"
+            >
+              {memo.isPinned ? "고정 해제" : "고정"}
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit(memo);
+              }}
+              aria-label={`${memo.title} 수정`}
+              className="interactive-control rounded-lg px-2.5 py-2 text-sm font-semibold text-stone-700"
+            >
+              수정
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                handleShare();
+              }}
+              aria-label={`${memo.title} 공유`}
+              className="interactive-control rounded-lg px-2.5 py-2 text-sm font-semibold text-amber-800"
+            >
+              공유
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(memo);
+              }}
+              aria-label={`${memo.title} 삭제`}
+              className="interactive-control rounded-lg px-2.5 py-2 text-sm font-semibold text-red-800"
+            >
+              삭제
+            </button>
+          </div>
         </header>
 
         {memo.richContent ? (
