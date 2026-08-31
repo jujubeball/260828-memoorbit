@@ -51,6 +51,7 @@ button:disabled {
 
 .rich-editor table,
 .rich-content table {
+  table-layout: fixed;
   margin-top: 0.75rem;
   width: 100%;
   border-collapse: collapse;
@@ -63,6 +64,8 @@ button:disabled {
   border: 1px solid #a8a29e;
   padding: 0.5rem;
   text-align: left;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .memo-check-item,
@@ -70,6 +73,51 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.memo-check-item input[type="checkbox"],
+.rich-content input[type="checkbox"] {
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 1.25rem;
+  border: 2px solid #78716c;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgb(41 37 36 / 12%);
+  transition: background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.memo-check-item input[type="checkbox"]::after,
+.rich-content input[type="checkbox"]::after {
+  display: block;
+  width: 0.35rem;
+  height: 0.65rem;
+  margin: 0.12rem auto 0;
+  transform: rotate(45deg) scale(0);
+  border-bottom: 2px solid white;
+  border-right: 2px solid white;
+  content: "";
+  transition: transform 180ms ease;
+}
+
+.memo-check-item input[type="checkbox"]:checked,
+.rich-content input[type="checkbox"]:checked {
+  border-color: #57534e;
+  background: #57534e;
+  transform: scale(1.05);
+}
+
+.memo-check-item input[type="checkbox"]:checked::after,
+.rich-content input[type="checkbox"]:checked::after {
+  transform: rotate(45deg) scale(1);
+}
+
+.memo-check-item input[type="checkbox"]:checked + span,
+.rich-content input[type="checkbox"]:checked + span {
+  color: #78716c;
+  text-decoration: line-through;
+  transition: color 180ms ease;
 }
 
 @media (hover: hover) and (pointer: fine) {

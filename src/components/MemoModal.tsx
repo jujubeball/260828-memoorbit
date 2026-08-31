@@ -99,14 +99,14 @@ export function MemoModal({
   const insertChecklist = (): void => {
     runCommand(
       "insertHTML",
-      '<div class="memo-check-item"><label><input type="checkbox"> 할 일</label></div><div><br></div>',
+      '<div class="memo-check-item"><label><input type="checkbox" contenteditable="false"><span>할 일</span></label></div><div><br></div>',
     );
   };
 
   const insertTable = (): void => {
     runCommand(
       "insertHTML",
-      '<table><tbody><tr><th>항목</th><th>내용</th></tr><tr><td>이름</td><td>값을 입력하세요</td></tr><tr><td>이름</td><td>값을 입력하세요</td></tr></tbody></table><div><br></div>',
+      '<table><tbody><tr><td><br></td><td><br></td></tr><tr><td><br></td><td><br></td></tr></tbody></table><div><br></div>',
     );
   };
 
@@ -146,8 +146,8 @@ export function MemoModal({
       aria-modal="true"
       aria-labelledby="memo-modal-title"
     >
-      <div className="max-h-[90vh] w-full min-w-full overflow-y-auto rounded-t-3xl bg-[#faf9f6] px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:min-w-0 sm:max-w-2xl sm:rounded-3xl sm:p-6">
-        <header className="flex items-center justify-between gap-4">
+      <div className="flex h-[90dvh] max-h-[90vh] w-full min-w-full flex-col overflow-hidden rounded-t-3xl bg-[#faf9f6] shadow-2xl sm:min-w-0 sm:max-w-2xl sm:rounded-3xl">
+        <header className="z-20 flex shrink-0 items-center justify-between gap-4 border-b border-stone-200 bg-[#faf9f6]/95 px-4 py-4 backdrop-blur sm:px-6">
           <h2 id="memo-modal-title" className="text-xl font-bold text-stone-900">
             {editingMemo ? "메모 수정" : "새 메모"}
           </h2>
@@ -161,9 +161,9 @@ export function MemoModal({
           </button>
         </header>
 
-        <form onSubmit={submit} className="mt-4 space-y-4">
+        <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
           <div
-            className="flex max-w-full gap-2 overflow-x-auto rounded-xl border border-stone-200 bg-stone-100/80 p-2"
+            className="z-10 flex max-w-full shrink-0 gap-2 overflow-x-auto border-b border-stone-200 bg-stone-100/95 p-2 px-4 backdrop-blur sm:px-6"
             role="toolbar"
             aria-label="메모 서식 도구"
           >
@@ -187,61 +187,62 @@ export function MemoModal({
             </button>
           </div>
 
-          <div
-            ref={editorRef}
-            contentEditable
-            suppressContentEditableWarning
-            role="textbox"
-            aria-label="메모 제목과 본문"
-            aria-multiline="true"
-            data-placeholder="첫 줄에 제목을 쓰고 다음 줄부터 생각을 자유롭게 적어 보세요."
-            onInput={(event) => setPlainText(event.currentTarget.innerText)}
-            className="rich-editor min-h-72 w-full overflow-x-auto rounded-2xl border border-stone-200 bg-white p-4 text-base leading-7 text-stone-800 outline-none focus:border-stone-500 focus:ring-2 focus:ring-stone-200"
-            dangerouslySetInnerHTML={{ __html: createInitialHtml(editingMemo) }}
-          />
-
-          <label className="block text-sm font-semibold text-stone-800">
-            태그
-            <input
-              value={tags}
-              onChange={(event) => setTags(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-stone-900 outline-none focus:border-stone-500 focus:ring-2 focus:ring-stone-200"
-              placeholder="일상, 생각 (쉼표로 구분)"
+          <div className="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-3 overscroll-contain sm:px-6">
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              role="textbox"
+              aria-label="메모 제목과 본문"
+              aria-multiline="true"
+              data-placeholder="첫 줄에 제목을 쓰고 다음 줄부터 생각을 자유롭게 적어 보세요."
+              onInput={(event) => setPlainText(event.currentTarget.innerText)}
+              className="rich-editor min-h-full w-full overflow-x-hidden text-base leading-7 text-stone-800 outline-none"
+              dangerouslySetInnerHTML={{ __html: createInitialHtml(editingMemo) }}
             />
-          </label>
+          </div>
 
-          {recommendedTags.length > 0 && (
-            <section className="rounded-xl bg-stone-100 p-3" aria-label="실시간 추천 태그">
-              <p className="mb-2 text-xs font-semibold text-stone-700">
-                내용에서 찾은 추천 태그
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {recommendedTags.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleTag(tag)}
-                    aria-pressed={tags.split(",").map((item) => item.trim()).includes(tag)}
-                    className="interactive-control rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-800 active:scale-95"
-                  >
-                    #{tag}
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
+          <div className="z-20 shrink-0 space-y-3 border-t border-stone-200 bg-[#faf9f6]/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:px-6">
+            <label className="block text-sm font-semibold text-stone-800">
+              <span className="sr-only">태그</span>
+              <input
+                value={tags}
+                onChange={(event) => setTags(event.target.value)}
+                className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-stone-900 outline-none focus:border-stone-500 focus:ring-2 focus:ring-stone-200"
+                placeholder="태그 추가 (쉼표로 구분)"
+              />
+            </label>
 
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="interactive-control rounded-xl px-4 py-2 text-stone-700 active:scale-95">
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={!plainText.trim()}
-              className="interactive-control rounded-xl bg-stone-800 px-4 py-2 font-semibold text-white active:scale-95 disabled:opacity-40"
-            >
-              저장
-            </button>
+            {recommendedTags.length > 0 && (
+              <section aria-label="실시간 추천 태그">
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {recommendedTags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleTag(tag)}
+                      aria-pressed={tags.split(",").map((item) => item.trim()).includes(tag)}
+                      className="interactive-control shrink-0 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-800 active:scale-95"
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={onClose} className="interactive-control rounded-xl px-4 py-2 text-stone-700 active:scale-95">
+                취소
+              </button>
+              <button
+                type="submit"
+                disabled={!plainText.trim()}
+                className="interactive-control rounded-xl bg-stone-800 px-4 py-2 font-semibold text-white active:scale-95 disabled:opacity-40"
+              >
+                저장
+              </button>
+            </div>
           </div>
         </form>
       </div>
