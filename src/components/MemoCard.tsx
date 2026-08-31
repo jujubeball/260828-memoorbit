@@ -13,7 +13,8 @@ interface MemoCardProps {
 type SwipeAxis = "horizontal" | "vertical" | null;
 
 const LEFT_ACTION_WIDTH = 152;
-const PIN_THRESHOLD = 72;
+const PIN_ACTION_WIDTH = 96;
+const FULL_PIN_THRESHOLD = 132;
 
 export function MemoCard({
   memo,
@@ -26,6 +27,7 @@ export function MemoCard({
   const startOffset = useRef(0);
   const swipeAxis = useRef<SwipeAxis>(null);
   const suppressClick = useRef(false);
+  const didGiveThresholdFeedback = useRef(false);
   const [offset, setOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showShareNotice, setShowShareNotice] = useState(false);
@@ -37,6 +39,7 @@ export function MemoCard({
     startOffset.current = offset;
     swipeAxis.current = null;
     suppressClick.current = false;
+    didGiveThresholdFeedback.current = false;
     setIsDragging(true);
   };
 
@@ -45,10 +48,12 @@ export function MemoCard({
     const deltaX = touch.clientX - touchStartX.current;
     const deltaY = touch.clientY - touchStartY.current;
 
-    if (!swipeAxis.current && Math.max(Math.abs(deltaX), Math.abs(deltaY)) > 8) {
-      swipeAxis.current = Math.abs(deltaX) > Math.abs(deltaY)
-        ? "horizontal"
-        : "vertical";
+    if (
+      !swipeAxis.current &&
+      Math.max(Math.abs(deltaX), Math.abs(deltaY)) > 8
+    ) {
+      swipeAxis.current =
+        Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
     }
     if (swipeAxis.current !== "horizontal") return;
 
@@ -56,19 +61,25 @@ export function MemoCard({
     suppressClick.current = true;
     const nextOffset = Math.max(
       -LEFT_ACTION_WIDTH,
-      Math.min(PIN_THRESHOLD + 24, startOffset.current + deltaX),
+      Math.min(FULL_PIN_THRESHOLD + 24, startOffset.current + deltaX),
     );
     setOffset(nextOffset);
+    if (nextOffset >= FULL_PIN_THRESHOLD && !didGiveThresholdFeedback.current) {
+      didGiveThresholdFeedback.current = true;
+      window.navigator.vibrate?.(20);
+    }
   };
 
   const handleTouchEnd = (): void => {
     setIsDragging(false);
 
     if (swipeAxis.current === "horizontal") {
-      if (offset >= PIN_THRESHOLD) {
+      if (offset >= FULL_PIN_THRESHOLD) {
         onTogglePin(memo.id);
-        setOffset(PIN_THRESHOLD + 12);
+        setOffset(FULL_PIN_THRESHOLD + 12);
         window.setTimeout(() => setOffset(0), 180);
+      } else if (offset >= 40) {
+        setOffset(PIN_ACTION_WIDTH);
       } else if (offset <= -56) {
         setOffset(-LEFT_ACTION_WIDTH);
       } else {
@@ -105,12 +116,27 @@ export function MemoCard({
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-stone-200">
-      <div className="absolute inset-y-0 left-0 flex w-24 items-center justify-center bg-stone-700 text-white md:hidden" aria-hidden="true">
-        <span className="text-2xl">⌖</span>
+      <button
+        type="button"
+        onClick={() => {
+          onTogglePin(memo.id);
+          setOffset(0);
+        }}
+        onTouchStart={(event) => event.stopPropagation()}
+        className={`absolute inset-y-0 left-0 flex w-24 items-center justify-center text-white transition-colors md:hidden ${
+          offset >= FULL_PIN_THRESHOLD ? "bg-amber-600" : "bg-stone-700"
+        }`}
+        aria-label={
+          memo.isPinned ? `${memo.title} 고정 해제` : `${memo.title} 고정`
+        }
+      >
+        <span className="text-2xl" aria-hidden="true">
+          ⌖
+        </span>
         <span className="ml-1 text-xs font-semibold">
           {memo.isPinned ? "고정 해제" : "고정"}
         </span>
-      </div>
+      </button>
 
       <div className="absolute inset-y-0 right-0 flex w-[152px] md:hidden">
         <button
@@ -120,7 +146,9 @@ export function MemoCard({
           aria-label={`${memo.title} 공유`}
           className="flex flex-1 flex-col items-center justify-center bg-amber-600 text-xs font-bold text-white active:brightness-90"
         >
-          <span className="text-lg" aria-hidden="true">↗</span>
+          <span className="text-lg" aria-hidden="true">
+            ↗
+          </span>
           공유
         </button>
         <button
@@ -130,7 +158,9 @@ export function MemoCard({
           aria-label={`${memo.title} 삭제`}
           className="flex flex-1 flex-col items-center justify-center bg-red-800 text-xs font-bold text-white active:brightness-90"
         >
-          <span className="text-lg" aria-hidden="true">×</span>
+          <span className="text-lg" aria-hidden="true">
+            ×
+          </span>
           삭제
         </button>
       </div>
@@ -152,11 +182,9 @@ export function MemoCard({
       >
         <header className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            {!memo.richContent && (
-              <h2 className="break-words text-lg font-bold text-stone-900">
-                {memo.title}
-              </h2>
-            )}
+            <h2 className="truncate text-lg font-bold text-stone-900">
+              {memo.title}
+            </h2>
             <p className="mt-1 text-xs text-stone-500">
               {new Date(memo.updatedAt).toLocaleString("ko-KR")}
               {memo.isPinned ? " · 고정됨" : ""}
@@ -170,7 +198,9 @@ export function MemoCard({
                 event.stopPropagation();
                 onTogglePin(memo.id);
               }}
-              aria-label={memo.isPinned ? `${memo.title} 고정 해제` : `${memo.title} 고정`}
+              aria-label={
+                memo.isPinned ? `${memo.title} 고정 해제` : `${memo.title} 고정`
+              }
               className="interactive-control rounded-lg px-2.5 py-2 text-sm font-semibold text-stone-700"
             >
               {memo.isPinned ? "고정 해제" : "고정"}
@@ -211,20 +241,13 @@ export function MemoCard({
           </div>
         </header>
 
-        {memo.richContent ? (
-          <div
-            className="rich-content mt-4 text-stone-800"
-            dangerouslySetInnerHTML={{ __html: memo.richContent }}
-          />
-        ) : (
-          <p
-            className={`mt-4 whitespace-pre-wrap text-sm leading-6 ${
-              memo.content ? "text-stone-700" : "italic text-stone-500"
-            }`}
-          >
-            {memo.content || "추가 텍스트 없음"}
-          </p>
-        )}
+        <p
+          className={`mt-3 line-clamp-2 whitespace-pre-wrap text-sm leading-6 ${
+            memo.content ? "text-stone-700" : "italic text-stone-500"
+          }`}
+        >
+          {memo.content || "추가 텍스트 없음"}
+        </p>
 
         {memo.tags.length > 0 && (
           <footer className="mt-4 flex flex-wrap gap-1.5 border-t border-stone-200 pt-4">

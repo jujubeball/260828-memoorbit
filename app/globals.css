@@ -24,12 +24,6 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.rich-editor:empty::before {
-  color: #78716c;
-  content: attr(data-placeholder);
-  pointer-events: none;
-}
-
 .rich-editor h1,
 .rich-content h1 {
   font-size: 1.5rem;
@@ -42,6 +36,46 @@ button:disabled {
   font-size: 1.125rem;
   font-weight: 700;
   line-height: 1.75rem;
+}
+
+.rich-editor h3,
+.rich-content h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.75rem;
+}
+
+.rich-editor pre,
+.rich-content pre {
+  border-radius: 0.5rem;
+  background: #f5f5f4;
+  padding: 0.25rem 0.5rem;
+  font-family: var(--font-geist-mono), monospace;
+  white-space: pre-wrap;
+}
+
+.rich-editor ul,
+.rich-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+.rich-editor ol,
+.rich-content ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+
+.rich-editor .dashed-list,
+.rich-content .dashed-list {
+  list-style: none;
+}
+
+.rich-editor .dashed-list > li::before,
+.rich-content .dashed-list > li::before {
+  content: "–";
+  margin-left: -1.25rem;
+  margin-right: 0.75rem;
 }
 
 .rich-editor p,
@@ -85,7 +119,17 @@ button:disabled {
   border-radius: 9999px;
   background: #fff;
   box-shadow: 0 2px 6px rgb(41 37 36 / 12%);
-  transition: background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.memo-check-item label {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 0.5rem;
 }
 
 .memo-check-item input[type="checkbox"]::after,

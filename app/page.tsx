@@ -12,13 +12,20 @@ interface MemoGroup {
 }
 
 const toTags = (value: string): string[] =>
-  value.split(",").map((tag) => tag.trim()).filter(Boolean);
+  value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
 
 const groupLabel = (iso: string): string => {
   const date = new Date(iso);
   const today = new Date();
   const day = Math.floor(
-    (new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() -
+    (new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    ).getTime() -
       new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()) /
       86400000,
   );
@@ -125,10 +132,12 @@ export default function Home(): React.JSX.Element {
 
   return (
     <div className="min-h-screen w-full min-w-full overflow-x-hidden bg-[#f4f1eb] text-stone-800">
-      <header className="sticky top-0 z-10 border-b border-stone-200 bg-[#faf9f6]/95 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-stone-200 bg-[#faf9f6]/90 backdrop-blur-md">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-3 px-4">
           <div className="min-w-0">
-            <span className="text-lg font-bold text-stone-900 sm:text-xl">MemoOrbit</span>
+            <span className="text-lg font-bold text-stone-900 sm:text-xl">
+              MemoOrbit
+            </span>
             <span className="ml-2 text-xs text-stone-600 sm:ml-3 sm:text-sm">
               전체 {memos.length}개의 메모
             </span>
@@ -151,7 +160,10 @@ export default function Home(): React.JSX.Element {
 
         {pinned.length > 0 && (
           <section className="mb-9 space-y-4" aria-labelledby="pinned-heading">
-            <h2 id="pinned-heading" className="text-sm font-bold text-stone-700">
+            <h2
+              id="pinned-heading"
+              className="text-sm font-bold text-stone-700"
+            >
               고정된 메모
             </h2>
             {pinned.map(renderCard)}
@@ -159,8 +171,15 @@ export default function Home(): React.JSX.Element {
         )}
 
         {groups.map((group) => (
-          <section key={group.label} className="mb-9 space-y-4" aria-labelledby={`group-${group.label}`}>
-            <h2 id={`group-${group.label}`} className="text-sm font-bold text-stone-700">
+          <section
+            key={group.label}
+            className="mb-9 space-y-4"
+            aria-labelledby={`group-${group.label}`}
+          >
+            <h2
+              id={`group-${group.label}`}
+              className="text-sm font-bold text-stone-700"
+            >
               {group.label}
             </h2>
             {group.memos.map(renderCard)}
