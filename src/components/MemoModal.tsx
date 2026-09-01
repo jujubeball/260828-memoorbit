@@ -181,8 +181,11 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
   const insertTable = (): void => insertAtCaret("<table><tbody><tr><td><br></td><td><br></td></tr><tr><td><br></td><td><br></td></tr></tbody></table><div><br></div>");
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
+    saveCurrentMemo();
+  };
+  const saveCurrentMemo = (): boolean => {
     const editor = editorRef.current;
-    if (!editor?.innerText.trim()) return;
+    if (!editor?.innerText.trim()) return false;
     const [title, ...body] = editor.innerText.split("\n");
     onSubmit({
       title: title.trim(),
@@ -192,6 +195,11 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
       imageUrl,
       aiImageMood,
     });
+    return true;
+  };
+  const closeEditor = (): void => {
+    if (saveCurrentMemo()) return;
+    onClose();
   };
   const attachImage = (file: File | undefined): void => {
     if (!file?.type.startsWith("image/")) return;
@@ -290,7 +298,7 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
     <div className="fixed inset-0 z-50 box-border flex h-dvh w-full max-w-full flex-col overflow-x-hidden overflow-y-hidden bg-black text-white xl:items-center xl:justify-center xl:bg-black/70 xl:p-6" role="dialog" aria-modal="true" aria-labelledby="memo-modal-title">
       <form id="memo-form" onSubmit={submit} className="box-border flex min-h-0 w-full max-w-full flex-1 flex-col overflow-x-hidden xl:mx-auto xl:h-[75vh] xl:max-h-[80vh] xl:max-w-2xl xl:flex-none xl:overflow-hidden xl:rounded-3xl xl:border xl:border-[#2a2e3d] xl:bg-[#0f1117] xl:shadow-2xl">
         <header className="box-border flex w-full max-w-full shrink-0 items-center justify-between overflow-x-hidden px-4 pb-2 pt-3">
-          <button type="button" onClick={onClose} className="ios-tap flex h-11 items-center gap-1 px-1 text-[17px] text-[#e5a93c]" aria-label="메모 목록으로 돌아가기">
+          <button type="button" onClick={closeEditor} className="ios-tap flex h-11 items-center gap-1 px-1 text-[17px] text-[#e5a93c]" aria-label="메모를 자동 저장하고 목록으로 돌아가기">
             <span className="text-3xl font-light" aria-hidden="true">‹</span>
             <span className="hidden sm:inline">메모</span>
           </button>

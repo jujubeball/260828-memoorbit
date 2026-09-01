@@ -196,7 +196,9 @@ export default function Home(): React.JSX.Element {
   return (
     <div className={`min-h-dvh bg-[#0f1117] text-[#f3f4f6] xl:pl-72 ${activeSection === "orbit" ? "xl:h-screen xl:overflow-hidden" : ""}`}>
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 border-r border-[#2a2e3d] bg-[#1a1d26]/80 p-5 backdrop-blur-md xl:flex xl:flex-col">
-        <h1 className="px-3 py-4 text-2xl font-bold">MemoOrbit</h1>
+        <button type="button" onClick={() => selectNavigation("memos")} className="rounded-xl px-3 py-4 text-left text-2xl font-bold transition-colors hover:text-[#ffc86b]" aria-label="MemoOrbit 메모 목록 홈">
+          MemoOrbit
+        </button>
         <div className="group/new relative px-2">
           <button type="button" onClick={() => { setEditingMemo(null); setIsEditorOpen(true); }} className="w-full rounded-xl bg-[#e5a93c] px-4 py-3 text-sm font-bold text-[#0f1117] shadow-lg transition-colors hover:bg-[#bd8428] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffc86b]">+ 새 메모 작성</button>
           <span className="pointer-events-none absolute left-1/2 top-full z-40 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#2a2e3d] bg-[#0f1117] px-3 py-2 text-xs text-[#9ca3af] opacity-0 shadow-xl transition-opacity group-hover/new:opacity-100 group-focus-within/new:opacity-100" role="tooltip">단축키 Ctrl/⌘ + N</span>
@@ -216,9 +218,12 @@ export default function Home(): React.JSX.Element {
         <div className="mx-auto flex w-full max-w-5xl items-center">
           <div className="flex min-w-0 items-center gap-3">
             <button type="button" onClick={() => setIsDrawerOpen(true)} className="ios-tap flex h-11 w-11 items-center justify-center text-2xl xl:hidden" aria-label="메뉴 열기">☰</button>
-            <h1 className="truncate text-lg font-bold">
-              {activeSection === "memos" ? "모든 메모" : NAVIGATION_ITEMS.find((item) => item.id === activeSection)?.label}
-            </h1>
+            <button type="button" onClick={() => selectNavigation("memos")} className="truncate text-lg font-bold" aria-label="MemoOrbit 메모 목록 홈">
+              MemoOrbit
+            </button>
+            <span className="truncate text-xs text-[#9ca3af]">
+              {NAVIGATION_ITEMS.find((item) => item.id === activeSection)?.label}
+            </span>
           </div>
         </div>
       </header>
@@ -226,7 +231,7 @@ export default function Home(): React.JSX.Element {
         {activeSection === "memos" && (
           <>
             <div className={`sticky top-12 z-30 mb-5 flex items-center justify-between gap-4 border-b border-transparent bg-[#0f1117] py-3 backdrop-blur-md transition-all duration-200 xl:top-0 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}>
-              <p className="text-sm text-[#9ca3af]">전체 {memos.length}개</p>
+              <h2 className="truncate text-base font-bold sm:text-lg">모든 메모 <span className="text-sm font-normal text-[#9ca3af]">(전체 {memos.length}개)</span></h2>
               <div className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-1 backdrop-blur-md" aria-label="메모 보기 방식">
                 <button type="button" onClick={() => setMemoViewMode("list")} aria-pressed={memoViewMode === "list"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>📋 <span className="hidden sm:inline">텍스트 리스트</span></button>
                 <button type="button" onClick={() => setMemoViewMode("gallery")} aria-pressed={memoViewMode === "gallery"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>🖼️ <span className="hidden sm:inline">사진 카드</span></button>
@@ -265,7 +270,33 @@ export default function Home(): React.JSX.Element {
         {activeSection === "orbit" && <OrbitGraphView memos={memos} onOpenMemo={openMemo} />}
         {activeSection === "timeline" && <TimelineStreamView memos={memos} onOpenMemo={openMemo} />}
       </main>
-      {activeSection === "memos" && <button type="button" onClick={() => { setEditingMemo(null); setIsEditorOpen(true); }} className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-[#e5a93c] text-4xl font-light text-[#0f1117] shadow-[0_14px_35px_rgb(0_0_0/0.5)] active:scale-95 xl:hidden" aria-label="새 메모 작성">+</button>}
+      {activeSection === "memos" && (
+        <button
+          type="button"
+          onClick={() => {
+            setEditingMemo(null);
+            setIsEditorOpen(true);
+          }}
+          className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-5 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-[#e5a93c] text-4xl font-light text-[#0f1117] shadow-[0_14px_35px_rgb(0_0_0/0.5)] active:scale-95 xl:hidden"
+          aria-label="새 메모 작성"
+        >
+          +
+        </button>
+      )}
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-[#2a2e3d] bg-[#0f1117]/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md xl:hidden" aria-label="모바일 하단 주요 메뉴">
+        {NAVIGATION_ITEMS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => selectNavigation(item.id)}
+            aria-current={activeSection === item.id ? "page" : undefined}
+            className={`flex min-h-16 flex-col items-center justify-center gap-1 px-2 text-xs transition-colors ${activeSection === item.id ? "text-[#ffc86b]" : "text-[#9ca3af]"}`}
+          >
+            <span className="text-xl" aria-hidden="true">{item.icon}</span>
+            <span>{item.id === "memos" ? "메모 목록" : item.id === "orbit" ? "생각 궤도" : "시간 궤도"}</span>
+          </button>
+        ))}
+      </nav>
       {isDrawerOpen && (
         <div role="dialog" aria-modal="true" aria-label="메뉴">
           <button type="button" onClick={() => setIsDrawerOpen(false)} className="fixed inset-0 z-40 bg-black/40 xl:hidden" aria-label="메뉴 닫기" />
