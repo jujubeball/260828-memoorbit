@@ -212,26 +212,21 @@ export default function Home(): React.JSX.Element {
         <p className="mt-auto px-3 text-xs text-[#8e8e93]">생각의 궤도를 기록하고 다시 발견하세요.</p>
       </aside>
 
-      <header className="sticky top-0 z-30 h-[calc(3rem+env(safe-area-inset-top))] border-b border-[#2a2e3d] bg-[#0f1117]/85 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-end justify-between">
-          <div className="flex h-12 items-center gap-3">
+      <header className="sticky top-0 z-30 flex h-12 items-center border-b border-[#2a2e3d] bg-[#0f1117] px-4 xl:hidden">
+        <div className="mx-auto flex w-full max-w-5xl items-center">
+          <div className="flex min-w-0 items-center gap-3">
             <button type="button" onClick={() => setIsDrawerOpen(true)} className="ios-tap flex h-11 w-11 items-center justify-center text-2xl xl:hidden" aria-label="메뉴 열기">☰</button>
-            <h1 className="text-[26px] font-bold leading-10 tracking-tight xl:hidden">
-              MemoOrbit
+            <h1 className="truncate text-lg font-bold">
+              {activeSection === "memos" ? "모든 메모" : NAVIGATION_ITEMS.find((item) => item.id === activeSection)?.label}
             </h1>
-            {activeSection !== "memos" && (
-              <span className="text-sm leading-10 text-[#9ca3af]">
-                {NAVIGATION_ITEMS.find((item) => item.id === activeSection)?.label}
-              </span>
-            )}
           </div>
         </div>
       </header>
-      <main className={`mx-auto w-full max-w-5xl px-4 pb-28 ${activeSection === "orbit" ? "xl:h-[calc(100dvh-3rem)] xl:overflow-hidden xl:pb-0" : ""}`}>
+      <main className={`mx-auto w-full max-w-5xl px-4 pb-28 ${activeSection === "orbit" ? "xl:h-dvh xl:overflow-hidden xl:pb-0" : ""}`}>
         {activeSection === "memos" && (
           <>
-            <div className={`sticky top-[calc(3rem+env(safe-area-inset-top))] z-30 mb-5 flex items-center justify-between gap-4 border-b border-transparent bg-[#0f1117] py-4 backdrop-blur-md transition-all duration-200 xl:top-0 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}>
-              <div><h2 className="text-3xl font-bold">모든 메모 <span className="text-base font-normal text-[#9ca3af]">(전체 {memos.length}개)</span></h2></div>
+            <div className={`sticky top-12 z-30 mb-5 flex items-center justify-between gap-4 border-b border-transparent bg-[#0f1117] py-3 backdrop-blur-md transition-all duration-200 xl:top-0 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}>
+              <p className="text-sm text-[#9ca3af]">전체 {memos.length}개</p>
               <div className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-1 backdrop-blur-md" aria-label="메모 보기 방식">
                 <button type="button" onClick={() => setMemoViewMode("list")} aria-pressed={memoViewMode === "list"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>📋 <span className="hidden sm:inline">텍스트 리스트</span></button>
                 <button type="button" onClick={() => setMemoViewMode("gallery")} aria-pressed={memoViewMode === "gallery"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>🖼️ <span className="hidden sm:inline">사진 카드</span></button>
@@ -268,7 +263,7 @@ export default function Home(): React.JSX.Element {
           </>
         )}
         {activeSection === "orbit" && <OrbitGraphView memos={memos} onOpenMemo={openMemo} />}
-        {activeSection === "timeline" && <TimelineStreamView memos={memos} />}
+        {activeSection === "timeline" && <TimelineStreamView memos={memos} onOpenMemo={openMemo} />}
       </main>
       {activeSection === "memos" && <button type="button" onClick={() => { setEditingMemo(null); setIsEditorOpen(true); }} className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-[#e5a93c] text-4xl font-light text-[#0f1117] shadow-[0_14px_35px_rgb(0_0_0/0.5)] active:scale-95 xl:hidden" aria-label="새 메모 작성">+</button>}
       {isDrawerOpen && (
