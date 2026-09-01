@@ -230,7 +230,7 @@ export default function Home(): React.JSX.Element {
         <p className="mt-auto px-3 text-xs text-[#8e8e93]">생각의 궤도를 기록하고 다시 발견하세요.</p>
       </aside>
 
-      <header className="sticky top-0 z-30 flex h-12 items-center border-b border-[#2a2e3d] bg-[#0f1117] px-4 xl:hidden">
+      <header className="sticky top-0 z-30 flex h-12 w-full items-center border-b border-[#2a2e3d] bg-[#0f1117] px-4 xl:hidden">
         <div className="mx-auto flex w-full max-w-5xl items-center">
           <div className="flex min-w-0 items-center gap-3">
             <button type="button" onClick={() => setIsDrawerOpen(true)} className="ios-tap flex h-11 w-11 items-center justify-center text-2xl xl:hidden" aria-label="메뉴 열기">☰</button>
@@ -246,7 +246,7 @@ export default function Home(): React.JSX.Element {
       <main className={`mx-auto w-full max-w-5xl px-4 pb-28 ${activeSection === "orbit" ? "xl:h-dvh xl:overflow-hidden xl:pb-0" : ""}`}>
         {activeSection === "memos" && (
           <>
-            <div className={`sticky top-12 z-30 border-b border-transparent bg-[#0f1117] py-3 backdrop-blur-md transition-all duration-200 xl:top-0 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}>
+            <div className={`sticky top-12 z-20 border-b border-transparent bg-[#0f1117] py-3 backdrop-blur-md transition-all duration-200 xl:top-0 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}>
               <MainContentHeader
                 id="all-memos-title"
                 label="ALL MEMOS"
@@ -324,7 +324,7 @@ export default function Home(): React.JSX.Element {
       {isDrawerOpen && (
         <div role="dialog" aria-modal="true" aria-label="메뉴">
           <button type="button" onClick={() => setIsDrawerOpen(false)} className="fixed inset-0 z-40 bg-black/40 xl:hidden" aria-label="메뉴 닫기" />
-          <aside className="fixed inset-y-0 left-0 z-50 flex w-[min(84vw,320px)] flex-col border-r border-[#2a2e3d] bg-[#1a1d26]/95 p-5 text-[#f3f4f6] shadow-2xl backdrop-blur-md xl:hidden">
+          <aside className="fixed inset-y-0 left-0 z-40 flex w-[min(84vw,320px)] flex-col border-r border-[#2a2e3d] bg-[#1a1d26]/95 p-5 text-[#f3f4f6] shadow-2xl backdrop-blur-md xl:hidden">
             <div className="flex items-center justify-between"><strong className="text-2xl">MemoOrbit</strong><button type="button" onClick={() => setIsDrawerOpen(false)} className="ios-tap h-11 w-11 text-2xl" aria-label="메뉴 닫기">×</button></div>
             <nav className="mt-7 grid gap-2" aria-label="모바일 주요 메뉴">{NAVIGATION_ITEMS.map((item) => <button key={item.id} type="button" onClick={() => selectNavigation(item.id)} aria-current={activeSection === item.id ? "page" : undefined} className={`flex items-center gap-4 rounded-xl px-4 py-3 text-left ${activeSection === item.id ? "bg-[#e5a93c]" : ""}`}><span className="text-xl" aria-hidden="true">{item.icon}</span><span><strong className="block text-sm">{item.label}</strong><small className="text-xs opacity-60">{item.description}</small></span></button>)}</nav>
           </aside>

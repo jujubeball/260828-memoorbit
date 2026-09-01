@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface ResponsiveDatePickerProps {
   id: string;
@@ -23,11 +24,25 @@ const parseInput = (value: string): string | null => {
 
 export function ResponsiveDatePicker({ id, label, value, onChange }: ResponsiveDatePickerProps): React.JSX.Element {
   const pickerRef = useRef<HTMLDivElement>(null);
+  const desktopPopoverRef = useRef<HTMLDivElement>(null);
+  const mobilePopoverRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLInputElement>(null);
   const [inputValue, setInputValue] = useState(value);
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState("");
   const [visibleMonth, setVisibleMonth] = useState(() => value ? new Date(`${value}T00:00:00`) : new Date());
+  const [popoverPosition, setPopoverPosition] = useState({ left: 0, top: 0 });
+
+  // 💡 [달력 위치 계산]
+  // 달력은 카드의 z-index에 갇히지 않도록 body에 렌더링하므로, 입력 필드의 화면 좌표를 읽어 바로 아래 위치를 계산합니다.
+  const updatePopoverPosition = useCallback((): void => {
+    const rect = pickerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPopoverPosition({
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - 328)),
+      top: rect.bottom + 8,
+    });
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -37,13 +52,22 @@ export function ResponsiveDatePicker({ id, label, value, onChange }: ResponsiveD
       window.setTimeout(() => triggerRef.current?.focus(), 0);
     };
     window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [isOpen]);
+    window.addEventListener("resize", updatePopoverPosition);
+    window.addEventListener("scroll", updatePopoverPosition, true);
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("resize", updatePopoverPosition);
+      window.removeEventListener("scroll", updatePopoverPosition, true);
+    };
+  }, [isOpen, updatePopoverPosition]);
 
   useEffect(() => {
     if (!isOpen) return;
     const closeOnOutsidePointer = (event: PointerEvent): void => {
-      if (pickerRef.current?.contains(event.target as Node)) return;
+      const target = event.target as Node;
+      if (pickerRef.current?.contains(target)) return;
+      if (desktopPopoverRef.current?.contains(target)) return;
+      if (mobilePopoverRef.current?.contains(target)) return;
       setIsOpen(false);
     };
     document.addEventListener("pointerdown", closeOnOutsidePointer);
@@ -84,6 +108,11 @@ export function ResponsiveDatePicker({ id, label, value, onChange }: ResponsiveD
     window.setTimeout(() => triggerRef.current?.focus(), 0);
   };
 
+  const togglePicker = (): void => {
+    if (!isOpen) updatePopoverPosition();
+    setIsOpen((current) => !current);
+  };
+
   const calendar = (
     <div className="grid gap-4">
       <div className="flex items-center justify-between">
@@ -101,18 +130,27 @@ export function ResponsiveDatePicker({ id, label, value, onChange }: ResponsiveD
   );
 
   return (
-    <div ref={pickerRef} className={`relative grid gap-2 ${isOpen ? "z-50" : "z-0"}`}>
+    <div ref={pickerRef} className="relative z-0 grid gap-2">
       <label htmlFor={id} className="text-sm font-semibold text-[#f3f4f6]">{label}</label>
       <div className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 focus-within:border-[#e5a93c]">
         <input ref={triggerRef} id={id} value={inputValue} onChange={(event) => setInputValue(event.target.value)} onBlur={commitInput} onKeyDown={(event) => { if (event.key === "Enter") commitInput(); }} placeholder="YYYY-MM-DD" inputMode="numeric" aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} className="min-w-0 flex-1 bg-transparent px-4 py-3 text-[#f3f4f6] outline-none" />
         {inputValue && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { setInputValue(""); setError(""); onChange(""); }} className="px-3 text-[#9ca3af]" aria-label={`${label} 지우기`}>×</button>}
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => setIsOpen((current) => !current)} className="border-l border-[#2a2e3d] px-3 text-[#ffc86b]" aria-label={`${label} 달력 열기`} aria-expanded={isOpen}>▦</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={togglePicker} className="border-l border-[#2a2e3d] px-3 text-[#ffc86b]" aria-label={`${label} 달력 열기`} aria-expanded={isOpen}>▦</button>
       </div>
       {error && <p id={`${id}-error`} role="alert" className="text-xs text-[#ff6961]">{error}</p>}
-      {isOpen && (
+      {isOpen && createPortal(
         <>
-          <div className="pointer-events-auto absolute left-0 top-full z-50 mt-2 hidden w-80 rounded-2xl border border-[#2a2e3d] bg-[#1a1d26]/95 p-4 text-[#f3f4f6] shadow-2xl backdrop-blur-md xl:block" role="dialog" aria-label={`${label} 달력`}>{calendar}</div>
           <div
+            ref={desktopPopoverRef}
+            className="pointer-events-auto fixed z-50 hidden w-80 rounded-2xl border border-[#2a2e3d] bg-[#1a1d26]/95 p-4 text-[#f3f4f6] shadow-2xl backdrop-blur-md xl:block"
+            style={popoverPosition}
+            role="dialog"
+            aria-label={`${label} 달력`}
+          >
+            {calendar}
+          </div>
+          <div
+            ref={mobilePopoverRef}
             className="pointer-events-auto fixed inset-0 z-50 flex items-end bg-black/60 p-4 xl:hidden"
             role="dialog"
             aria-modal="true"
@@ -132,7 +170,8 @@ export function ResponsiveDatePicker({ id, label, value, onChange }: ResponsiveD
               {calendar}
             </div>
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   );

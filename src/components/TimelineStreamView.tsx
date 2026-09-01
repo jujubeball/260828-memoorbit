@@ -113,7 +113,7 @@ export function TimelineStreamView({ memos, onOpenMemo }: TimelineStreamViewProp
         title="시간 궤도 분석"
         description="지정한 기간 동안 쌓인 기록의 성찰과 실행 궤도를 분석합니다."
       />
-      <div className="glass-panel relative z-40 grid w-full gap-4 overflow-visible p-4 sm:grid-cols-2">
+      <div className="glass-panel relative z-10 grid w-full gap-4 overflow-visible p-4 sm:grid-cols-2">
         <ResponsiveDatePicker id="timeline-start" label="시작일" value={startDate} onChange={setStartDate} />
         <ResponsiveDatePicker id="timeline-end" label="종료일" value={endDate} onChange={setEndDate} />
       </div>
@@ -124,7 +124,7 @@ export function TimelineStreamView({ memos, onOpenMemo }: TimelineStreamViewProp
       )}
 
       <div className="mt-5 grid w-full grid-cols-1 gap-5 overflow-hidden xl:grid-cols-2">
-        <article className="glass-panel min-w-0 border-[#e5a93c]/30 p-5">
+        <article className="glass-panel relative z-10 min-w-0 border-[#e5a93c]/30 p-5">
           <p className="text-xs font-semibold text-[#ffc86b]">Thought Spectrum</p>
           <h3 className="mt-1 text-xl font-bold">🌌 AI 감정 & 생각 궤도 분석</h3>
           <p className="mt-4 text-base leading-8 text-[#f3f4f6]">{report.spectrumComment}</p>
@@ -137,7 +137,7 @@ export function TimelineStreamView({ memos, onOpenMemo }: TimelineStreamViewProp
           </div>
         </article>
 
-        <article className="glass-panel min-w-0 p-5">
+        <article className="glass-panel relative z-10 min-w-0 p-5">
           <p className="text-xs font-semibold text-[#ffc86b]">Resurfaced Ideas</p>
           <h3 className="mt-1 text-xl font-bold">💡 AI 잊혀진 아이디어 큐레이션</h3>
           <p className="mt-2 text-sm leading-6 text-[#9ca3af]">
