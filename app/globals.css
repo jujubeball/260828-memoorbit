@@ -103,7 +103,7 @@ button:disabled {
 }
 
 .memo-check-item,
-.rich-content label {
+.rich-content .memo-check-item {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -125,11 +125,10 @@ button:disabled {
     transform 180ms ease;
 }
 
-.memo-check-item label {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  gap: 0.5rem;
+.memo-check-text {
+  min-width: 0;
+  flex: 1;
+  cursor: text;
 }
 
 .memo-check-item input[type="checkbox"]::after,
@@ -174,10 +173,39 @@ button:disabled {
   .interactive-control:hover {
     background-color: #e7e5e4;
   }
+
+  .new-memo-button:hover {
+    background-color: #1c1917;
+  }
+
+  .pin-control:hover {
+    outline: 2px solid #a8a29e;
+    outline-offset: 1px;
+  }
 }
 
 @media (hover: none) {
   .interactive-control:hover {
     background-color: inherit;
   }
+}
+
+.format-color-button[data-color="#1d4ed8"] {
+  background-color: #1d4ed8;
+}
+
+.format-color-button[data-color="#0f766e"] {
+  background-color: #0f766e;
+}
+
+.format-color-button[data-color="#c2410c"] {
+  background-color: #c2410c;
+}
+
+.format-color-button[data-color="#be185d"] {
+  background-color: #be185d;
+}
+
+.format-color-button[data-color="#6d28d9"] {
+  background-color: #6d28d9;
 }

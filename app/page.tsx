@@ -41,6 +41,7 @@ export default function Home(): React.JSX.Element {
   const [editingMemo, setEditingMemo] = useState<Memo | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Memo | null>(null);
+  const [isPinnedOpen, setIsPinnedOpen] = useState(true);
 
   useEffect(() => {
     if (!isEditorOpen && !deleteTarget) return;
@@ -146,34 +147,42 @@ export default function Home(): React.JSX.Element {
             type="button"
             onClick={() => setIsEditorOpen(true)}
             aria-label="새 메모 작성"
-            className="interactive-control shrink-0 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-white active:scale-95 sm:px-4"
+            className="new-memo-button shrink-0 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-white transition-colors active:scale-95 sm:px-4"
           >
             + 새 메모
           </button>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl px-4 py-7 sm:py-10">
+      <main className="mx-auto w-full max-w-3xl px-4 py-7 xl:py-10">
         <h1 className="mb-7 text-2xl font-bold text-stone-900 sm:text-3xl">
           나의 모든 메모
         </h1>
 
         {pinned.length > 0 && (
-          <section className="mb-9 space-y-4" aria-labelledby="pinned-heading">
-            <h2
-              id="pinned-heading"
-              className="text-sm font-bold text-stone-700"
+          <section className="mb-9" aria-labelledby="pinned-heading">
+            <button
+              type="button"
+              onClick={() => setIsPinnedOpen((current) => !current)}
+              className="interactive-control mb-2 flex w-full items-center justify-between rounded-lg px-1 py-2 text-left text-sm font-bold text-stone-800"
+              aria-expanded={isPinnedOpen}
+              aria-controls="pinned-memo-list"
             >
-              고정된 메모
-            </h2>
-            {pinned.map(renderCard)}
+              <span id="pinned-heading">고정된 메모 {pinned.length}개</span>
+              <span aria-hidden="true">{isPinnedOpen ? "▾" : "▸"}</span>
+            </button>
+            {isPinnedOpen && (
+              <div id="pinned-memo-list" className="xl:space-y-4">
+                {pinned.map(renderCard)}
+              </div>
+            )}
           </section>
         )}
 
         {groups.map((group) => (
           <section
             key={group.label}
-            className="mb-9 space-y-4"
+            className="mb-9 xl:space-y-4"
             aria-labelledby={`group-${group.label}`}
           >
             <h2
