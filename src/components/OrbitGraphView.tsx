@@ -109,6 +109,15 @@ export function OrbitGraphView({ memos, onOpenMemo }: OrbitGraphViewProps): Reac
     return () => window.removeEventListener("resize", draw);
   }, [hoveredTag, nodes, renderVersion, selectedTag]);
 
+  useEffect(() => {
+    if (!isSheetOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isSheetOpen]);
+
   const findNode = (clientX: number, clientY: number): TagNode | undefined => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
@@ -122,6 +131,16 @@ export function OrbitGraphView({ memos, onOpenMemo }: OrbitGraphViewProps): Reac
   const selectMobileTag = (tag: string): void => {
     setSelectedTag(tag);
     setIsSheetOpen(true);
+  };
+
+  const closeSheet = (): void => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setIsSheetOpen(false);
+  };
+
+  const openRelatedMemo = (memo: Memo): void => {
+    closeSheet();
+    onOpenMemo(memo);
   };
 
   return (
@@ -168,7 +187,56 @@ export function OrbitGraphView({ memos, onOpenMemo }: OrbitGraphViewProps): Reac
         <p className="text-center text-xs text-[#9ca3af]">좌우로 밀어 태그 행성을 탐색하세요</p>
       </div>
 
-      {isSheetOpen && selectedTag && <div className="fixed inset-0 z-[140] flex items-end bg-black/60 p-3 xl:hidden" role="dialog" aria-modal="true" aria-labelledby="orbit-sheet-title"><div className="max-h-[70dvh] w-full overflow-y-auto rounded-3xl border border-[#2a2e3d] bg-[#1a1d26]/95 p-5 backdrop-blur-md"><div className="flex items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-2"><h3 id="orbit-sheet-title" className="truncate text-xl font-bold">#{selectedTag} 궤도의 메모</h3><span className="shrink-0 rounded-full bg-[#e5a93c]/15 px-2.5 py-1 text-xs font-semibold text-[#ffc86b]">총 {relatedMemos.length}개</span></div><button type="button" onClick={() => setIsSheetOpen(false)} className="glass-icon-button shrink-0" aria-label="연관 메모 닫기">×</button></div><div className="mt-4 grid gap-2">{relatedMemos.map((memo) => <button key={memo.id} type="button" onClick={() => onOpenMemo(memo)} className="rounded-xl border border-[#2a2e3d] bg-white/5 p-4 text-left"><strong>{memo.title}</strong><p className="mt-1 line-clamp-2 text-sm text-[#9ca3af]">{memo.content}</p></button>)}</div></div></div>}
+      {isSheetOpen && selectedTag && (
+        <div
+          className="fixed inset-0 z-[140] flex items-end bg-[#0f1117]/70 p-3 xl:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="orbit-sheet-title"
+        >
+          <button
+            type="button"
+            onClick={closeSheet}
+            className="absolute inset-0 cursor-default"
+            aria-label="연관 메모 팝업 닫기"
+          />
+          <div className="relative max-h-[70dvh] w-full overflow-y-auto overscroll-contain rounded-3xl border border-[#2a2e3d] bg-[rgba(26,29,38,0.85)] shadow-[0_-20px_60px_rgb(0_0_0/0.45)] backdrop-blur-md">
+            <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[#2a2e3d] bg-[#1a1d26]/90 p-5 backdrop-blur-md">
+              <div className="flex min-w-0 items-center gap-2">
+                <h3 id="orbit-sheet-title" className="truncate text-xl font-bold">
+                  #{selectedTag} 궤도의 메모
+                </h3>
+                <span className="shrink-0 rounded-full bg-[#e5a93c]/15 px-2.5 py-1 text-xs font-semibold text-[#ffc86b]">
+                  총 {relatedMemos.length}개
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={closeSheet}
+                className="glass-icon-button shrink-0"
+                aria-label="연관 메모 닫기"
+              >
+                ×
+              </button>
+            </header>
+            <div className="grid gap-2 p-5">
+              {relatedMemos.map((memo) => (
+                <button
+                  key={memo.id}
+                  type="button"
+                  onClick={() => openRelatedMemo(memo)}
+                  className="rounded-xl border border-[#2a2e3d] bg-[#0f1117]/45 p-4 text-left shadow-sm"
+                >
+                  <strong>{memo.title}</strong>
+                  <p className="mt-1 line-clamp-2 text-sm text-[#9ca3af]">
+                    {memo.content}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
