@@ -35,6 +35,8 @@ const NAVIGATION_ITEMS: Array<{
 
 const toTags = (value: string): string[] =>
   value.split(",").map((tag) => tag.trim()).filter(Boolean);
+
+// 메모의 수정 날짜와 오늘을 비교해 목록에 표시할 날짜 그룹 이름을 결정합니다.
 const groupLabel = (iso: string): string => {
   const date = new Date(iso);
   const today = new Date();
@@ -79,6 +81,8 @@ const findMemoryCandidates = (memos: Memo[]): MemoryCandidate[] => {
 };
 
 export default function Home(): React.JSX.Element {
+  // 💡 [앱의 중심 데이터 State]
+  // memos가 실제 메모 원본이고, 나머지 State는 현재 열린 화면·편집 대상·보기 방식을 기억하는 UI 상태입니다.
   const [memos, setMemos] = useState<Memo[]>(initialMemos);
   const [hasHydratedStorage, setHasHydratedStorage] = useState(false);
   const [editingMemo, setEditingMemo] = useState<Memo | null>(null);
@@ -90,6 +94,8 @@ export default function Home(): React.JSX.Element {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMemoToolbarStuck, setIsMemoToolbarStuck] = useState(false);
 
+  // 💡 [브라우저 저장소 불러오기]
+  // 첫 화면이 열린 뒤 이전 방문에서 저장한 메모를 읽고, 읽기가 끝난 뒤에만 새 변경을 다시 저장하도록 표시합니다.
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
@@ -104,12 +110,14 @@ export default function Home(): React.JSX.Element {
     return () => window.clearTimeout(timer);
   }, []);
 
+  // 화면이 1px 이상 움직였는지 기억해 PC 메모 도구 헤더의 테두리와 그림자를 전환합니다.
   useEffect(() => {
     const trackScroll = (): void => setIsMemoToolbarStuck(window.scrollY > 0);
     window.addEventListener("scroll", trackScroll, { passive: true });
     return () => window.removeEventListener("scroll", trackScroll);
   }, []);
 
+  // memos 배열이 바뀔 때마다 브라우저 저장소에도 같은 배열을 기록해 새로고침 후에도 유지합니다.
   useEffect(() => {
     if (!hasHydratedStorage) return;
     window.localStorage.setItem("memoorbit-memos", JSON.stringify(memos));
@@ -133,6 +141,8 @@ export default function Home(): React.JSX.Element {
     return () => window.removeEventListener("keydown", handleShortcut);
   }, []);
 
+  // 💡 [메모 목록 가공]
+  // 원본 배열은 건드리지 않고 복사한 뒤 고정 여부와 최신 수정 시각으로 정렬하고, 화면에 필요한 날짜 그룹을 만듭니다.
   const sorted = useMemo(() => [...memos].sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), [memos]);
   const pinned = sorted.filter((memo) => memo.isPinned);
   const groups = sorted.filter((memo) => !memo.isPinned).reduce<MemoGroup[]>((result, memo) => {
@@ -143,6 +153,7 @@ export default function Home(): React.JSX.Element {
   }, []);
   const memoryCandidates = useMemo(() => findMemoryCandidates(memos), [memos]);
 
+  // 편집기를 닫을 때 선택 메모도 비워 다음 새 메모가 이전 내용을 이어받지 않게 합니다.
   const closeEditor = (): void => { setIsEditorOpen(false); setEditingMemo(null); };
   const openMemo = (memo: Memo): void => {
     setEditingMemo(memo);
@@ -152,6 +163,8 @@ export default function Home(): React.JSX.Element {
     setActiveSection(section);
     setIsDrawerOpen(false);
   };
+  // 💡 [메모 저장과 자동 저장의 공통 입구]
+  // 완료 버튼과 뒤로가기 자동 저장이 모두 이 함수를 사용하며, 기존 메모는 교체하고 새 메모는 목록 맨 앞에 추가합니다.
   const submitMemo = (draft: MemoDraft): void => {
     const now = new Date().toISOString();
     const sourceText = [draft.title, draft.content].filter(Boolean).join("\n");
@@ -176,6 +189,7 @@ export default function Home(): React.JSX.Element {
       aiImageSourceText: draft.imageUrl ? undefined : sourceText,
       updatedAt: now,
     };
+    // map 대신 새 객체와 filter를 사용해 기존 State를 직접 변경하지 않고 새로운 배열을 만듭니다.
     if (editingMemo) {
       setMemos((current) => [{ ...editingMemo, ...values }, ...current.filter((memo) => memo.id !== editingMemo.id)]);
     } else {
@@ -183,6 +197,7 @@ export default function Home(): React.JSX.Element {
     }
     closeEditor();
   };
+  // 각 Memo 객체를 화면의 MemoCard와 수정·삭제·고정 이벤트에 연결합니다.
   const renderMemo = (memo: Memo): React.JSX.Element => (
     <MemoCard
       key={memo.id}

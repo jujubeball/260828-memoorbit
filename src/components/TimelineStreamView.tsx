@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ResponsiveDatePicker } from "@/src/components/ResponsiveDatePicker";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
+import { ResponsiveDatePicker } from "@/src/components/ResponsiveDatePicker";
+import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
 import type { Memo } from "@/types/memo";
 
 interface TimelineStreamViewProps {
@@ -10,14 +11,15 @@ interface TimelineStreamViewProps {
   onOpenMemo: (memo: Memo) => void;
 }
 
-interface PendingOrbitItem {
-  id: string;
-  kind: "미완료 항목" | "핵심 아이디어";
+interface ResurfacedIdea {
   memo: Memo;
-  text: string;
+  reason: string;
+  preview: string;
 }
 
 const toInputDate = (date: Date): string => date.toISOString().slice(0, 10);
+
+// 저장된 리치 텍스트에서 화면 태그를 제거해 분석에 사용할 읽기 쉬운 일반 문장으로 바꿉니다.
 const plainText = (value: string): string => value
   .replace(/<[^>]+>/g, " ")
   .replace(/&nbsp;/g, " ")
@@ -25,6 +27,7 @@ const plainText = (value: string): string => value
   .replace(/\s+/g, " ")
   .trim();
 
+// 체크박스 HTML 중 checked 속성이 없는 행만 골라 아직 끝나지 않은 문장으로 돌려줍니다.
 const incompleteChecklistItems = (memo: Memo): string[] => {
   const rows = memo.richContent?.match(/<div class="memo-check-item"[\s\S]*?<\/div>/g) ?? [];
   return rows
@@ -33,17 +36,16 @@ const incompleteChecklistItems = (memo: Memo): string[] => {
     .filter(Boolean);
 };
 
-const memoDensity = (memo: Memo): number => {
-  const textLength = plainText(memo.richContent ?? memo.content).length;
-  return textLength + memo.tags.length * 60 + (memo.isPinned ? 80 : 0);
-};
-
 export function TimelineStreamView({ memos, onOpenMemo }: TimelineStreamViewProps): React.JSX.Element {
+  // 💡 [기간 선택 State]
+  // 메모가 있으면 가장 오래된 날부터 최신 날짜까지를 처음 분석 범위로 사용합니다.
   const timestamps = memos.map((memo) => new Date(memo.createdAt).getTime()).filter(Number.isFinite);
   const [startDate, setStartDate] = useState(timestamps.length > 0 ? toInputDate(new Date(Math.min(...timestamps))) : "");
   const [endDate, setEndDate] = useState(timestamps.length > 0 ? toInputDate(new Date(Math.max(...timestamps))) : "");
   const hasInvalidRange = Boolean(startDate && endDate && startDate > endDate);
 
+  // 💡 [선택 기간 AI 분석 리포트]
+  // 날짜나 메모가 바뀔 때만 본문 핵심어, 태그 비중, 질문과 미완료 항목을 다시 계산합니다.
   const report = useMemo(() => {
     const start = startDate ? new Date(`${startDate}T00:00:00`).getTime() : Number.NEGATIVE_INFINITY;
     const end = endDate ? new Date(`${endDate}T23:59:59`).getTime() : Number.POSITIVE_INFINITY;
@@ -51,26 +53,56 @@ export function TimelineStreamView({ memos, onOpenMemo }: TimelineStreamViewProp
       const createdAt = new Date(memo.createdAt).getTime();
       return createdAt >= start && createdAt <= end;
     });
-    const checklistItems = filtered.flatMap((memo) => incompleteChecklistItems(memo).map((text, index) => ({
-      id: `${memo.id}-체크-${index}`,
-      kind: "미완료 항목" as const,
-      memo,
-      text,
-    })));
-    const checklistMemoIds = new Set(checklistItems.map((item) => item.memo.id));
-    const ideaItems = filtered
-      .filter((memo) => !checklistMemoIds.has(memo.id) && plainText(memo.content).length >= 60)
-      .sort((left, right) => memoDensity(right) - memoDensity(left))
-      .slice(0, 3)
-      .map((memo) => ({
-        id: `${memo.id}-아이디어`,
-        kind: "핵심 아이디어" as const,
-        memo,
-        text: plainText(memo.content).slice(0, 120),
-      }));
-    const pendingItems: PendingOrbitItem[] = [...checklistItems, ...ideaItems];
-    const revisitMemos = [...filtered].sort((left, right) => memoDensity(right) - memoDensity(left)).slice(0, 3);
-    return { pendingItems, revisitMemos };
+
+    // 메모에 사용자가 붙인 태그가 없더라도 본문에서 동적으로 핵심어를 뽑아 주제를 놓치지 않습니다.
+    const themeCounts = new Map<string, number>();
+    filtered.forEach((memo) => {
+      const themes = memo.tags.length > 0
+        ? memo.tags
+        : extractDynamicKeywords(`${memo.title} ${memo.content}`, 3);
+      themes.forEach((theme) => themeCounts.set(theme, (themeCounts.get(theme) ?? 0) + 1));
+    });
+    const topThemes = [...themeCounts.entries()]
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 2);
+    const topThemeTotal = topThemes.reduce((sum, [, count]) => sum + count, 0);
+    const themeSummary = topThemes.length > 0
+      ? topThemes.map(([theme, count]) => `#${theme}(${Math.round(count / topThemeTotal * 100)}%)`).join("와 ")
+      : "아직 뚜렷한 핵심 주제가 없는 기록";
+
+    const questionCount = filtered.reduce((sum, memo) => sum + (memo.content.match(/[?？]/g)?.length ?? 0), 0);
+    const incompleteCount = filtered.reduce((sum, memo) => sum + incompleteChecklistItems(memo).length, 0);
+    const tone = questionCount > incompleteCount
+      ? "질문과 탐색이 활발했던"
+      : incompleteCount > 0
+        ? "생각을 행동으로 옮기려는 흐름이 강했던"
+        : "차분한 성찰과 기록이 깊었던";
+    const spectrumComment = filtered.length > 0
+      ? `이번 기간은 ${themeSummary}에 대한 ${tone} 궤도입니다.`
+      : "선택 기간에 분석할 메모가 없습니다.";
+
+    // 질문 또는 미완료 체크 항목이 있는 메모만 후보로 삼고, 미완료 수·질문 수·오래된 정도로 우선순위를 정합니다.
+    const referenceTime = endDate
+      ? new Date(`${endDate}T23:59:59`).getTime()
+      : Math.max(...filtered.map((memo) => new Date(memo.updatedAt).getTime()), 0);
+    const resurfacedIdeas: ResurfacedIdea[] = filtered
+      .map((memo) => {
+        const incompleteItems = incompleteChecklistItems(memo);
+        const questions = memo.content.match(/[^.!\n]*[?？]/g)?.map((question) => question.trim()).filter(Boolean) ?? [];
+        const ageInDays = Math.max(0, (referenceTime - new Date(memo.updatedAt).getTime()) / 86400000);
+        const score = incompleteItems.length * 100 + questions.length * 70 + Math.min(ageInDays, 365) * 0.2;
+        const preview = incompleteItems[0] ?? questions[0] ?? "";
+        const reason = incompleteItems.length > 0
+          ? `완료를 기다리는 항목 ${incompleteItems.length}개`
+          : `다시 답해 볼 질문 ${questions.length}개`;
+        return { memo, preview, reason, score };
+      })
+      .filter((idea) => Boolean(idea.preview))
+      .sort((left, right) => right.score - left.score)
+      .slice(0, 2)
+      .map(({ memo, preview, reason }) => ({ memo, preview, reason }));
+
+    return { spectrumComment, topThemes, resurfacedIdeas };
   }, [endDate, hasInvalidRange, memos, startDate]);
 
   return (
@@ -92,70 +124,41 @@ export function TimelineStreamView({ memos, onOpenMemo }: TimelineStreamViewProp
       )}
 
       <div className="mt-5 grid w-full grid-cols-1 gap-5 overflow-hidden xl:grid-cols-2">
-        <article className="glass-panel min-w-0 p-5">
-          <p className="text-xs font-semibold text-[#ffc86b]">Pending Tasks Orbit</p>
-          <h3 className="mt-1 text-xl font-bold">미완성 궤도 추적</h3>
-          <p className="mt-2 text-sm leading-6 text-[#9ca3af]">
-            아직 끝내지 못한 체크 항목과 실행으로 옮길 만한 생각을 모았습니다.
-          </p>
-          <div className="mt-4 grid max-h-[420px] gap-2 overflow-y-auto pr-1">
-            {report.pendingItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onOpenMemo(item.memo)}
-                className="rounded-2xl border border-[#2a2e3d] bg-white/[0.035] p-4 text-left transition-colors hover:border-[#e5a93c]/60 hover:bg-[#e5a93c]/10"
-              >
-                <span className="rounded-full bg-[#e5a93c]/15 px-2 py-1 text-[11px] font-semibold text-[#ffc86b]">
-                  {item.kind}
-                </span>
-                <strong className="mt-3 block truncate text-sm">{item.memo.title}</strong>
-                <span className="mt-1 block line-clamp-2 text-sm leading-6 text-[#d1d5db]">{item.text}</span>
-              </button>
+        <article className="glass-panel min-w-0 border-[#e5a93c]/30 p-5">
+          <p className="text-xs font-semibold text-[#ffc86b]">Thought Spectrum</p>
+          <h3 className="mt-1 text-xl font-bold">🌌 AI 감정 & 생각 궤도 분석</h3>
+          <p className="mt-4 text-base leading-8 text-[#f3f4f6]">{report.spectrumComment}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {report.topThemes.map(([theme, count]) => (
+              <span key={theme} className="rounded-full border border-[#e5a93c]/35 bg-[#e5a93c]/10 px-3 py-2 text-sm text-[#ffc86b]">
+                #{theme} · {count}회
+              </span>
             ))}
-            {report.pendingItems.length === 0 && (
-              <p className="rounded-2xl border border-dashed border-[#2a2e3d] p-6 text-center text-sm text-[#9ca3af]">
-                선택 기간에 추적할 미완료 항목이 없습니다.
-              </p>
-            )}
           </div>
         </article>
 
         <article className="glass-panel min-w-0 p-5">
-          <p className="text-xs font-semibold text-[#ffc86b]">Re-visit Memos</p>
-          <h3 className="mt-1 text-xl font-bold">다시 볼 만한 주요 생각</h3>
+          <p className="text-xs font-semibold text-[#ffc86b]">Resurfaced Ideas</p>
+          <h3 className="mt-1 text-xl font-bold">💡 AI 잊혀진 아이디어 큐레이션</h3>
           <p className="mt-2 text-sm leading-6 text-[#9ca3af]">
-            기록의 밀도와 태그 집중도를 기준으로 대표 메모 세 개를 골랐습니다.
+            답을 기다리는 질문과 끝나지 않은 생각을 다시 궤도 위로 올렸습니다.
           </p>
           <div className="mt-4 grid gap-3">
-            {report.revisitMemos.map((memo, index) => (
+            {report.resurfacedIdeas.map((idea) => (
               <button
-                key={memo.id}
+                key={idea.memo.id}
                 type="button"
-                onClick={() => onOpenMemo(memo)}
-                className="group flex min-w-0 items-start gap-3 rounded-2xl border border-[#2a2e3d] bg-white/[0.035] p-4 text-left transition-colors hover:border-[#e5a93c]/60 hover:bg-[#e5a93c]/10"
+                onClick={() => onOpenMemo(idea.memo)}
+                className="rounded-2xl border border-[#2a2e3d] bg-white/[0.035] p-4 text-left transition-colors hover:border-[#e5a93c]/60 hover:bg-[#e5a93c]/10"
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e5a93c] text-sm font-bold text-[#0f1117]">
-                  {index + 1}
-                </span>
-                <span className="min-w-0">
-                  <strong className="block truncate text-sm group-hover:text-[#ffc86b]">{memo.title}</strong>
-                  <span className="mt-1 block line-clamp-2 text-sm leading-6 text-[#9ca3af]">
-                    {plainText(memo.content) || "추가 텍스트 없음"}
-                  </span>
-                  <span className="mt-2 flex flex-wrap gap-1.5">
-                    {memo.tags.slice(0, 3).map((tag) => (
-                      <span key={tag} className="rounded-full bg-white/5 px-2 py-1 text-[11px] text-[#ffc86b]">
-                        #{tag}
-                      </span>
-                    ))}
-                  </span>
-                </span>
+                <span className="text-xs font-semibold text-[#ffc86b]">{idea.reason}</span>
+                <strong className="mt-2 block truncate text-sm">{idea.memo.title}</strong>
+                <span className="mt-1 block line-clamp-2 text-sm leading-6 text-[#d1d5db]">{idea.preview}</span>
               </button>
             ))}
-            {report.revisitMemos.length === 0 && (
+            {report.resurfacedIdeas.length === 0 && (
               <p className="rounded-2xl border border-dashed border-[#2a2e3d] p-6 text-center text-sm text-[#9ca3af]">
-                선택 기간에 다시 볼 메모가 없습니다.
+                선택 기간에 다시 꺼내 볼 질문이나 미완료 항목이 없습니다.
               </p>
             )}
           </div>

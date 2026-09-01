@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import type { ImageMood, Memo } from "@/types/memo";
+import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
 
 export interface MemoDraft {
   title: string;
@@ -31,42 +32,6 @@ interface TableMenuPosition {
   left: number;
   top: number;
 }
-
-const TAG_RULES: Array<[RegExp, string]> = [
-  [/운동|달리기|수영|산책/, "운동"],
-  [/아이|육아|어린이집|가족/, "육아"],
-  [/개발|코드|react|next|typescript/i, "개발"],
-  [/장보기|마트|구매|식재료/, "장보기"],
-  [/여행|숙소|기차|비행기/, "여행"],
-  [/책|독서|문장/, "독서"],
-  [/오늘|일상|아침|저녁/, "일상"],
-  [/기쁘|행복|설레|웃음|즐거/, "행복"],
-  [/걱정|불안|힘들|지치|고민/, "마음돌봄"],
-  [/성장|배우|도전|연습|개선/, "성장"],
-  [/인공지능|ai|gemini|openai|llm/i, "AI"],
-  [/tailwind|css|디자인|ui|ux/i, "UIUX"],
-];
-
-const STOP_WORDS = new Set([
-  "그리고", "하지만", "그래서", "오늘", "이번", "대한", "위해", "있는", "했던",
-  "했다", "하는", "것을", "것이", "정말", "조금", "다시", "함께", "메모", "기록",
-]);
-
-const extractRecommendedTags = (text: string): string[] => {
-  const ruleTags = TAG_RULES.filter(([pattern]) => pattern.test(text)).map(([, tag]) => tag);
-  const wordCounts = new Map<string, number>();
-  text
-    .replace(/[^가-힣a-zA-Z0-9+#.\s]/g, " ")
-    .split(/\s+/)
-    .map((word) => word.replace(/^[#+]|[.,]$/g, "").trim())
-    .filter((word) => word.length >= 2 && !STOP_WORDS.has(word))
-    .forEach((word) => wordCounts.set(word, (wordCounts.get(word) ?? 0) + 1));
-  const keywordTags = [...wordCounts.entries()]
-    .sort((left, right) => right[1] - left[1] || right[0].length - left[0].length)
-    .slice(0, 4)
-    .map(([word]) => word);
-  return [...new Set([...ruleTags, ...keywordTags])].slice(0, 8);
-};
 
 const escapeHtml = (value: string): string =>
   value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -101,10 +66,14 @@ const formatDate = (iso?: string): string =>
   }).format(iso ? new Date(iso) : new Date());
 
 export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalProps): React.JSX.Element | null {
+  // 💡 [편집기 DOM 참조 모음]
+  // 화면에 그려진 본문, 파일 입력, 선택 범위, 표 셀을 React 코드에서 안전하게 찾아가기 위한 책갈피입니다.
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const savedRange = useRef<Range | null>(null);
   const selectedCellRef = useRef<HTMLTableCellElement | null>(null);
+  // 💡 [사용자가 바꾸는 편집 상태]
+  // 입력할 때마다 화면을 다시 그려야 하는 값만 State로 보관하고, 실제 서식 HTML은 편집 DOM에서 저장 순간 읽습니다.
   const [plainText, setPlainText] = useState(editingMemo ? [editingMemo.title, editingMemo.content].filter(Boolean).join("\n") : "");
   const [imageUrl, setImageUrl] = useState(editingMemo?.imageUrl);
   const [tags, setTags] = useState(editingMemo?.tags.join(", ") ?? "");
@@ -117,6 +86,8 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [tableMenuPosition, setTableMenuPosition] = useState<TableMenuPosition | null>(null);
 
+  // 💡 [200ms 실시간 분석]
+  // 매 글자마다 무거운 계산을 반복하지 않고, 사용자가 잠깐 입력을 멈춘 뒤 최신 본문만 분석합니다.
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setAnalyzedText(plainText);
@@ -126,7 +97,7 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
   }, [plainText]);
 
   const recommendedTags = useMemo(
-    () => extractRecommendedTags(analyzedText),
+    () => extractDynamicKeywords(analyzedText),
     [analyzedText],
   );
   const selectedTags = useMemo(
@@ -164,6 +135,8 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
     syncText();
   };
   const keepSelection = (event: ReactMouseEvent<HTMLButtonElement> | ReactPointerEvent<HTMLButtonElement>): void => event.preventDefault();
+  // 💡 [체크리스트 삽입]
+  // 체크 원과 글자 영역을 나눠 만든 뒤 커서를 새 항목의 글자 시작 위치로 옮깁니다.
   const insertChecklist = (): void => {
     insertAtCaret('<div class="memo-check-item" data-new-check="true"><input type="checkbox" contenteditable="false" aria-label="체크리스트 완료"><span class="memo-check-text"><br></span></div><div><br></div>');
     const item = editorRef.current?.querySelector<HTMLElement>('[data-new-check="true"]');
@@ -183,6 +156,8 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
     event.preventDefault();
     saveCurrentMemo();
   };
+  // 💡 [이탈 자동 저장]
+  // 본문에 한 글자라도 있으면 현재 DOM의 제목·본문·서식을 MemoDraft로 묶어 page.tsx의 공통 저장 함수로 전달합니다.
   const saveCurrentMemo = (): boolean => {
     const editor = editorRef.current;
     if (!editor?.innerText.trim()) return false;
@@ -207,6 +182,7 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
     reader.addEventListener("load", () => { if (typeof reader.result === "string") setImageUrl(reader.result); });
     reader.readAsDataURL(file);
   };
+  // 추천 태그를 누르면 기존 쉼표 문자열을 배열로 바꿔 추가·삭제한 뒤 다시 입력창 형식으로 합칩니다.
   const toggleTag = (tag: string): void => {
     const nextTags = selectedTags.includes(tag)
       ? selectedTags.filter((item) => item !== tag)
@@ -239,6 +215,8 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
       setTableMenuPosition(null);
     }
   };
+  // 💡 [표 구조 변경]
+  // 사용자가 마지막으로 선택한 셀을 기준으로 행 또는 열을 추가·삭제하고 편집 본문을 다시 동기화합니다.
   const mutateTable = (action: "addRow" | "deleteRow" | "addColumn" | "deleteColumn"): void => {
     const selectedCell = selectedCellRef.current;
     if (!selectedCell) return;
