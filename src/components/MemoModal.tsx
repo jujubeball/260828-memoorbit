@@ -287,7 +287,7 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
   const bottomButton = "ios-tap flex h-11 min-w-11 flex-1 items-center justify-center text-[#e5a93c]";
 
   return (
-    <div className="fixed inset-0 z-[100] box-border flex h-dvh w-full max-w-full flex-col overflow-x-hidden overflow-y-hidden bg-black text-white" role="dialog" aria-modal="true" aria-labelledby="memo-modal-title">
+    <div className="fixed inset-0 z-50 box-border flex h-dvh w-full max-w-full flex-col overflow-x-hidden overflow-y-hidden bg-black text-white" role="dialog" aria-modal="true" aria-labelledby="memo-modal-title">
       <form id="memo-form" onSubmit={submit} className="box-border flex min-h-0 w-full max-w-full flex-1 flex-col overflow-x-hidden xl:mx-auto xl:max-w-2xl xl:border-x xl:border-[#2a2e3d] xl:bg-[#0f1117] xl:shadow-2xl">
         <header className="box-border flex w-full max-w-full shrink-0 items-center justify-between overflow-x-hidden px-3 pb-2 pt-[max(3.5rem,env(safe-area-inset-top))] xl:pt-[max(1rem,env(safe-area-inset-top))]">
           <button type="button" onClick={onClose} className="ios-tap flex h-11 items-center gap-1 px-1 text-[17px] text-[#e5a93c]" aria-label="메모 목록으로 돌아가기">
@@ -415,7 +415,7 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
       </form>
 
       <section
-        className={`absolute inset-x-0 bottom-0 z-20 box-border w-full max-w-full overflow-x-hidden rounded-t-3xl bg-[#2c2c2e] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_35px_rgb(0_0_0/0.45)] transition-transform duration-300 ${isFormatOpen ? "translate-y-0" : "translate-y-full"}`}
+        className={`absolute inset-x-0 bottom-0 z-40 box-border w-full max-w-full overflow-x-hidden rounded-t-3xl bg-[#2c2c2e] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_35px_rgb(0_0_0/0.45)] transition-transform duration-300 ${isFormatOpen ? "translate-y-0" : "translate-y-full"}`}
         aria-label="서식 도구"
         aria-hidden={!isFormatOpen}
         inert={!isFormatOpen}
@@ -446,7 +446,7 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
 
       {tableMenuPosition && (
         <div
-          className="fixed z-[160] w-60 overflow-hidden rounded-xl border border-[#545458] bg-[#2c2c2e]/95 py-1 text-sm text-white shadow-2xl backdrop-blur-xl"
+          className="fixed z-40 w-60 overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#2c2c2e]/95 py-1 text-sm text-white shadow-2xl backdrop-blur-md"
           style={{ left: tableMenuPosition.left, top: tableMenuPosition.top }}
           role="menu"
           aria-label="표 셀 메뉴"

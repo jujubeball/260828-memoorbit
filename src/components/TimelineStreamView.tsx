@@ -86,7 +86,7 @@ export function TimelineStreamView({ memos }: TimelineStreamViewProps): React.JS
     <section className="text-[#f3f4f6]" aria-labelledby="timeline-title">
       <p className="text-sm font-semibold text-[#ffc86b]">Timeline Stream</p>
       <h2 id="timeline-title" className="mt-1 text-3xl font-bold">시간 궤도 분석</h2>
-      <div className="glass-panel relative z-50 mt-5 grid w-full gap-4 overflow-visible p-4 sm:grid-cols-2">
+      <div className="glass-panel relative z-40 mt-5 grid w-full gap-4 overflow-visible p-4 sm:grid-cols-2">
         <ResponsiveDatePicker id="timeline-start" label="시작일" value={startDate} onChange={setStartDate} />
         <ResponsiveDatePicker id="timeline-end" label="종료일" value={endDate} onChange={setEndDate} />
       </div>
@@ -110,7 +110,7 @@ export function TimelineStreamView({ memos }: TimelineStreamViewProps): React.JS
       <article className="glass-panel mt-5 overflow-hidden p-5">
         <p className="text-xs font-semibold text-[#ffc86b]">Visual Storyline</p>
         <h3 className="mt-1 text-xl font-bold">인생 궤도 타임라인 스트림</h3>
-        <div className="relative mt-6 overflow-x-auto pb-2">
+        <div className="scrollbar-hidden relative mt-6 overflow-x-auto pb-2">
           <div className="absolute bottom-[3.7rem] left-8 right-8 h-0.5 bg-gradient-to-r from-transparent via-[#e5a93c] to-transparent shadow-[0_0_16px_#e5a93c]" />
           <div className="relative flex min-w-max gap-5 px-6">
             {report.months.map((story) => (

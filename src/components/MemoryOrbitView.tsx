@@ -41,7 +41,7 @@ export function MemoryOrbitView({ candidates, onOpenMemo }: MemoryOrbitViewProps
         {isOpen && <span className="text-xs text-[#9ca3af]">기억이 다시 도착한 날</span>}
       </div>
       {isOpen && (
-        <div id="memory-orbit-content" className="flex snap-x gap-4 overflow-x-auto px-1 pb-4 pt-2">
+        <div id="memory-orbit-content" className="scrollbar-hidden flex snap-x gap-4 overflow-x-auto px-1 pb-4 pt-2">
           {candidates.map(({ memo, intervalLabel }) => (
             <button
               key={`${intervalLabel}-${memo.id}`}

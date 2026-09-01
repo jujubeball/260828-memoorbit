@@ -119,7 +119,7 @@ export function MemoCard({
   const preview = memo.content.trim().split("\n")[0] || "추가 텍스트 없음";
 
   return (
-    <div className={`group relative overflow-hidden bg-[#ff3b30] text-[#f3f4f6] last:[&_.memo-row]:border-b-0 ${viewMode === "gallery" ? "rounded-2xl border border-[#2a2e3d] shadow-lg" : ""}`}>
+    <div className={`group relative overflow-hidden bg-[#2a2e3d] text-[#f3f4f6] last:[&_.memo-row]:border-b-0 ${viewMode === "gallery" ? "rounded-2xl border border-[#2a2e3d] shadow-lg" : ""}`}>
       <button
         type="button"
         onClick={togglePin}
@@ -203,7 +203,7 @@ export function MemoCard({
 
       {menuPosition && (
         <div
-          className="fixed z-[180] hidden w-44 overflow-hidden rounded-xl border border-black/10 bg-white/95 py-1 shadow-xl backdrop-blur-xl xl:block"
+          className="fixed z-40 hidden w-44 overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/95 py-1 text-[#f3f4f6] shadow-xl backdrop-blur-md xl:block"
           style={{ left: menuPosition.left, top: menuPosition.top }}
           role="menu"
           onClick={(event) => event.stopPropagation()}

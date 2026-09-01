@@ -90,7 +90,7 @@ export function ResponsiveDatePicker({ id, label, value, onChange }: ResponsiveD
   );
 
   return (
-    <div className={`relative grid gap-2 ${isOpen ? "z-[100]" : "z-0"}`}>
+    <div className={`relative grid gap-2 ${isOpen ? "z-40" : "z-0"}`}>
       <label htmlFor={id} className="text-sm font-semibold text-[#f3f4f6]">{label}</label>
       <div className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 focus-within:border-[#e5a93c]">
         <input ref={triggerRef} id={id} value={inputValue} onChange={(event) => setInputValue(event.target.value)} onBlur={commitInput} onKeyDown={(event) => { if (event.key === "Enter") commitInput(); }} placeholder="YYYY-MM-DD" inputMode="numeric" aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} className="min-w-0 flex-1 bg-transparent px-4 py-3 text-[#f3f4f6] outline-none" />
@@ -100,8 +100,8 @@ export function ResponsiveDatePicker({ id, label, value, onChange }: ResponsiveD
       {error && <p id={`${id}-error`} role="alert" className="text-xs text-[#ff6961]">{error}</p>}
       {isOpen && (
         <>
-          <div className="pointer-events-auto absolute left-0 top-full z-[100] mt-2 hidden w-80 rounded-2xl border border-[#2a2e3d] bg-[#1a1d26]/95 p-4 text-[#f3f4f6] shadow-2xl backdrop-blur-md xl:block" role="dialog" aria-label={`${label} 달력`}>{calendar}</div>
-          <div className="pointer-events-auto fixed inset-0 z-[200] flex items-end bg-black/60 p-4 xl:hidden" role="dialog" aria-modal="true" aria-label={`${label} 달력`}><div className="w-full rounded-3xl border border-[#2a2e3d] bg-[#1a1d26]/95 p-5 text-[#f3f4f6] shadow-2xl backdrop-blur-md"><div className="mb-4 flex justify-between"><strong>{label}</strong><button type="button" onClick={closePicker} className="glass-icon-button" aria-label="달력 닫기">×</button></div>{calendar}</div></div>
+          <div className="pointer-events-auto absolute left-0 top-full z-40 mt-2 hidden w-80 rounded-2xl border border-[#2a2e3d] bg-[#1a1d26]/95 p-4 text-[#f3f4f6] shadow-2xl backdrop-blur-md xl:block" role="dialog" aria-label={`${label} 달력`}>{calendar}</div>
+          <div className="pointer-events-auto fixed inset-0 z-50 flex items-end bg-black/60 p-4 xl:hidden" role="dialog" aria-modal="true" aria-label={`${label} 달력`}><div className="w-full rounded-3xl border border-[#2a2e3d] bg-[#1a1d26]/95 p-5 text-[#f3f4f6] shadow-2xl backdrop-blur-md"><div className="mb-4 flex justify-between"><strong>{label}</strong><button type="button" onClick={closePicker} className="glass-icon-button" aria-label="달력 닫기">×</button></div>{calendar}</div></div>
         </>
       )}
     </div>

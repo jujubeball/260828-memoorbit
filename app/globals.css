@@ -110,6 +110,49 @@ button:disabled {
   min-height: 1.75rem;
 }
 
+@media (min-width: 1280px) {
+  * {
+    scrollbar-color: #2a2e3d transparent;
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: #2a2e3d;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #e5a93c;
+  }
+}
+
+.scrollbar-hidden {
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 1279px) {
+  * {
+    scrollbar-width: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 .memo-check-item input[type="checkbox"],
 .rich-content input[type="checkbox"] {
   appearance: none;

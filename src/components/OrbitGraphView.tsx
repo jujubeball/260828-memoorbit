@@ -144,12 +144,12 @@ export function OrbitGraphView({ memos, onOpenMemo }: OrbitGraphViewProps): Reac
   };
 
   return (
-    <section className="text-[#f3f4f6]" aria-labelledby="orbit-graph-title">
+    <section className="text-[#f3f4f6] xl:flex xl:h-full xl:flex-col xl:overflow-hidden" aria-labelledby="orbit-graph-title">
       <p className="text-sm font-semibold text-[#ffc86b]">Orbit Graph</p>
       <h2 id="orbit-graph-title" className="mt-1 text-3xl font-bold">생각 궤적 탐색</h2>
       <p className="mt-2 text-sm text-[#9ca3af]">태그 행성을 따라 연결된 기록을 탐색하세요.</p>
 
-      <div className="glass-panel relative mt-5 hidden h-[650px] overflow-hidden xl:block">
+      <div className="glass-panel relative mt-5 hidden overflow-hidden xl:block xl:min-h-0 xl:flex-1">
         <canvas
           ref={canvasRef}
           className="h-full w-full cursor-grab active:cursor-grabbing"
@@ -177,11 +177,11 @@ export function OrbitGraphView({ memos, onOpenMemo }: OrbitGraphViewProps): Reac
         />
         <div className="pointer-events-none absolute left-4 top-4 rounded-xl border border-[#2a2e3d] bg-[#0f1117]/75 px-3 py-2 text-xs text-[#9ca3af] backdrop-blur-md">휠: 확대·축소 · 드래그: 이동</div>
         {(hoveredTag || selectedTag) && <div className="pointer-events-none absolute right-4 top-4 w-64 rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/90 p-4 backdrop-blur-md"><strong>#{hoveredTag ?? selectedTag}</strong><p className="mt-2 text-xs text-[#9ca3af]">{memos.filter((memo) => memo.tags.includes(hoveredTag ?? selectedTag ?? "")).length}개의 메모 · 클릭하면 궤도를 고정합니다.</p></div>}
-        {selectedTag && <div className="absolute inset-x-4 bottom-4 grid max-h-60 gap-2 overflow-y-auto rounded-2xl border border-[#2a2e3d] bg-[#0f1117]/80 p-3 backdrop-blur-md">{relatedMemos.map((memo) => <button key={memo.id} type="button" onClick={() => onOpenMemo(memo)} className="rounded-xl bg-white/5 px-4 py-3 text-left hover:bg-white/10"><strong className="block truncate text-sm">{memo.title}</strong><span className="text-xs text-[#9ca3af]">{memo.tags.map((tag) => `#${tag}`).join(" ")}</span></button>)}</div>}
+        {selectedTag && <div className="absolute inset-x-4 bottom-4 grid max-h-[300px] gap-2 overflow-y-auto rounded-2xl border border-[#2a2e3d] bg-[#0f1117]/80 p-3 backdrop-blur-md">{relatedMemos.map((memo) => <button key={memo.id} type="button" onClick={() => onOpenMemo(memo)} className="rounded-xl bg-white/5 px-4 py-3 text-left hover:bg-white/10"><strong className="block truncate text-sm">{memo.title}</strong><span className="text-xs text-[#9ca3af]">{memo.tags.map((tag) => `#${tag}`).join(" ")}</span></button>)}</div>}
       </div>
 
       <div className="mt-5 xl:hidden">
-        <div className="flex snap-x gap-4 overflow-x-auto px-[12vw] py-8">
+        <div className="scrollbar-hidden flex snap-x gap-4 overflow-x-auto px-[12vw] py-8">
           {nodes.map((node) => <button key={node.name} type="button" onClick={() => selectMobileTag(node.name)} className="orbit-node flex aspect-square w-36 shrink-0 snap-center flex-col items-center justify-center rounded-full border border-[#596077] bg-[#1a1d26]/80 shadow-[0_0_30px_rgb(229_169_60/0.2)]"><strong>#{node.name}</strong><span className="mt-2 text-xs text-[#9ca3af]">{node.count}개의 기록</span></button>)}
         </div>
         <p className="text-center text-xs text-[#9ca3af]">좌우로 밀어 태그 행성을 탐색하세요</p>
@@ -189,7 +189,7 @@ export function OrbitGraphView({ memos, onOpenMemo }: OrbitGraphViewProps): Reac
 
       {isSheetOpen && selectedTag && (
         <div
-          className="fixed inset-0 z-[140] flex items-end bg-[#0f1117]/70 p-3 xl:hidden"
+          className="fixed inset-0 z-50 flex items-end bg-[#0f1117]/70 p-3 xl:hidden"
           role="dialog"
           aria-modal="true"
           aria-labelledby="orbit-sheet-title"
