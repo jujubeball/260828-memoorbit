@@ -119,7 +119,7 @@ export function MemoCard({
   const preview = memo.content.trim().split("\n")[0] || "추가 텍스트 없음";
 
   return (
-    <div className={`group relative overflow-hidden bg-[#ff3b30] last:[&_.memo-row]:border-b-0 ${viewMode === "gallery" ? "rounded-2xl shadow-sm" : ""}`}>
+    <div className={`group relative overflow-hidden bg-[#ff3b30] text-[#f3f4f6] last:[&_.memo-row]:border-b-0 ${viewMode === "gallery" ? "rounded-2xl border border-[#2a2e3d] shadow-lg" : ""}`}>
       <button
         type="button"
         onClick={togglePin}
@@ -161,7 +161,7 @@ export function MemoCard({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
-        className={`memo-row relative touch-pan-y bg-white ${viewMode === "gallery" ? "h-full border-0 pb-5 pl-4 pr-14 pt-0" : "border-b border-[#d1d1d6] py-3.5 pl-4 pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
+        className={`memo-row relative touch-pan-y bg-[#1a1d26]/95 ${viewMode === "gallery" ? "h-full border-0 pb-5 pl-4 pr-14 pt-0" : "border-b border-[#2a2e3d] py-3.5 pl-4 pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
         style={{ transform: `translateX(${offset}px)` }}
       >
         {viewMode === "gallery" && (
@@ -191,11 +191,11 @@ export function MemoCard({
           <h3 className="truncate text-[17px] font-semibold leading-5">{memo.title}</h3>
         </div>
         <p className="mt-1 flex min-w-0 gap-2 text-[15px] leading-5">
-          <time className="shrink-0 text-[#3a3a3c]">{formatMemoDate(memo.updatedAt)}</time>
-          <span className="truncate text-[#8e8e93]">{preview}</span>
+          <time className="shrink-0 text-[#f3f4f6]">{formatMemoDate(memo.updatedAt)}</time>
+          <span className="truncate text-[#9ca3af]">{preview}</span>
         </p>
         {memo.tags.length > 0 && (
-          <p className="mt-0.5 truncate text-[13px] text-[#8e8e93]">
+          <p className="mt-0.5 truncate text-[13px] text-[#9ca3af]">
             {memo.tags.map((tag) => `#${tag}`).join("  ")}
           </p>
         )}

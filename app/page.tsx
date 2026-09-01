@@ -114,6 +114,17 @@ export default function Home(): React.JSX.Element {
     return () => { document.body.style.overflow = previousOverflow; };
   }, [deleteTarget, isEditorOpen]);
 
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent): void => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "n") return;
+      event.preventDefault();
+      setEditingMemo(null);
+      setIsEditorOpen(true);
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
+
   const sorted = useMemo(() => [...memos].sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), [memos]);
   const pinned = sorted.filter((memo) => memo.isPinned);
   const groups = sorted.filter((memo) => !memo.isPinned).reduce<MemoGroup[]>((result, memo) => {
@@ -176,12 +187,16 @@ export default function Home(): React.JSX.Element {
   );
 
   return (
-    <div className="min-h-dvh bg-[#f2f2f7] text-[#1c1c1e] xl:pl-72">
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-72 border-r border-[#d1d1d6] bg-[#f9f9fb] p-5 xl:flex xl:flex-col">
+    <div className="min-h-dvh bg-[#0f1117] text-[#f3f4f6] xl:pl-72">
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-72 border-r border-[#2a2e3d] bg-[#1a1d26]/80 p-5 backdrop-blur-md xl:flex xl:flex-col">
         <h1 className="px-3 py-4 text-2xl font-bold">MemoOrbit</h1>
+        <div className="group/new relative px-2">
+          <button type="button" onClick={() => { setEditingMemo(null); setIsEditorOpen(true); }} className="w-full rounded-xl bg-[#e5a93c] px-4 py-3 text-sm font-bold text-[#0f1117] shadow-lg transition-colors hover:bg-[#bd8428] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffc86b]">+ 새 메모 작성</button>
+          <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#2a2e3d] bg-[#0f1117] px-3 py-2 text-xs text-[#9ca3af] opacity-0 shadow-xl transition-opacity group-hover/new:opacity-100 group-focus-within/new:opacity-100" role="tooltip">단축키 Ctrl/⌘ + N</span>
+        </div>
         <nav className="mt-5 grid gap-2" aria-label="주요 메뉴">
           {NAVIGATION_ITEMS.map((item) => (
-            <button key={item.id} type="button" onClick={() => selectNavigation(item.id)} aria-current={activeSection === item.id ? "page" : undefined} className={`flex items-center gap-4 rounded-xl px-4 py-3 text-left transition ${activeSection === item.id ? "bg-[#e5a93c] text-black" : "hover:bg-[#e5e5ea]"}`}>
+            <button key={item.id} type="button" onClick={() => selectNavigation(item.id)} aria-current={activeSection === item.id ? "page" : undefined} className={`flex items-center gap-4 rounded-xl px-4 py-3 text-left transition ${activeSection === item.id ? "bg-[#e5a93c] text-[#0f1117]" : "hover:bg-white/5"}`}>
               <span className="text-xl" aria-hidden="true">{item.icon}</span>
               <span><strong className="block text-sm">{item.label}</strong><small className="mt-0.5 block text-xs opacity-60">{item.description}</small></span>
             </button>
@@ -190,30 +205,27 @@ export default function Home(): React.JSX.Element {
         <p className="mt-auto px-3 text-xs text-[#8e8e93]">생각의 궤도를 기록하고 다시 발견하세요.</p>
       </aside>
 
-      <header className="sticky top-0 z-40 bg-[#f2f2f7]/90 px-4 pb-3 pt-[max(0.8rem,env(safe-area-inset-top))] backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-[#2a2e3d] bg-[#0f1117]/85 px-4 pb-3 pt-[max(0.8rem,env(safe-area-inset-top))] backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-end justify-between">
           <div className="flex h-12 items-center gap-3">
             <button type="button" onClick={() => setIsDrawerOpen(true)} className="ios-tap flex h-11 w-11 items-center justify-center text-2xl xl:hidden" aria-label="메뉴 열기">☰</button>
             <h1 className="text-[26px] font-bold leading-10 tracking-tight xl:hidden">
               MemoOrbit
             </h1>
-            <span className="text-sm leading-10 text-[#8e8e93]">
+            <span className="text-sm leading-10 text-[#9ca3af]">
               {NAVIGATION_ITEMS.find((item) => item.id === activeSection)?.label}
             </span>
           </div>
-          <button type="button" onClick={() => setIsEditorOpen(true)} className={`ios-tap h-11 w-11 items-center justify-center rounded-full text-2xl text-[#b77912] ${activeSection === "memos" ? "flex" : "hidden"}`} aria-label="새 메모 작성">
-            <span aria-hidden="true">□̸</span>
-          </button>
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl px-4 pb-28">
         {activeSection === "memos" && (
           <>
             <div className="mb-5 flex items-center justify-between gap-4">
-              <div><h2 className="text-3xl font-bold">모든 메모</h2><p className="mt-1 text-sm text-[#8e8e93]">전체 {memos.length}개의 기록</p></div>
-              <div className="flex rounded-xl bg-[#e5e5ea] p-1" aria-label="메모 보기 방식">
-                <button type="button" onClick={() => setMemoViewMode("list")} aria-pressed={memoViewMode === "list"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "list" ? "bg-white shadow-sm" : "text-[#636366]"}`}>📋 <span className="hidden sm:inline">텍스트 리스트</span></button>
-                <button type="button" onClick={() => setMemoViewMode("gallery")} aria-pressed={memoViewMode === "gallery"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "gallery" ? "bg-white shadow-sm" : "text-[#636366]"}`}>🖼️ <span className="hidden sm:inline">사진 카드</span></button>
+              <div><h2 className="text-3xl font-bold">모든 메모</h2><p className="mt-1 text-sm text-[#9ca3af]">전체 {memos.length}개의 기록</p></div>
+              <div className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-1 backdrop-blur-md" aria-label="메모 보기 방식">
+                <button type="button" onClick={() => setMemoViewMode("list")} aria-pressed={memoViewMode === "list"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>📋 <span className="hidden sm:inline">텍스트 리스트</span></button>
+                <button type="button" onClick={() => setMemoViewMode("gallery")} aria-pressed={memoViewMode === "gallery"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>🖼️ <span className="hidden sm:inline">사진 카드</span></button>
               </div>
             </div>
             <MemoryOrbitView candidates={memoryCandidates} onOpenMemo={openMemo} />
@@ -233,13 +245,13 @@ export default function Home(): React.JSX.Element {
                 {isPinnedOpen ? "⌃" : "⌄"}
               </span>
             </button>
-            {isPinnedOpen && <div id="pinned-list" className={memoViewMode === "gallery" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3" : "overflow-hidden rounded-xl bg-white"}>{pinned.map(renderMemo)}</div>}
+            {isPinnedOpen && <div id="pinned-list" className={memoViewMode === "gallery" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3" : "overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 backdrop-blur-md"}>{pinned.map(renderMemo)}</div>}
           </section>
         )}
         {groups.map((group) => (
           <section key={group.label} className="mb-7" aria-labelledby={`group-${group.label}`}>
             <h2 id={`group-${group.label}`} className="px-1 pb-2 text-[22px] font-bold">{group.label}</h2>
-            <div className={memoViewMode === "gallery" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3" : "overflow-hidden rounded-xl bg-white"}>{group.memos.map(renderMemo)}</div>
+            <div className={memoViewMode === "gallery" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3" : "overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 backdrop-blur-md"}>{group.memos.map(renderMemo)}</div>
           </section>
         ))}
           </>
@@ -247,17 +259,11 @@ export default function Home(): React.JSX.Element {
         {activeSection === "orbit" && <OrbitGraphView memos={memos} onOpenMemo={openMemo} />}
         {activeSection === "timeline" && <TimelineStreamView memos={memos} />}
       </main>
-      <div className={`fixed inset-x-0 bottom-0 z-30 border-t border-[#c6c6c8] bg-[#f9f9f9]/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl xl:left-72 ${activeSection === "memos" ? "block" : "hidden"}`}>
-        <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-5">
-          <span className="w-11" />
-          <span className="text-xs text-[#636366]">{memos.length}개의 메모</span>
-          <button type="button" onClick={() => setIsEditorOpen(true)} className="ios-tap h-11 w-11 text-2xl text-[#b77912]" aria-label="새 메모 작성"><span aria-hidden="true">□̸</span></button>
-        </div>
-      </div>
+      {activeSection === "memos" && <button type="button" onClick={() => { setEditingMemo(null); setIsEditorOpen(true); }} className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-[80] flex h-16 w-16 items-center justify-center rounded-full bg-[#e5a93c] text-4xl font-light text-[#0f1117] shadow-[0_14px_35px_rgb(0_0_0/0.5)] active:scale-95 xl:hidden" aria-label="새 메모 작성">+</button>}
       {isDrawerOpen && (
         <div className="fixed inset-0 z-[90] xl:hidden" role="dialog" aria-modal="true" aria-label="메뉴">
           <button type="button" onClick={() => setIsDrawerOpen(false)} className="absolute inset-0 bg-black/40" aria-label="메뉴 닫기" />
-          <aside className="relative flex h-full w-[min(84vw,320px)] flex-col bg-[#f9f9fb] p-5 shadow-2xl">
+          <aside className="relative flex h-full w-[min(84vw,320px)] flex-col border-r border-[#2a2e3d] bg-[#1a1d26]/95 p-5 text-[#f3f4f6] shadow-2xl backdrop-blur-md">
             <div className="flex items-center justify-between"><strong className="text-2xl">MemoOrbit</strong><button type="button" onClick={() => setIsDrawerOpen(false)} className="ios-tap h-11 w-11 text-2xl" aria-label="메뉴 닫기">×</button></div>
             <nav className="mt-7 grid gap-2" aria-label="모바일 주요 메뉴">{NAVIGATION_ITEMS.map((item) => <button key={item.id} type="button" onClick={() => selectNavigation(item.id)} aria-current={activeSection === item.id ? "page" : undefined} className={`flex items-center gap-4 rounded-xl px-4 py-3 text-left ${activeSection === item.id ? "bg-[#e5a93c]" : ""}`}><span className="text-xl" aria-hidden="true">{item.icon}</span><span><strong className="block text-sm">{item.label}</strong><small className="text-xs opacity-60">{item.description}</small></span></button>)}</nav>
           </aside>

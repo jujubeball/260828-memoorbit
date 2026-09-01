@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ResponsiveDatePicker } from "@/src/components/ResponsiveDatePicker";
 import type { Memo } from "@/types/memo";
 
 interface TimelineStreamViewProps {
@@ -14,8 +15,8 @@ export function TimelineStreamView({ memos }: TimelineStreamViewProps): React.JS
   const [startDate, setStartDate] = useState(toInputDate(new Date(Math.min(...dates))));
   const [endDate, setEndDate] = useState(toInputDate(new Date(Math.max(...dates))));
   const report = useMemo(() => {
-    const start = new Date(`${startDate}T00:00:00`).getTime();
-    const end = new Date(`${endDate}T23:59:59`).getTime();
+    const start = startDate ? new Date(`${startDate}T00:00:00`).getTime() : Number.NEGATIVE_INFINITY;
+    const end = endDate ? new Date(`${endDate}T23:59:59`).getTime() : Number.POSITIVE_INFINITY;
     const filtered = memos.filter((memo) => {
       const time = new Date(memo.createdAt).getTime();
       return time >= start && time <= end;
@@ -36,22 +37,30 @@ export function TimelineStreamView({ memos }: TimelineStreamViewProps): React.JS
   }, [endDate, memos, startDate]);
   const maxTag = Math.max(1, ...report.tags.map(([, count]) => count));
   const maxMonth = Math.max(1, ...report.months.map(([, count]) => count));
+  const topKeyword = report.tags[0]?.[0] ?? "없음";
+  const hasInvalidRange = Boolean(startDate && endDate && startDate > endDate);
 
   return (
-    <section aria-labelledby="timeline-title">
-      <p className="text-sm font-semibold text-[#b77912]">Timeline Stream</p>
+    <section className="text-[#f3f4f6]" aria-labelledby="timeline-title">
+      <p className="text-sm font-semibold text-[#ffc86b]">Timeline Stream</p>
       <h2 id="timeline-title" className="mt-1 text-3xl font-bold">시간 궤도 분석</h2>
-      <div className="mt-5 grid gap-4 rounded-2xl bg-white p-4 shadow-sm sm:grid-cols-2">
-        <label className="grid gap-2 text-sm font-semibold">시작일<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="rounded-xl border border-[#d1d1d6] px-4 py-3 font-normal outline-none focus:border-[#b77912]" /></label>
-        <label className="grid gap-2 text-sm font-semibold">종료일<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="rounded-xl border border-[#d1d1d6] px-4 py-3 font-normal outline-none focus:border-[#b77912]" /></label>
+      <div className="glass-panel mt-5 grid w-full gap-4 overflow-visible p-4 sm:grid-cols-2">
+        <ResponsiveDatePicker id="timeline-start" label="시작일" value={startDate} onChange={setStartDate} />
+        <ResponsiveDatePicker id="timeline-end" label="종료일" value={endDate} onChange={setEndDate} />
       </div>
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <article className="rounded-2xl bg-white p-5 shadow-sm">
+      {hasInvalidRange && <p role="alert" className="mt-2 text-sm text-[#ff6961]">시작일은 종료일보다 늦을 수 없습니다.</p>}
+      <div className="mt-5 grid w-full grid-cols-1 gap-4 overflow-hidden xl:grid-cols-3">
+        <article className="glass-panel p-4"><p className="text-xs text-[#9ca3af]">선택 기간 메모</p><strong className="mt-2 block text-2xl text-[#ffc86b]">{report.filtered.length}개</strong></article>
+        <article className="glass-panel p-4"><p className="text-xs text-[#9ca3af]">가장 강한 키워드</p><strong className="mt-2 block text-2xl text-[#ffc86b]">#{topKeyword}</strong></article>
+        <article className="glass-panel p-4"><p className="text-xs text-[#9ca3af]">활동한 월</p><strong className="mt-2 block text-2xl text-[#ffc86b]">{report.months.length}개월</strong></article>
+      </div>
+      <div className="mt-5 grid w-full grid-cols-1 gap-5 overflow-hidden xl:grid-cols-2">
+        <article className="glass-panel min-w-0 p-5">
           <h3 className="font-bold">AI 키워드 변화 리포트</h3>
           <p className="mt-1 text-xs text-[#8e8e93]">선택 기간 {report.filtered.length}개 메모의 태그 빈도</p>
           <div className="mt-5 grid gap-3">{report.tags.map(([tag, count]) => <div key={tag}><div className="mb-1 flex justify-between text-xs"><span>#{tag}</span><span>{count}</span></div><div className="h-2 overflow-hidden rounded-full bg-[#e5e5ea]"><div className="h-full rounded-full bg-[#e5a93c]" style={{ width: `${(count / maxTag) * 100}%` }} /></div></div>)}</div>
         </article>
-        <article className="rounded-2xl bg-white p-5 shadow-sm">
+        <article className="glass-panel min-w-0 p-5">
           <h3 className="font-bold">월별 기록 스트림</h3>
           <div className="mt-5 flex min-h-60 items-end gap-2 overflow-x-auto border-b border-[#d1d1d6] pb-2">{report.months.map(([month, count]) => <div key={month} className="flex min-w-12 flex-1 flex-col items-center justify-end gap-2"><span className="text-xs font-semibold">{count}</span><div className="w-full max-w-12 rounded-t-lg bg-[#b77912]" style={{ height: `${Math.max(12, (count / maxMonth) * 180)}px` }} /><span className="text-[10px] text-[#8e8e93] [writing-mode:vertical-rl]">{month}</span></div>)}</div>
         </article>
