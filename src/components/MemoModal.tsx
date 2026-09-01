@@ -86,7 +86,6 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
     editingMemo?.aiImageMood ?? "수채화",
   );
   const [analyzedText, setAnalyzedText] = useState(plainText);
-  const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [isFormatOpen, setIsFormatOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [tableMenuPosition, setTableMenuPosition] = useState<TableMenuPosition | null>(null);
@@ -305,27 +304,14 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
             data-placeholder="메모를 입력하세요"
             dangerouslySetInnerHTML={{ __html: createInitialHtml(editingMemo) }}
           />
-          <section className="mt-8 border-t border-[#38383a] pt-2" aria-labelledby="recommended-tags-title">
-            <button
-              type="button"
-              onClick={() => setIsTagsOpen((current) => !current)}
-              className="ios-tap flex h-11 w-full items-center justify-between gap-4 text-left"
-              aria-expanded={isTagsOpen}
-              aria-controls="recommended-tags-options"
-            >
-              <span id="recommended-tags-title" className="text-sm font-semibold text-[#e5a93c]">
-                AI 추천 태그
-              </span>
-              <span className="flex items-center gap-2 text-xs text-[#8e8e93]">
-                선택 옵션
-                <span aria-hidden="true">{isTagsOpen ? "⌃" : "⌄"}</span>
-              </span>
-            </button>
+          <section className="mt-8 border-t border-[#38383a] pt-4" aria-labelledby="recommended-tags-title">
+            <div className="flex items-center justify-between gap-4">
+              <h3 id="recommended-tags-title" className="text-sm font-semibold text-[#e5a93c]">AI 추천 태그</h3>
+              <span className="text-xs text-[#8e8e93]">선택하지 않아도 저장할 수 있습니다</span>
+            </div>
             <div
               id="recommended-tags-options"
-              className={isTagsOpen ? "grid gap-4 pb-2 pt-2" : "hidden"}
-              aria-hidden={!isTagsOpen}
-              inert={!isTagsOpen}
+              className="grid gap-4 pb-2 pt-4"
             >
               <div className="flex min-h-8 flex-wrap gap-2">
                 {recommendedTags.length > 0 ? (

@@ -12,6 +12,7 @@ import type { Memo } from "@/types/memo";
 
 interface MemoCardProps {
   memo: Memo;
+  viewMode?: "list" | "gallery";
   onEdit: (memo: Memo) => void;
   onDelete: (memo: Memo) => void;
   onTogglePin: (id: string) => void;
@@ -35,6 +36,7 @@ const formatMemoDate = (iso: string): string => {
 
 export function MemoCard({
   memo,
+  viewMode = "list",
   onEdit,
   onDelete,
   onTogglePin,
@@ -117,7 +119,7 @@ export function MemoCard({
   const preview = memo.content.trim().split("\n")[0] || "추가 텍스트 없음";
 
   return (
-    <div className="group relative overflow-hidden bg-[#ff3b30] last:[&_.memo-row]:border-b-0">
+    <div className={`group relative overflow-hidden bg-[#ff3b30] last:[&_.memo-row]:border-b-0 ${viewMode === "gallery" ? "rounded-2xl shadow-sm" : ""}`}>
       <button
         type="button"
         onClick={togglePin}
@@ -159,9 +161,17 @@ export function MemoCard({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
-        className={`memo-row relative touch-pan-y border-b border-[#d1d1d6] bg-white py-3.5 pl-4 pr-14 ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
+        className={`memo-row relative touch-pan-y bg-white ${viewMode === "gallery" ? "h-full border-0 pb-5 pl-4 pr-14 pt-0" : "border-b border-[#d1d1d6] py-3.5 pl-4 pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
         style={{ transform: `translateX(${offset}px)` }}
       >
+        {viewMode === "gallery" && (
+          <div className="-ml-4 -mr-14 mb-4 aspect-[4/3] overflow-hidden bg-gradient-to-br from-[#e5a93c] via-[#8e8e93] to-[#1c1c1e]">
+            {(memo.imageUrl || memo.aiImageUrl) && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={memo.imageUrl ?? memo.aiImageUrl} alt="" className="h-full w-full object-cover" />
+            )}
+          </div>
+        )}
         <button
           type="button"
           onClick={(event) => {

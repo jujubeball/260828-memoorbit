@@ -187,6 +187,28 @@ button:disabled {
   outline: none;
 }
 
+.orbit-stars {
+  background-image:
+    radial-gradient(circle at 18% 20%, white 0 1px, transparent 1.5px),
+    radial-gradient(circle at 72% 36%, white 0 1px, transparent 1.5px),
+    radial-gradient(circle at 42% 78%, #e5a93c 0 1px, transparent 1.5px),
+    radial-gradient(circle at 88% 84%, white 0 1px, transparent 1.5px);
+  background-size: 92px 92px, 128px 128px, 156px 156px, 116px 116px;
+}
+
+@keyframes orbit-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.orbit-node {
+  animation: orbit-float 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-node { animation: none; }
+}
+
 @media (hover: hover) and (pointer: fine) {
   button:not(:disabled),
   a[href],
