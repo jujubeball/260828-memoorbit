@@ -29,19 +29,41 @@ const NAVIGATION_ITEMS: Array<{
   description: string;
 }> = [
   { id: "memos", icon: "📂", label: "메모 목록", description: "All Memos" },
-  { id: "orbit", icon: "🌌", label: "생각 궤적 탐색", description: "Orbit Graph" },
-  { id: "timeline", icon: "📊", label: "시간 궤도 분석", description: "Timeline Stream" },
+  {
+    id: "orbit",
+    icon: "🌌",
+    label: "생각 궤적 탐색",
+    description: "Orbit Graph",
+  },
+  {
+    id: "timeline",
+    icon: "📊",
+    label: "시간 궤도 분석",
+    description: "Timeline Stream",
+  },
 ];
 
 const toTags = (value: string): string[] =>
-  value.split(",").map((tag) => tag.trim()).filter(Boolean);
+  value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
 
 // 메모의 수정 날짜와 오늘을 비교해 목록에 표시할 날짜 그룹 이름을 결정합니다.
 const groupLabel = (iso: string): string => {
   const date = new Date(iso);
   const today = new Date();
-  const day = Math.floor((new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() - new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()) / 86400000);
-  if (date.getFullYear() < today.getFullYear()) return `${date.getFullYear()}년`;
+  const day = Math.floor(
+    (new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    ).getTime() -
+      new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()) /
+      86400000,
+  );
+  if (date.getFullYear() < today.getFullYear())
+    return `${date.getFullYear()}년`;
   if (day === 0) return "오늘";
   if (day === 1) return "어제";
   if (day <= 7) return "이전 7일";
@@ -75,8 +97,12 @@ const findMemoryCandidates = (memos: Memo[]): MemoryCandidate[] => {
   const oneHundredDayMemo = selectMemoryCandidate(memos, oneHundredDaysAgo);
 
   return [
-    ...(oneYearMemo ? [{ memo: oneYearMemo, intervalLabel: "1년 전" as const }] : []),
-    ...(oneHundredDayMemo ? [{ memo: oneHundredDayMemo, intervalLabel: "100일 전" as const }] : []),
+    ...(oneYearMemo
+      ? [{ memo: oneYearMemo, intervalLabel: "1년 전" as const }]
+      : []),
+    ...(oneHundredDayMemo
+      ? [{ memo: oneHundredDayMemo, intervalLabel: "100일 전" as const }]
+      : []),
   ];
 };
 
@@ -89,7 +115,8 @@ export default function Home(): React.JSX.Element {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Memo | null>(null);
   const [isPinnedOpen, setIsPinnedOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<NavigationSection>("memos");
+  const [activeSection, setActiveSection] =
+    useState<NavigationSection>("memos");
   const [memoViewMode, setMemoViewMode] = useState<MemoViewMode>("list");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMemoToolbarStuck, setIsMemoToolbarStuck] = useState(false);
@@ -123,16 +150,21 @@ export default function Home(): React.JSX.Element {
     window.localStorage.setItem("memoorbit-memos", JSON.stringify(memos));
   }, [hasHydratedStorage, memos]);
 
+  // 💡 [삭제 확인창 바디 스크롤 잠금]
+  // 삭제 확인창이 열려 있을 때만 목록 배경을 고정합니다. 편집기의 잠금은 MemoModal이 직접 관리해 중복 복원을 방지합니다.
   useEffect(() => {
-    if (!isEditorOpen && !deleteTarget) return;
+    if (!deleteTarget) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, [deleteTarget, isEditorOpen]);
+    return () => {
+      document.body.style.overflow = previousOverflow || "unset";
+    };
+  }, [deleteTarget]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent): void => {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "n") return;
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "n")
+        return;
       event.preventDefault();
       setEditingMemo(null);
       setIsEditorOpen(true);
@@ -143,18 +175,33 @@ export default function Home(): React.JSX.Element {
 
   // 💡 [메모 목록 가공]
   // 원본 배열은 건드리지 않고 복사한 뒤 고정 여부와 최신 수정 시각으로 정렬하고, 화면에 필요한 날짜 그룹을 만듭니다.
-  const sorted = useMemo(() => [...memos].sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), [memos]);
+  const sorted = useMemo(
+    () =>
+      [...memos].sort(
+        (a, b) =>
+          Number(b.isPinned) - Number(a.isPinned) ||
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      ),
+    [memos],
+  );
   const pinned = sorted.filter((memo) => memo.isPinned);
-  const groups = sorted.filter((memo) => !memo.isPinned).reduce<MemoGroup[]>((result, memo) => {
-    const label = groupLabel(memo.updatedAt);
-    const group = result.find((item) => item.label === label);
-    if (!group) return [...result, { label, memos: [memo] }];
-    return result.map((item) => item.label === label ? { ...item, memos: [...item.memos, memo] } : item);
-  }, []);
+  const groups = sorted
+    .filter((memo) => !memo.isPinned)
+    .reduce<MemoGroup[]>((result, memo) => {
+      const label = groupLabel(memo.updatedAt);
+      const group = result.find((item) => item.label === label);
+      if (!group) return [...result, { label, memos: [memo] }];
+      return result.map((item) =>
+        item.label === label ? { ...item, memos: [...item.memos, memo] } : item,
+      );
+    }, []);
   const memoryCandidates = useMemo(() => findMemoryCandidates(memos), [memos]);
 
   // 편집기를 닫을 때 선택 메모도 비워 다음 새 메모가 이전 내용을 이어받지 않게 합니다.
-  const closeEditor = (): void => { setIsEditorOpen(false); setEditingMemo(null); };
+  const closeEditor = (): void => {
+    setIsEditorOpen(false);
+    setEditingMemo(null);
+  };
   const openMemo = (memo: Memo): void => {
     setEditingMemo(memo);
     setIsEditorOpen(true);
@@ -191,9 +238,15 @@ export default function Home(): React.JSX.Element {
     };
     // map 대신 새 객체와 filter를 사용해 기존 State를 직접 변경하지 않고 새로운 배열을 만듭니다.
     if (editingMemo) {
-      setMemos((current) => [{ ...editingMemo, ...values }, ...current.filter((memo) => memo.id !== editingMemo.id)]);
+      setMemos((current) => [
+        { ...editingMemo, ...values },
+        ...current.filter((memo) => memo.id !== editingMemo.id),
+      ]);
     } else {
-      setMemos((current) => [{ id: crypto.randomUUID(), ...values, createdAt: now, isPinned: false }, ...current]);
+      setMemos((current) => [
+        { id: crypto.randomUUID(), ...values, createdAt: now, isPinned: false },
+        ...current,
+      ]);
     }
     closeEditor();
   };
@@ -205,94 +258,213 @@ export default function Home(): React.JSX.Element {
       viewMode={memoViewMode}
       onEdit={openMemo}
       onDelete={setDeleteTarget}
-      onTogglePin={(id) => setMemos((current) => current.map((item) => item.id === id ? { ...item, isPinned: !item.isPinned } : item))}
+      onTogglePin={(id) =>
+        setMemos((current) =>
+          current.map((item) =>
+            item.id === id ? { ...item, isPinned: !item.isPinned } : item,
+          ),
+        )
+      }
     />
   );
 
   return (
-    <div className={`min-h-dvh bg-[#0f1117] text-[#f3f4f6] xl:pl-72 ${activeSection === "orbit" ? "xl:h-screen xl:overflow-hidden" : ""}`}>
+    <div
+      className={`min-h-dvh bg-[#0f1117] text-[#f3f4f6] xl:pl-72 ${activeSection === "orbit" ? "xl:h-screen xl:overflow-hidden" : ""}`}
+    >
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 border-r border-[#2a2e3d] bg-[#1a1d26]/80 p-5 backdrop-blur-md xl:flex xl:flex-col">
-        <button type="button" onClick={() => selectNavigation("memos")} className="rounded-xl px-3 py-4 text-left text-2xl font-bold transition-colors hover:text-[#ffc86b]" aria-label="MemoOrbit 메모 목록 홈">
+        <button
+          type="button"
+          onClick={() => selectNavigation("memos")}
+          className="rounded-xl px-3 py-4 text-left text-2xl font-bold transition-colors hover:text-[#ffc86b]"
+          aria-label="MemoOrbit 메모 목록 홈"
+        >
           MemoOrbit
         </button>
         <div className="group/new relative px-2">
-          <button type="button" onClick={() => { setEditingMemo(null); setIsEditorOpen(true); }} className="w-full rounded-xl bg-[#e5a93c] px-4 py-3 text-sm font-bold text-[#0f1117] shadow-lg transition-colors hover:bg-[#bd8428] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffc86b]">+ 새 메모 작성</button>
-          <span className="pointer-events-none absolute left-1/2 top-full z-40 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#2a2e3d] bg-[#0f1117] px-3 py-2 text-xs text-[#9ca3af] opacity-0 shadow-xl transition-opacity group-hover/new:opacity-100 group-focus-within/new:opacity-100" role="tooltip">단축키 Ctrl/⌘ + N</span>
+          <button
+            type="button"
+            onClick={() => {
+              setEditingMemo(null);
+              setIsEditorOpen(true);
+            }}
+            className="w-full rounded-xl bg-[#e5a93c] px-4 py-3 text-sm font-bold text-[#0f1117] shadow-lg transition-colors hover:bg-[#bd8428] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffc86b]"
+          >
+            + 새 메모 작성
+          </button>
+          <span
+            className="pointer-events-none absolute left-1/2 top-full z-40 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#2a2e3d] bg-[#0f1117] px-3 py-2 text-xs text-[#9ca3af] opacity-0 shadow-xl transition-opacity group-hover/new:opacity-100 group-focus-within/new:opacity-100"
+            role="tooltip"
+          >
+            단축키 Ctrl/⌘ + N
+          </span>
         </div>
         <nav className="mt-5 grid gap-2" aria-label="주요 메뉴">
           {NAVIGATION_ITEMS.map((item) => (
-            <button key={item.id} type="button" onClick={() => selectNavigation(item.id)} aria-current={activeSection === item.id ? "page" : undefined} className={`flex items-center gap-4 rounded-xl px-4 py-3 text-left transition ${activeSection === item.id ? "bg-[#e5a93c] text-[#0f1117]" : "hover:bg-white/5"}`}>
-              <span className="text-xl" aria-hidden="true">{item.icon}</span>
-              <span><strong className="block text-sm">{item.label}</strong><small className="mt-0.5 block text-xs opacity-60">{item.description}</small></span>
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => selectNavigation(item.id)}
+              aria-current={activeSection === item.id ? "page" : undefined}
+              className={`flex items-center gap-4 rounded-xl px-4 py-3 text-left transition ${activeSection === item.id ? "bg-[#e5a93c] text-[#0f1117]" : "hover:bg-white/5"}`}
+            >
+              <span className="text-xl" aria-hidden="true">
+                {item.icon}
+              </span>
+              <span>
+                <strong className="block text-sm">{item.label}</strong>
+                <small className="mt-0.5 block text-xs opacity-60">
+                  {item.description}
+                </small>
+              </span>
             </button>
           ))}
         </nav>
-        <p className="mt-auto px-3 text-xs text-[#8e8e93]">생각의 궤도를 기록하고 다시 발견하세요.</p>
+        <p className="mt-auto px-3 text-xs text-[#8e8e93]">
+          생각의 궤도를 기록하고 다시 발견하세요.
+        </p>
       </aside>
 
       <header className="sticky top-0 z-30 flex h-12 w-full items-center border-b border-[#2a2e3d] bg-[#0f1117] px-4 xl:hidden">
         <div className="mx-auto flex w-full max-w-5xl items-center">
           <div className="flex min-w-0 items-center gap-3">
-            <button type="button" onClick={() => setIsDrawerOpen(true)} className="ios-tap flex h-11 w-11 items-center justify-center text-2xl xl:hidden" aria-label="메뉴 열기">☰</button>
-            <button type="button" onClick={() => selectNavigation("memos")} className="truncate text-lg font-bold" aria-label="MemoOrbit 메모 목록 홈">
+            <button
+              type="button"
+              onClick={() => setIsDrawerOpen(true)}
+              className="ios-tap flex h-11 w-11 items-center justify-center text-2xl xl:hidden"
+              aria-label="메뉴 열기"
+            >
+              ☰
+            </button>
+            <button
+              type="button"
+              onClick={() => selectNavigation("memos")}
+              className="truncate text-lg font-bold"
+              aria-label="MemoOrbit 메모 목록 홈"
+            >
               MemoOrbit
             </button>
             <span className="truncate text-xs text-[#9ca3af]">
-              {NAVIGATION_ITEMS.find((item) => item.id === activeSection)?.label}
+              {
+                NAVIGATION_ITEMS.find((item) => item.id === activeSection)
+                  ?.label
+              }
             </span>
           </div>
         </div>
       </header>
-      <main className={`mx-auto w-full max-w-5xl px-4 pb-28 ${activeSection === "orbit" ? "xl:h-dvh xl:overflow-hidden xl:pb-0" : ""}`}>
+      <main
+        className={`mx-auto w-full max-w-5xl px-4 pb-28 ${activeSection === "orbit" ? "xl:h-dvh xl:overflow-hidden xl:pb-0" : ""}`}
+      >
         {activeSection === "memos" && (
           <>
-            <div className={`sticky top-12 z-20 border-b border-transparent bg-[#0f1117] py-3 backdrop-blur-md transition-all duration-200 xl:top-0 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}>
+            <div
+              className={`sticky top-12 z-20 border-b border-transparent bg-[#0f1117] py-3 backdrop-blur-md transition-all duration-200 xl:top-0 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
+            >
               <MainContentHeader
                 id="all-memos-title"
                 label="ALL MEMOS"
                 title="모든 메모"
                 badge={`전체 ${memos.length}개`}
                 description="수집된 생각과 기록을 한눈에 탐색하고 관리합니다."
-                action={(
-                  <div className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-1 backdrop-blur-md" aria-label="메모 보기 방식">
-                    <button type="button" onClick={() => setMemoViewMode("list")} aria-pressed={memoViewMode === "list"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>📋 <span className="hidden sm:inline">텍스트 리스트</span></button>
-                    <button type="button" onClick={() => setMemoViewMode("gallery")} aria-pressed={memoViewMode === "gallery"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>🖼️ <span className="hidden sm:inline">사진 카드</span></button>
+                action={
+                  <div
+                    className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-1 backdrop-blur-md"
+                    aria-label="메모 보기 방식"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setMemoViewMode("list")}
+                      aria-pressed={memoViewMode === "list"}
+                      className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}
+                    >
+                      📋 <span className="hidden sm:inline">텍스트 리스트</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMemoViewMode("gallery")}
+                      aria-pressed={memoViewMode === "gallery"}
+                      className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}
+                    >
+                      🖼️ <span className="hidden sm:inline">사진 카드</span>
+                    </button>
                   </div>
-                )}
+                }
               />
             </div>
             {memoViewMode === "gallery" && (
-              <MemoryOrbitView candidates={memoryCandidates} onOpenMemo={openMemo} />
+              <MemoryOrbitView
+                candidates={memoryCandidates}
+                onOpenMemo={openMemo}
+              />
             )}
-        {pinned.length > 0 && (
-          <section className="mb-7" aria-labelledby="pinned-heading">
-            <button
-              type="button"
-              onClick={() => setIsPinnedOpen((current) => !current)}
-              className="ios-tap flex h-11 w-full items-center justify-between px-1 text-left"
-              aria-expanded={isPinnedOpen}
-              aria-controls="pinned-list"
-            >
-              <h2 id="pinned-heading" className="text-[22px] font-bold leading-7">
-                고정됨
-              </h2>
-              <span className="flex h-7 w-7 items-center justify-center text-lg leading-7 text-[#8e8e93]" aria-hidden="true">
-                {isPinnedOpen ? "⌃" : "⌄"}
-              </span>
-            </button>
-            {isPinnedOpen && <div id="pinned-list" className={memoViewMode === "gallery" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3" : "overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 backdrop-blur-md"}>{pinned.map(renderMemo)}</div>}
-          </section>
-        )}
-        {groups.map((group) => (
-          <section key={group.label} className="mb-7" aria-labelledby={`group-${group.label}`}>
-            <h2 id={`group-${group.label}`} className="px-1 pb-2 text-[22px] font-bold">{group.label}</h2>
-            <div className={memoViewMode === "gallery" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3" : "overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 backdrop-blur-md"}>{group.memos.map(renderMemo)}</div>
-          </section>
-        ))}
+            {pinned.length > 0 && (
+              <section className="mb-7" aria-labelledby="pinned-heading">
+                <button
+                  type="button"
+                  onClick={() => setIsPinnedOpen((current) => !current)}
+                  className="ios-tap flex h-11 w-full items-center justify-between px-1 text-left"
+                  aria-expanded={isPinnedOpen}
+                  aria-controls="pinned-list"
+                >
+                  <h2
+                    id="pinned-heading"
+                    className="text-[22px] font-bold leading-7"
+                  >
+                    고정됨
+                  </h2>
+                  <span
+                    className="flex h-7 w-7 items-center justify-center text-lg leading-7 text-[#8e8e93]"
+                    aria-hidden="true"
+                  >
+                    {isPinnedOpen ? "⌃" : "⌄"}
+                  </span>
+                </button>
+                {isPinnedOpen && (
+                  <div
+                    id="pinned-list"
+                    className={
+                      memoViewMode === "gallery"
+                        ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                        : "overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 backdrop-blur-md"
+                    }
+                  >
+                    {pinned.map(renderMemo)}
+                  </div>
+                )}
+              </section>
+            )}
+            {groups.map((group) => (
+              <section
+                key={group.label}
+                className="mb-7"
+                aria-labelledby={`group-${group.label}`}
+              >
+                <h2
+                  id={`group-${group.label}`}
+                  className="px-1 pb-2 text-[22px] font-bold"
+                >
+                  {group.label}
+                </h2>
+                <div
+                  className={
+                    memoViewMode === "gallery"
+                      ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                      : "overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 backdrop-blur-md"
+                  }
+                >
+                  {group.memos.map(renderMemo)}
+                </div>
+              </section>
+            ))}
           </>
         )}
-        {activeSection === "orbit" && <OrbitGraphView memos={memos} onOpenMemo={openMemo} />}
-        {activeSection === "timeline" && <TimelineStreamView memos={memos} onOpenMemo={openMemo} />}
+        {activeSection === "orbit" && (
+          <OrbitGraphView memos={memos} onOpenMemo={openMemo} />
+        )}
+        {activeSection === "timeline" && (
+          <TimelineStreamView memos={memos} onOpenMemo={openMemo} />
+        )}
       </main>
       {activeSection === "memos" && (
         <button
@@ -307,7 +479,10 @@ export default function Home(): React.JSX.Element {
           +
         </button>
       )}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-[#2a2e3d] bg-[#0f1117]/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md xl:hidden" aria-label="모바일 하단 주요 메뉴">
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-[#2a2e3d] bg-[#0f1117]/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md xl:hidden"
+        aria-label="모바일 하단 주요 메뉴"
+      >
         {NAVIGATION_ITEMS.map((item) => (
           <button
             key={item.id}
@@ -316,31 +491,112 @@ export default function Home(): React.JSX.Element {
             aria-current={activeSection === item.id ? "page" : undefined}
             className={`flex min-h-16 flex-col items-center justify-center gap-1 px-2 text-xs transition-colors ${activeSection === item.id ? "text-[#ffc86b]" : "text-[#9ca3af]"}`}
           >
-            <span className="text-xl" aria-hidden="true">{item.icon}</span>
-            <span>{item.id === "memos" ? "메모 목록" : item.id === "orbit" ? "생각 궤도" : "시간 궤도"}</span>
+            <span className="text-xl" aria-hidden="true">
+              {item.icon}
+            </span>
+            <span>
+              {item.id === "memos"
+                ? "메모 목록"
+                : item.id === "orbit"
+                  ? "생각 궤도"
+                  : "시간 궤도"}
+            </span>
           </button>
         ))}
       </nav>
       {isDrawerOpen && (
         <div role="dialog" aria-modal="true" aria-label="메뉴">
-          <button type="button" onClick={() => setIsDrawerOpen(false)} className="fixed inset-0 z-40 bg-black/40 xl:hidden" aria-label="메뉴 닫기" />
+          <button
+            type="button"
+            onClick={() => setIsDrawerOpen(false)}
+            className="fixed inset-0 z-40 bg-black/40 xl:hidden"
+            aria-label="메뉴 닫기"
+          />
           <aside className="fixed inset-y-0 left-0 z-40 flex w-[min(84vw,320px)] flex-col border-r border-[#2a2e3d] bg-[#1a1d26]/95 p-5 text-[#f3f4f6] shadow-2xl backdrop-blur-md xl:hidden">
-            <div className="flex items-center justify-between"><strong className="text-2xl">MemoOrbit</strong><button type="button" onClick={() => setIsDrawerOpen(false)} className="ios-tap h-11 w-11 text-2xl" aria-label="메뉴 닫기">×</button></div>
-            <nav className="mt-7 grid gap-2" aria-label="모바일 주요 메뉴">{NAVIGATION_ITEMS.map((item) => <button key={item.id} type="button" onClick={() => selectNavigation(item.id)} aria-current={activeSection === item.id ? "page" : undefined} className={`flex items-center gap-4 rounded-xl px-4 py-3 text-left ${activeSection === item.id ? "bg-[#e5a93c]" : ""}`}><span className="text-xl" aria-hidden="true">{item.icon}</span><span><strong className="block text-sm">{item.label}</strong><small className="text-xs opacity-60">{item.description}</small></span></button>)}</nav>
+            <div className="flex items-center justify-between">
+              <strong className="text-2xl">MemoOrbit</strong>
+              <button
+                type="button"
+                onClick={() => setIsDrawerOpen(false)}
+                className="ios-tap h-11 w-11 text-2xl"
+                aria-label="메뉴 닫기"
+              >
+                ×
+              </button>
+            </div>
+            <nav className="mt-7 grid gap-2" aria-label="모바일 주요 메뉴">
+              {NAVIGATION_ITEMS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => selectNavigation(item.id)}
+                  aria-current={activeSection === item.id ? "page" : undefined}
+                  className={`flex items-center gap-4 rounded-xl px-4 py-3 text-left ${activeSection === item.id ? "bg-[#e5a93c]" : ""}`}
+                >
+                  <span className="text-xl" aria-hidden="true">
+                    {item.icon}
+                  </span>
+                  <span>
+                    <strong className="block text-sm">{item.label}</strong>
+                    <small className="text-xs opacity-60">
+                      {item.description}
+                    </small>
+                  </span>
+                </button>
+              ))}
+            </nav>
           </aside>
         </div>
       )}
-      {isEditorOpen && <MemoModal key={editingMemo?.id ?? "new"} isOpen editingMemo={editingMemo} onClose={closeEditor} onSubmit={submitMemo} />}
+      {isEditorOpen && (
+        <MemoModal
+          key={editingMemo?.id ?? "new"}
+          isOpen
+          editingMemo={editingMemo}
+          onClose={closeEditor}
+          onSubmit={submitMemo}
+        />
+      )}
       {deleteTarget && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/45 p-6" role="dialog" aria-modal="true" aria-labelledby="delete-title">
-          <div className="w-full max-w-[300px] overflow-hidden rounded-2xl bg-[#f2f2f7]/95 text-center backdrop-blur-xl">
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/45 p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-title"
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div
+            className="w-full max-w-[300px] overflow-hidden rounded-2xl bg-[#f2f2f7]/95 text-center backdrop-blur-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="px-5 py-5">
-              <h2 id="delete-title" className="font-semibold">이 메모를 삭제하겠습니까?</h2>
-              <p className="mt-1 text-[13px] text-[#636366]">최근 삭제된 항목으로 이동합니다.</p>
+              <h2 id="delete-title" className="font-semibold">
+                이 메모를 삭제하겠습니까?
+              </h2>
+              <p className="mt-1 text-[13px] text-[#636366]">
+                최근 삭제된 항목으로 이동합니다.
+              </p>
             </div>
             <div className="grid grid-cols-2 border-t border-[#c6c6c8]">
-              <button type="button" onClick={() => setDeleteTarget(null)} className="ios-tap h-12 border-r border-[#c6c6c8] text-[#b77912]">취소</button>
-              <button type="button" onClick={() => { setMemos((current) => current.filter((memo) => memo.id !== deleteTarget.id)); setDeleteTarget(null); }} className="ios-tap h-12 font-semibold text-[#ff3b30]">삭제</button>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="ios-tap h-12 border-r border-[#c6c6c8] text-[#b77912]"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMemos((current) =>
+                    current.filter((memo) => memo.id !== deleteTarget.id),
+                  );
+                  setDeleteTarget(null);
+                }}
+                className="ios-tap h-12 font-semibold text-[#ff3b30]"
+              >
+                삭제
+              </button>
             </div>
           </div>
         </div>

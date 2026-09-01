@@ -24,12 +24,23 @@ interface MenuPosition {
 }
 
 type SwipeAxis = "horizontal" | "vertical" | null;
+
+// 💡 [스와이프 액션 너비]
+// 왼쪽 스와이프가 끝났을 때 더 보기와 삭제 버튼 두 개가 정확히 드러나는 전체 너비입니다.
 const ACTION_WIDTH = 148;
 
+// 💡 [짧은 고정 스와이프 너비]
+// 사용자가 오른쪽으로 살짝 밀었을 때 고정 버튼 하나만 열린 채 기다리도록 맞춘 거리입니다.
+const PIN_ACTION_WIDTH = 74;
+
 const formatMemoDate = (iso: string): string => {
+  // 저장된 ISO 날짜 문자열을 사용자가 목록에서 읽기 쉬운 연월일 값으로 바꿉니다.
   const date = new Date(iso);
+  // 날짜 객체에서 네 자리 연도를 꺼냅니다.
   const year = date.getFullYear();
+  // 한 자리 월 앞에는 0을 붙여 항상 두 자리로 표시합니다.
   const month = String(date.getMonth() + 1).padStart(2, "0");
+  // 한 자리 일 앞에도 0을 붙여 모든 카드의 날짜 폭을 일정하게 만듭니다.
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}.${month}.${day}`;
 };
@@ -41,17 +52,28 @@ export function MemoCard({
   onDelete,
   onTogglePin,
 }: MemoCardProps): React.JSX.Element {
+  // 💡 [터치 시작점 DOM 참조]
+  // 손가락을 처음 댄 좌표와 기존 카드 위치를 기억해 현재 이동 거리를 정확히 계산합니다.
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const startOffset = useRef(0);
+
+  // 💡 [스와이프 방향과 자동 실행 잠금]
+  // 세로 스크롤과 가로 스와이프를 구분하고, 한 번의 긴 스와이프에서 고정 함수가 중복 실행되지 않게 막습니다.
   const swipeAxis = useRef<SwipeAxis>(null);
   const suppressClick = useRef(false);
+  const pinThreshold = useRef(0);
+  const didAutoTogglePin = useRef(false);
+
+  // 💡 [카드 상호작용 State]
+  // offset은 화면 이동 거리, isDragging은 애니메이션 여부, menuPosition은 PC 메뉴 좌표를 화면에 전달합니다.
   const [offset, setOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
 
   useEffect(() => {
     if (!menuPosition) return;
+    // PC 우클릭 메뉴가 열린 뒤 다른 곳을 클릭하거나 스크롤하면 메뉴를 닫습니다.
     const closeMenu = (): void => setMenuPosition(null);
     window.addEventListener("click", closeMenu);
     window.addEventListener("scroll", closeMenu, true);
@@ -62,30 +84,60 @@ export function MemoCard({
   }, [menuPosition]);
 
   const handleTouchStart = (event: TouchEvent<HTMLElement>): void => {
+    // 사용자가 카드를 누른 순간 좌표와 카드 너비의 40% 임계값을 한 번 계산합니다.
     touchStartX.current = event.touches[0].clientX;
     touchStartY.current = event.touches[0].clientY;
     startOffset.current = offset;
     swipeAxis.current = null;
     suppressClick.current = false;
+    pinThreshold.current =
+      event.currentTarget.getBoundingClientRect().width * 0.4;
+    didAutoTogglePin.current = false;
     setIsDragging(true);
   };
 
   const handleTouchMove = (event: TouchEvent<HTMLElement>): void => {
+    // 현재 손가락 위치에서 시작점을 빼 가로·세로 이동량을 구합니다.
     const deltaX = event.touches[0].clientX - touchStartX.current;
     const deltaY = event.touches[0].clientY - touchStartY.current;
-    if (!swipeAxis.current && Math.max(Math.abs(deltaX), Math.abs(deltaY)) > 8) {
-      swipeAxis.current = Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
+    if (
+      !swipeAxis.current &&
+      Math.max(Math.abs(deltaX), Math.abs(deltaY)) > 8
+    ) {
+      swipeAxis.current =
+        Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
     }
     if (swipeAxis.current !== "horizontal") return;
     event.preventDefault();
     suppressClick.current = true;
-    setOffset(Math.max(-ACTION_WIDTH, Math.min(74, startOffset.current + deltaX)));
+    // 왼쪽 액션 너비부터 카드 너비 45%까지만 움직여 화면 밖으로 과도하게 이탈하지 않게 합니다.
+    const nextOffset = Math.max(
+      -ACTION_WIDTH,
+      Math.min(pinThreshold.current * 1.125, startOffset.current + deltaX),
+    );
+    setOffset(nextOffset);
+
+    // 카드 너비의 40%를 넘는 순간 손을 떼기 전이라도 고정 상태를 한 번만 즉시 전환합니다.
+    if (nextOffset >= pinThreshold.current && !didAutoTogglePin.current) {
+      didAutoTogglePin.current = true;
+      onTogglePin(memo.id);
+      window.navigator.vibrate?.(20);
+    }
   };
 
   const handleTouchEnd = (): void => {
+    // 긴 스와이프가 이미 자동 실행됐다면 카드를 닫고, 아니면 짧은 액션 또는 왼쪽 액션 위치에 맞춥니다.
     setIsDragging(false);
     if (swipeAxis.current === "horizontal") {
-      setOffset(offset >= 38 ? 74 : offset <= -50 ? -ACTION_WIDTH : 0);
+      setOffset(
+        didAutoTogglePin.current
+          ? 0
+          : offset >= 38
+            ? PIN_ACTION_WIDTH
+            : offset <= -50
+              ? -ACTION_WIDTH
+              : 0,
+      );
       window.setTimeout(() => {
         suppressClick.current = false;
       }, 0);
@@ -94,6 +146,7 @@ export function MemoCard({
   };
 
   const openMemo = (): void => {
+    // 스와이프 직후의 가짜 클릭은 무시하고, 열린 액션이 없을 때만 편집기를 엽니다.
     if (suppressClick.current) return;
     if (offset !== 0) {
       setOffset(0);
@@ -103,6 +156,7 @@ export function MemoCard({
   };
 
   const openContextMenu = (event: MouseEvent<HTMLElement>): void => {
+    // PC에서 우클릭한 실제 화면 좌표를 메뉴가 화면 밖으로 나가지 않는 범위로 저장합니다.
     event.preventDefault();
     setMenuPosition({
       left: Math.min(event.clientX, window.innerWidth - 190),
@@ -111,23 +165,33 @@ export function MemoCard({
   };
 
   const togglePin = (): void => {
+    // 짧은 스와이프로 드러난 버튼이나 PC 메뉴를 누르면 부모의 메모 고정 State를 변경하고 모든 액션을 닫습니다.
     onTogglePin(memo.id);
     setOffset(0);
     setMenuPosition(null);
   };
 
+  // 카드에는 본문 전체 대신 첫 본문 줄만 보여 주어 목록 높이가 지나치게 늘어나지 않게 합니다.
   const preview = memo.content.trim().split("\n")[0] || "추가 텍스트 없음";
 
   return (
-    <div className={`group relative overflow-hidden bg-[#2a2e3d] text-[#f3f4f6] last:[&_.memo-row]:border-b-0 ${viewMode === "gallery" ? "rounded-2xl border border-[#2a2e3d] shadow-lg" : ""}`}>
+    <div
+      className={`group relative overflow-hidden bg-[#2a2e3d] text-[#f3f4f6] last:[&_.memo-row]:border-b-0 ${viewMode === "gallery" ? "rounded-2xl border border-[#2a2e3d] shadow-lg" : ""}`}
+    >
       <button
         type="button"
         onClick={togglePin}
         className="absolute inset-y-0 left-0 flex w-[74px] flex-col items-center justify-center bg-[#e5a93c] text-white xl:hidden"
-        aria-label={memo.isPinned ? `${memo.title} 고정 해제` : `${memo.title} 고정`}
+        aria-label={
+          memo.isPinned ? `${memo.title} 고정 해제` : `${memo.title} 고정`
+        }
       >
-        <span className="text-xl" aria-hidden="true">●</span>
-        <span className="text-[11px] font-semibold">{memo.isPinned ? "해제" : "고정"}</span>
+        <span className="text-xl" aria-hidden="true">
+          ●
+        </span>
+        <span className="text-[11px] font-semibold">
+          {memo.isPinned ? "해제" : "고정"}
+        </span>
       </button>
       <div className="absolute inset-y-0 right-0 flex w-[148px] xl:hidden">
         <button
@@ -144,7 +208,9 @@ export function MemoCard({
           className="flex w-[74px] flex-col items-center justify-center bg-[#ff3b30] text-white"
           aria-label={`${memo.title} 삭제`}
         >
-          <span className="text-xl" aria-hidden="true">♜</span>
+          <span className="text-xl" aria-hidden="true">
+            ♜
+          </span>
           <span className="text-[11px] font-semibold">삭제</span>
         </button>
       </div>
@@ -161,14 +227,18 @@ export function MemoCard({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
-        className={`memo-row relative touch-pan-y bg-[#1a1d26]/95 ${viewMode === "gallery" ? "h-full border-0 pb-5 pl-4 pr-14 pt-0" : "border-b border-[#2a2e3d] py-3.5 pl-4 pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
+        className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 pb-5 pl-4 pr-14 pt-0" : "border-b border-[#2a2e3d] py-3.5 pl-4 pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
         style={{ transform: `translateX(${offset}px)` }}
       >
         {viewMode === "gallery" && (
           <div className="-ml-4 -mr-14 mb-4 aspect-[4/3] overflow-hidden bg-gradient-to-br from-[#e5a93c] via-[#8e8e93] to-[#1c1c1e]">
             {(memo.imageUrl || memo.aiImageUrl) && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={memo.imageUrl ?? memo.aiImageUrl} alt="" className="h-full w-full object-cover" />
+              <img
+                src={memo.imageUrl ?? memo.aiImageUrl}
+                alt=""
+                className="h-full w-full object-cover"
+              />
             )}
           </div>
         )}
@@ -179,19 +249,30 @@ export function MemoCard({
             togglePin();
           }}
           className={`absolute right-3 top-3 hidden h-9 w-9 items-center justify-center rounded-full text-lg transition xl:flex ${memo.isPinned ? "text-[#b77912] opacity-100" : "text-[#8e8e93] opacity-0 hover:bg-[#f2f2f7] group-hover:opacity-100 focus:opacity-100"}`}
-          aria-label={memo.isPinned ? `${memo.title} 고정 해제` : `${memo.title} 고정`}
+          aria-label={
+            memo.isPinned ? `${memo.title} 고정 해제` : `${memo.title} 고정`
+          }
           aria-pressed={memo.isPinned}
         >
           <span aria-hidden="true">{memo.isPinned ? "●" : "○"}</span>
         </button>
         <div className="flex items-center gap-2">
           {memo.isPinned && (
-            <span className="text-[10px] text-[#b77912] xl:hidden" aria-label="고정됨">●</span>
+            <span
+              className="text-[10px] text-[#b77912] xl:hidden"
+              aria-label="고정됨"
+            >
+              ●
+            </span>
           )}
-          <h3 className="truncate text-[17px] font-semibold leading-5">{memo.title}</h3>
+          <h3 className="truncate text-[17px] font-semibold leading-5">
+            {memo.title}
+          </h3>
         </div>
         <p className="mt-1 flex min-w-0 gap-2 text-[15px] leading-5">
-          <time className="shrink-0 text-[#f3f4f6]">{formatMemoDate(memo.updatedAt)}</time>
+          <time className="shrink-0 text-[#f3f4f6]">
+            {formatMemoDate(memo.updatedAt)}
+          </time>
           <span className="truncate text-[#9ca3af]">{preview}</span>
         </p>
         {memo.tags.length > 0 && (
@@ -215,7 +296,9 @@ export function MemoCard({
             role="menuitem"
           >
             <span>{memo.isPinned ? "고정 해제" : "메모 고정"}</span>
-            <span className="text-[#b77912]" aria-hidden="true">●</span>
+            <span className="text-[#b77912]" aria-hidden="true">
+              ●
+            </span>
           </button>
         </div>
       )}

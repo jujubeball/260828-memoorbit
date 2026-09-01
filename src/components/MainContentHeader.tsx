@@ -9,6 +9,7 @@ interface MainContentHeaderProps {
   action?: ReactNode;
 }
 
+// 세 주요 화면이 같은 간격과 정보 순서를 사용하도록 영문 라벨·제목·설명을 한곳에서 그립니다.
 export function MainContentHeader({
   id,
   label,
@@ -18,7 +19,7 @@ export function MainContentHeader({
   action,
 }: MainContentHeaderProps): React.JSX.Element {
   return (
-    <header>
+    <header className="pt-6">
       <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#e5a93c]">
         {label}
       </p>
@@ -35,9 +36,7 @@ export function MainContentHeader({
         </div>
         {action && <div className="shrink-0">{action}</div>}
       </div>
-      <p className="mb-6 text-sm text-[#9ca3af]">
-        {description}
-      </p>
+      <p className="mb-6 text-sm text-[#9ca3af]">{description}</p>
     </header>
   );
 }
