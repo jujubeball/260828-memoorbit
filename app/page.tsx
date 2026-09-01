@@ -212,23 +212,27 @@ export default function Home(): React.JSX.Element {
             <h1 className="text-[26px] font-bold leading-10 tracking-tight xl:hidden">
               MemoOrbit
             </h1>
-            <span className="text-sm leading-10 text-[#9ca3af]">
-              {NAVIGATION_ITEMS.find((item) => item.id === activeSection)?.label}
-            </span>
+            {activeSection !== "memos" && (
+              <span className="text-sm leading-10 text-[#9ca3af]">
+                {NAVIGATION_ITEMS.find((item) => item.id === activeSection)?.label}
+              </span>
+            )}
           </div>
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl px-4 pb-28">
         {activeSection === "memos" && (
           <>
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div><h2 className="text-3xl font-bold">모든 메모</h2><p className="mt-1 text-sm text-[#9ca3af]">전체 {memos.length}개의 기록</p></div>
+            <div className="sticky top-0 z-20 mb-5 flex items-center justify-between gap-4 bg-[#0f1117]/80 py-3 backdrop-blur-md">
+              <div><h2 className="text-3xl font-bold">모든 메모 <span className="text-base font-normal text-[#9ca3af]">(전체 {memos.length}개)</span></h2></div>
               <div className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-1 backdrop-blur-md" aria-label="메모 보기 방식">
                 <button type="button" onClick={() => setMemoViewMode("list")} aria-pressed={memoViewMode === "list"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>📋 <span className="hidden sm:inline">텍스트 리스트</span></button>
                 <button type="button" onClick={() => setMemoViewMode("gallery")} aria-pressed={memoViewMode === "gallery"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>🖼️ <span className="hidden sm:inline">사진 카드</span></button>
               </div>
             </div>
-            <MemoryOrbitView candidates={memoryCandidates} onOpenMemo={openMemo} />
+            {memoViewMode === "gallery" && (
+              <MemoryOrbitView candidates={memoryCandidates} onOpenMemo={openMemo} />
+            )}
         {pinned.length > 0 && (
           <section className="mb-7" aria-labelledby="pinned-heading">
             <button

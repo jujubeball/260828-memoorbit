@@ -40,7 +40,33 @@ const TAG_RULES: Array<[RegExp, string]> = [
   [/여행|숙소|기차|비행기/, "여행"],
   [/책|독서|문장/, "독서"],
   [/오늘|일상|아침|저녁/, "일상"],
+  [/기쁘|행복|설레|웃음|즐거/, "행복"],
+  [/걱정|불안|힘들|지치|고민/, "마음돌봄"],
+  [/성장|배우|도전|연습|개선/, "성장"],
+  [/인공지능|ai|gemini|openai|llm/i, "AI"],
+  [/tailwind|css|디자인|ui|ux/i, "UIUX"],
 ];
+
+const STOP_WORDS = new Set([
+  "그리고", "하지만", "그래서", "오늘", "이번", "대한", "위해", "있는", "했던",
+  "했다", "하는", "것을", "것이", "정말", "조금", "다시", "함께", "메모", "기록",
+]);
+
+const extractRecommendedTags = (text: string): string[] => {
+  const ruleTags = TAG_RULES.filter(([pattern]) => pattern.test(text)).map(([, tag]) => tag);
+  const wordCounts = new Map<string, number>();
+  text
+    .replace(/[^가-힣a-zA-Z0-9+#.\s]/g, " ")
+    .split(/\s+/)
+    .map((word) => word.replace(/^[#+]|[.,]$/g, "").trim())
+    .filter((word) => word.length >= 2 && !STOP_WORDS.has(word))
+    .forEach((word) => wordCounts.set(word, (wordCounts.get(word) ?? 0) + 1));
+  const keywordTags = [...wordCounts.entries()]
+    .sort((left, right) => right[1] - left[1] || right[0].length - left[0].length)
+    .slice(0, 4)
+    .map(([word]) => word);
+  return [...new Set([...ruleTags, ...keywordTags])].slice(0, 8);
+};
 
 const escapeHtml = (value: string): string =>
   value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -86,17 +112,21 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
     editingMemo?.aiImageMood ?? "수채화",
   );
   const [analyzedText, setAnalyzedText] = useState(plainText);
+  const [isAnalyzingTags, setIsAnalyzingTags] = useState(false);
   const [isFormatOpen, setIsFormatOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [tableMenuPosition, setTableMenuPosition] = useState<TableMenuPosition | null>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setAnalyzedText(plainText), 300);
+    const timer = window.setTimeout(() => {
+      setAnalyzedText(plainText);
+      setIsAnalyzingTags(false);
+    }, 200);
     return () => window.clearTimeout(timer);
   }, [plainText]);
 
   const recommendedTags = useMemo(
-    () => TAG_RULES.filter(([pattern]) => pattern.test(analyzedText)).map(([, tag]) => tag),
+    () => extractRecommendedTags(analyzedText),
     [analyzedText],
   );
   const selectedTags = useMemo(
@@ -297,17 +327,20 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
               event.preventDefault();
               selectTableCell(cell);
             }}
-            onInput={(event) => setPlainText(event.currentTarget.innerText)}
+            onInput={(event) => {
+              setPlainText(event.currentTarget.innerText);
+              setIsAnalyzingTags(true);
+            }}
             onSelect={rememberSelection}
             onKeyUp={rememberSelection}
             className="rich-editor min-h-[60%] w-full select-text overflow-x-hidden text-[17px] leading-7 text-white outline-none"
             data-placeholder="메모를 입력하세요"
             dangerouslySetInnerHTML={{ __html: createInitialHtml(editingMemo) }}
           />
-          <section className="mt-8 border-t border-[#38383a] pt-4" aria-labelledby="recommended-tags-title">
+          <section className={`mt-8 border-t border-[#38383a] pt-4 transition-colors duration-200 ${isAnalyzingTags ? "border-[#e5a93c]/70 bg-[#e5a93c]/5" : ""}`} aria-labelledby="recommended-tags-title" aria-live="polite">
             <div className="flex items-center justify-between gap-4">
               <h3 id="recommended-tags-title" className="text-sm font-semibold text-[#e5a93c]">AI 추천 태그</h3>
-              <span className="text-xs text-[#8e8e93]">선택하지 않아도 저장할 수 있습니다</span>
+              <span className={`text-xs text-[#8e8e93] ${isAnalyzingTags ? "animate-pulse text-[#ffc86b] motion-reduce:animate-none" : ""}`}>{isAnalyzingTags ? "키워드를 분석하고 있습니다…" : "선택하지 않아도 저장할 수 있습니다"}</span>
             </div>
             <div
               id="recommended-tags-options"
@@ -323,7 +356,7 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
                         type="button"
                         onClick={() => toggleTag(tag)}
                         aria-pressed={isSelected}
-                        className={`ios-tap rounded-full border px-3 py-2 text-xs font-semibold ${isSelected ? "border-[#e5a93c] bg-[#e5a93c] text-black" : "border-[#636366] text-white"}`}
+                        className={`ios-tap animate-[fade-in_180ms_ease-out] rounded-full border px-3 py-2 text-xs font-semibold motion-reduce:animate-none ${isSelected ? "border-[#e5a93c] bg-[#e5a93c] text-black" : "border-[#636366] text-white"}`}
                       >
                         #{tag}
                       </button>
