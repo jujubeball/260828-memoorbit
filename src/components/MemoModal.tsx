@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import type { ImageMood, Memo } from "@/types/memo";
+import { requestGeminiAnalysis } from "@/src/lib/geminiClient";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
 
 export interface MemoDraft {
@@ -106,7 +107,8 @@ export function MemoModal({
   const [aiImageMood, setAiImageMood] = useState<ImageMood>(
     editingMemo?.aiImageMood ?? "수채화",
   );
-  const [analyzedText, setAnalyzedText] = useState(plainText);
+  const [recommendedTags, setRecommendedTags] = useState(() => extractDynamicKeywords(plainText));
+  const [isUsingLocalAnalysis, setIsUsingLocalAnalysis] = useState(false);
   const [isAnalyzingTags, setIsAnalyzingTags] = useState(false);
   const [isFormatOpen, setIsFormatOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
@@ -124,22 +126,41 @@ export function MemoModal({
     };
   }, [isOpen]);
 
-  // 💡 [200ms 실시간 분석]
-  // 매 글자마다 무거운 계산을 반복하지 않고, 사용자가 잠깐 입력을 멈춘 뒤 최신 본문만 분석합니다.
+  // 💡 [300ms Gemini 실시간 분석]
+  // 사용자가 입력을 잠깐 멈추면 서버 Route에 최신 본문을 보내고, 실패할 때만 브라우저의 로컬 핵심어 분석기를 사용합니다.
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setAnalyzedText(plainText);
-      setIsAnalyzingTags(false);
-    }, 200);
-    return () => window.clearTimeout(timer);
-  }, [plainText]);
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      const text = plainText.trim();
+      if (!text) {
+        setRecommendedTags([]);
+        setIsUsingLocalAnalysis(false);
+        setIsAnalyzingTags(false);
+        return;
+      }
 
-  // 💡 [추천 태그 메모이제이션]
-  // 200ms 분석이 끝난 본문이 바뀔 때만 핵심어를 다시 추출해 추천 태그 버튼으로 그립니다.
-  const recommendedTags = useMemo(
-    () => extractDynamicKeywords(analyzedText),
-    [analyzedText],
-  );
+      setIsAnalyzingTags(true);
+      try {
+        const analysis = await requestGeminiAnalysis(
+          text,
+          "tags",
+          controller.signal,
+        );
+        setRecommendedTags(analysis.tags);
+        setIsUsingLocalAnalysis(false);
+      } catch {
+        if (controller.signal.aborted) return;
+        setRecommendedTags(extractDynamicKeywords(text));
+        setIsUsingLocalAnalysis(true);
+      } finally {
+        if (!controller.signal.aborted) setIsAnalyzingTags(false);
+      }
+    }, 300);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [plainText]);
   // 사용자가 쉼표로 입력한 태그 문자열을 선택 여부 비교에 쓰기 쉬운 배열로 바꿉니다.
   const selectedTags = useMemo(
     () =>
@@ -500,8 +521,10 @@ export function MemoModal({
                 className={`text-xs text-[#8e8e93] ${isAnalyzingTags ? "animate-pulse text-[#ffc86b] motion-reduce:animate-none" : ""}`}
               >
                 {isAnalyzingTags
-                  ? "키워드를 분석하고 있습니다…"
-                  : "선택하지 않아도 저장할 수 있습니다"}
+                  ? "Gemini가 문맥을 분석하고 있습니다…"
+                  : isUsingLocalAnalysis
+                    ? "연결 실패로 로컬 분석 결과를 표시합니다"
+                    : "선택하지 않아도 저장할 수 있습니다"}
               </span>
             </div>
             <div

@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
 import { ResponsiveDatePicker } from "@/src/components/ResponsiveDatePicker";
+import { requestGeminiAnalysis } from "@/src/lib/geminiClient";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
 import type { Memo } from "@/types/memo";
 
@@ -42,6 +43,9 @@ export function TimelineStreamView({ memos, onOpenMemo }: TimelineStreamViewProp
   const timestamps = memos.map((memo) => new Date(memo.createdAt).getTime()).filter(Number.isFinite);
   const [startDate, setStartDate] = useState(timestamps.length > 0 ? toInputDate(new Date(Math.min(...timestamps))) : "");
   const [endDate, setEndDate] = useState(timestamps.length > 0 ? toInputDate(new Date(Math.max(...timestamps))) : "");
+  const [geminiComment, setGeminiComment] = useState<string | null>(null);
+  const [isGeminiAnalyzing, setIsGeminiAnalyzing] = useState(false);
+  const [isUsingLocalComment, setIsUsingLocalComment] = useState(false);
   const hasInvalidRange = Boolean(startDate && endDate && startDate > endDate);
 
   // 💡 [선택 기간 AI 분석 리포트]
@@ -102,8 +106,47 @@ export function TimelineStreamView({ memos, onOpenMemo }: TimelineStreamViewProp
       .slice(0, 2)
       .map(({ memo, preview, reason }) => ({ memo, preview, reason }));
 
-    return { spectrumComment, topThemes, resurfacedIdeas };
+    return { filtered, spectrumComment, topThemes, resurfacedIdeas };
   }, [endDate, hasInvalidRange, memos, startDate]);
+
+  // 💡 [기간 메모 Gemini 분석]
+  // 날짜 범위에 들어온 메모를 한 묶음의 글로 합쳐 서버에 보내고, 최신 요청이 실패한 경우에만 로컬 총평을 유지합니다.
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      if (report.filtered.length === 0) {
+        setGeminiComment(null);
+        setIsUsingLocalComment(false);
+        setIsGeminiAnalyzing(false);
+        return;
+      }
+
+      const periodText = report.filtered.map((memo) => [
+        `날짜: ${memo.createdAt.slice(0, 10)}`,
+        `제목: ${memo.title}`,
+        `본문: ${memo.content}`,
+        `태그: ${memo.tags.join(", ") || "없음"}`,
+      ].join("\n")).join("\n\n");
+
+      setIsGeminiAnalyzing(true);
+      try {
+        const analysis = await requestGeminiAnalysis(periodText, "timeline", controller.signal);
+        setGeminiComment(analysis.comment);
+        setIsUsingLocalComment(false);
+      } catch {
+        if (controller.signal.aborted) return;
+        setGeminiComment(report.spectrumComment);
+        setIsUsingLocalComment(true);
+      } finally {
+        if (!controller.signal.aborted) setIsGeminiAnalyzing(false);
+      }
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [report.filtered, report.spectrumComment]);
 
   return (
     <section className="text-[#f3f4f6]" aria-labelledby="timeline-title">
@@ -127,7 +170,16 @@ export function TimelineStreamView({ memos, onOpenMemo }: TimelineStreamViewProp
         <article className="glass-panel relative z-10 min-w-0 border-[#e5a93c]/30 p-5">
           <p className="text-xs font-semibold text-[#ffc86b]">Thought Spectrum</p>
           <h3 className="mt-1 text-xl font-bold">🌌 AI 감정 & 생각 궤도 분석</h3>
-          <p className="mt-4 text-base leading-8 text-[#f3f4f6]">{report.spectrumComment}</p>
+          <p className="mt-4 text-base leading-8 text-[#f3f4f6]">
+            {geminiComment ?? report.spectrumComment}
+          </p>
+          <p className={`mt-3 text-xs ${isGeminiAnalyzing ? "animate-pulse text-[#ffc86b] motion-reduce:animate-none" : "text-[#9ca3af]"}`}>
+            {isGeminiAnalyzing
+              ? "Gemini가 선택 기간의 기록을 분석하고 있습니다…"
+              : isUsingLocalComment
+                ? "Gemini 연결 실패로 로컬 분석 결과를 표시합니다"
+                : "Gemini 기간 분석 완료"}
+          </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {report.topThemes.map(([theme, count]) => (
               <span key={theme} className="rounded-full border border-[#e5a93c]/35 bg-[#e5a93c]/10 px-3 py-2 text-sm text-[#ffc86b]">
