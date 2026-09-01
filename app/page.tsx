@@ -20,6 +20,8 @@ const toTags = (value: string): string[] =>
 const groupLabel = (iso: string): string => {
   const date = new Date(iso);
   const today = new Date();
+  const currentYear = today.getFullYear();
+  const memoYear = date.getFullYear();
   const day = Math.floor(
     (new Date(
       today.getFullYear(),
@@ -30,7 +32,9 @@ const groupLabel = (iso: string): string => {
       86400000,
   );
 
+  if (memoYear < currentYear) return `${memoYear}년`;
   if (day === 0) return "오늘";
+  if (day === 1) return "어제";
   if (day <= 7) return "이전 7일";
   if (day <= 30) return "이전 30일";
   return `${date.getMonth() + 1}월`;
@@ -90,6 +94,16 @@ export default function Home(): React.JSX.Element {
       content: draft.content,
       richContent: draft.richContent,
       tags: toTags(draft.tags),
+      imageUrl: draft.imageUrl,
+      aiImageMood: draft.aiImageMood,
+      aiImageUrl:
+        editingMemo?.content === draft.content
+          ? editingMemo.aiImageUrl
+          : undefined,
+      aiImageSourceText:
+        editingMemo?.content === draft.content
+          ? editingMemo.aiImageSourceText
+          : undefined,
       updatedAt: now,
     };
 

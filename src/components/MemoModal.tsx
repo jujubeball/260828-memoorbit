@@ -9,13 +9,15 @@ import {
   useRef,
   useState,
 } from "react";
-import type { Memo } from "@/types/memo";
+import type { ImageMood, Memo } from "@/types/memo";
 
 export interface MemoDraft {
   title: string;
   content: string;
   richContent: string;
   tags: string;
+  imageUrl?: string;
+  aiImageMood: ImageMood;
 }
 
 interface MemoModalProps {
@@ -33,6 +35,7 @@ interface BubblePosition {
 type PaletteCommand = "foreColor" | "hiliteColor";
 
 const COLORS = ["#1d4ed8", "#0f766e", "#c2410c", "#be185d", "#6d28d9"];
+const IMAGE_MOODS: ImageMood[] = ["수채화", "네온", "흑백", "빈티지"];
 
 const escapeHtml = (value: string): string =>
   value
@@ -88,6 +91,7 @@ export function MemoModal({
   onSubmit,
 }: MemoModalProps): React.JSX.Element | null {
   const editorRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const savedRange = useRef<Range | null>(null);
   const [plainText, setPlainText] = useState(
     editingMemo
@@ -96,6 +100,10 @@ export function MemoModal({
   );
   const [analyzedText, setAnalyzedText] = useState(plainText);
   const [tags, setTags] = useState(editingMemo?.tags.join(", ") ?? "");
+  const [imageUrl, setImageUrl] = useState(editingMemo?.imageUrl);
+  const [aiImageMood, setAiImageMood] = useState<ImageMood>(
+    editingMemo?.aiImageMood ?? "수채화",
+  );
   const [isMobileToolbarOpen, setIsMobileToolbarOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [paletteCommand, setPaletteCommand] = useState<PaletteCommand>("foreColor");
@@ -214,7 +222,18 @@ export function MemoModal({
       content: bodyLines.join("\n").trim(),
       richContent: sanitizeEditorHtml(editor.innerHTML),
       tags,
+      imageUrl,
+      aiImageMood,
     });
+  };
+
+  const attachImage = (file: File | undefined): void => {
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (typeof reader.result === "string") setImageUrl(reader.result);
+    });
+    reader.readAsDataURL(file);
   };
 
   const buttonClass =
@@ -332,6 +351,16 @@ export function MemoModal({
         </header>
         <form id="memo-form" onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-5 overscroll-contain xl:px-8 xl:py-7">
+            {imageUrl && (
+              <figure className="relative mb-5 overflow-hidden rounded-2xl bg-stone-200">
+                {/* 사용자가 직접 선택한 로컬 미리보기이므로 Next 이미지 최적화 대상이 아니다. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imageUrl} alt="첨부한 메모 이미지 미리보기" className="max-h-72 w-full object-cover" />
+                <button type="button" onClick={() => setImageUrl(undefined)} className="absolute right-2 top-2 rounded-full bg-stone-950/80 px-3 py-1 text-xs font-bold text-white">
+                  사진 제거
+                </button>
+              </figure>
+            )}
             <div
               ref={editorRef}
               contentEditable
@@ -357,8 +386,20 @@ export function MemoModal({
                 <button type="button" onPointerDown={keepSelection} onClick={insertTable} className="interactive-control rounded-lg px-2 py-2 text-sm font-semibold text-stone-900">
                   표
                 </button>
+                <button type="button" onPointerDown={keepSelection} onClick={() => imageInputRef.current?.click()} className="interactive-control rounded-lg px-2 py-2 text-sm font-semibold text-stone-900" aria-label="사진 첨부">
+                  사진
+                </button>
+                <input ref={imageInputRef} type="file" accept="image/*" onChange={(event) => attachImage(event.target.files?.[0])} className="hidden" />
               </div>
               <input value={tags} onChange={(event) => setTags(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-stone-400 bg-white px-3 py-2 text-sm text-stone-950 outline-none focus:ring-2 focus:ring-amber-700" placeholder="태그 추가" aria-label="태그" />
+            </div>
+            <div className="mt-2 flex items-center gap-2 overflow-x-auto" aria-label="AI 이미지 무드">
+              <span className="shrink-0 text-xs font-semibold text-stone-700">이미지 무드</span>
+              {IMAGE_MOODS.map((mood) => (
+                <button key={mood} type="button" onClick={() => setAiImageMood(mood)} aria-pressed={aiImageMood === mood} className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${aiImageMood === mood ? "border-stone-900 bg-stone-900 text-white" : "border-stone-400 bg-white text-stone-800"}`}>
+                  {mood}
+                </button>
+              ))}
             </div>
             {recommendedTags.length > 0 && (
               <div className="mt-2 flex gap-2 overflow-x-auto pb-1" aria-label="실시간 추천 태그">

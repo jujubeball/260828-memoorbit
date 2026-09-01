@@ -163,6 +163,13 @@ export function MemoCard({
         }`}
         style={{ transform: `translateX(${offset}px)` }}
       >
+        {(memo.imageUrl || memo.aiImageUrl) && (
+          <div className="mb-4 overflow-hidden rounded-xl bg-stone-200">
+            {/* 저장된 사용자 이미지 또는 캐시된 AI 이미지 URL을 표시한다. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={memo.imageUrl ?? memo.aiImageUrl} alt="" className="h-40 w-full object-cover" />
+          </div>
+        )}
         <header className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-base font-bold text-stone-950 xl:text-lg">

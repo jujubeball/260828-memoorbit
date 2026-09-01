@@ -1,34 +1,150 @@
-import type { Memo } from "@/types/memo";
+import type { ImageMood, Memo } from "@/types/memo";
 
-export const initialMemos: Memo[] = [
-  { id: "memo-01", title: "오늘의 가장 중요한 일", content: "오전에는 기획안을 정리하고 오후에는 사용자 피드백을 검토한다.", createdAt: "2026-08-31T08:10:00+09:00", updatedAt: "2026-08-31T08:10:00+09:00", isPinned: true, tags: ["일상", "계획"] },
-  { id: "memo-02", title: "장보기 목록", content: "우유, 달걀, 방울토마토, 두부, 세탁세제", createdAt: "2026-08-31T09:20:00+09:00", updatedAt: "2026-08-31T09:20:00+09:00", isPinned: true, tags: ["장보기", "생활"] },
-  { id: "memo-03", title: "이번 주 개발 목표", content: "날짜 그룹 UI를 점검하고 모바일 화면에서 카드 간격과 긴 본문의 줄바꿈을 확인한다.", createdAt: "2026-08-30T18:00:00+09:00", updatedAt: "2026-08-31T10:35:00+09:00", isPinned: true, tags: ["개발", "Next.js"] },
-  { id: "memo-04", title: "아침 산책", content: "공원의 바람이 선선해서 평소보다 한 바퀴 더 걸었다.", createdAt: "2026-08-31T07:15:00+09:00", updatedAt: "2026-08-31T07:15:00+09:00", isPinned: false, tags: ["일상", "운동"] },
-  { id: "memo-05", title: "첫 줄만 있는 오늘 메모", content: "", createdAt: "2026-08-31T11:00:00+09:00", updatedAt: "2026-08-31T11:00:00+09:00", isPinned: false, tags: ["기록"] },
-  { id: "memo-06", title: "아이와 만든 종이비행기", content: "서로 다른 모양으로 접어 멀리 날아가는 비행기를 찾아보았다.", createdAt: "2026-08-28T17:30:00+09:00", updatedAt: "2026-08-28T17:30:00+09:00", isPinned: false, tags: ["육아", "놀이"] },
-  { id: "memo-07", title: "3일 전 달리기 기록", content: "5킬로미터를 천천히 달렸다. 기록보다 호흡을 일정하게 유지하는 데 집중했다.", createdAt: "2026-08-28T06:40:00+09:00", updatedAt: "2026-08-28T06:40:00+09:00", isPinned: false, tags: ["운동", "건강"] },
-  { id: "memo-08", title: "컴포넌트 정리 아이디어", content: "반복되는 날짜 그룹 렌더링을 작은 컴포넌트로 분리하면 페이지가 읽기 쉬워질 것 같다.", createdAt: "2026-08-28T14:15:00+09:00", updatedAt: "2026-08-28T16:05:00+09:00", isPinned: false, tags: ["개발", "React"] },
-  { id: "memo-09", title: "저녁 메뉴 후보", content: "된장찌개와 고등어구이, 오이무침을 준비하기.", createdAt: "2026-08-28T19:10:00+09:00", updatedAt: "2026-08-28T19:10:00+09:00", isPinned: false, tags: ["요리", "일상"] },
-  { id: "memo-10", title: "5일 전의 짧은 생각", content: "", createdAt: "2026-08-26T09:00:00+09:00", updatedAt: "2026-08-26T09:00:00+09:00", isPinned: false, tags: ["생각"] },
-  { id: "memo-11", title: "책에서 만난 문장", content: "빠르게 결론을 내리기보다 오래 질문을 품는 태도가 필요하다는 생각이 들었다.", createdAt: "2026-08-26T21:25:00+09:00", updatedAt: "2026-08-26T21:25:00+09:00", isPinned: false, tags: ["독서", "성장"] },
-  { id: "memo-12", title: "주말 가족 나들이", content: "도시락을 준비해 강변 공원에 갔다. 아이는 비눗방울을 쫓아다녔고 우리는 나무 그늘 아래에서 천천히 점심을 먹었다. 돌아오는 길에는 작은 도서관에 들러 그림책 세 권을 빌렸다.", createdAt: "2026-08-26T12:30:00+09:00", updatedAt: "2026-08-26T18:45:00+09:00", isPinned: false, tags: ["육아", "가족", "일상"] },
-  { id: "memo-13", title: "15일 전 프로젝트 회고", content: "처음에는 기능을 한 화면에 모두 넣으려 했지만 사용 흐름이 복잡해졌다. 핵심 행동을 메모 작성과 탐색으로 좁히고 나니 화면의 우선순위가 또렷해졌다. 다음 작업에서는 구현 전에 사용자가 가장 먼저 보아야 할 정보를 한 문장으로 정리해 두자.", createdAt: "2026-08-16T10:00:00+09:00", updatedAt: "2026-08-16T18:20:00+09:00", isPinned: false, tags: ["개발", "회고", "UX"] },
-  { id: "memo-14", title: "새 운동 루틴", content: "스쿼트 3세트, 플랭크 2세트, 가벼운 스트레칭으로 마무리했다.", createdAt: "2026-08-16T07:05:00+09:00", updatedAt: "2026-08-16T07:05:00+09:00", isPinned: false, tags: ["운동", "건강"] },
-  { id: "memo-15", title: "냉장고 정리", content: "유통기한이 가까운 채소부터 이번 주 식단에 사용하기.", createdAt: "2026-08-16T20:10:00+09:00", updatedAt: "2026-08-16T20:10:00+09:00", isPinned: false, tags: ["장보기", "생활"] },
-  { id: "memo-16", title: "15일 전 한 줄 메모", content: "", createdAt: "2026-08-16T22:00:00+09:00", updatedAt: "2026-08-16T22:00:00+09:00", isPinned: false, tags: ["기록"] },
-  { id: "memo-17", title: "25일 전 어린이집 상담", content: "새로운 놀이에 먼저 다가가는 모습이 늘었다고 한다. 집에서도 스스로 선택할 시간을 충분히 주기로 했다.", createdAt: "2026-08-06T15:30:00+09:00", updatedAt: "2026-08-06T15:30:00+09:00", isPinned: false, tags: ["육아", "성장"] },
-  { id: "memo-18", title: "API 응답 타입 점검", content: "선택 값은 옵셔널로 표현하고 화면에서 기본값을 제공한다.", createdAt: "2026-08-06T11:10:00+09:00", updatedAt: "2026-08-06T13:40:00+09:00", isPinned: false, tags: ["개발", "TypeScript"] },
-  { id: "memo-19", title: "여름 저녁 산책", content: "해가 진 뒤에도 공기가 따뜻했지만 강가에서는 시원한 바람이 불었다.", createdAt: "2026-08-06T20:35:00+09:00", updatedAt: "2026-08-06T20:35:00+09:00", isPinned: false, tags: ["일상", "운동"] },
-  { id: "memo-20", title: "25일 전 장보기", content: "쌀, 김, 참치, 양파, 요구르트, 휴지", createdAt: "2026-08-06T09:25:00+09:00", updatedAt: "2026-08-06T09:25:00+09:00", isPinned: false, tags: ["장보기"] },
-  { id: "memo-21", title: "7월 여행 준비", content: "숙소 체크인 시간과 기차표를 다시 확인하고 비상약과 충전기를 챙긴다.", createdAt: "2026-07-27T13:00:00+09:00", updatedAt: "2026-07-28T09:10:00+09:00", isPinned: false, tags: ["여행", "계획"] },
-  { id: "memo-22", title: "7월의 수영 연습", content: "자유형 호흡이 조금 편해졌다. 다음에는 팔을 급하게 젓지 않도록 신경 쓰자.", createdAt: "2026-07-19T18:30:00+09:00", updatedAt: "2026-07-19T18:30:00+09:00", isPinned: false, tags: ["운동", "취미"] },
-  { id: "memo-23", title: "접근성 체크 목록", content: "모달에 적절한 역할과 제목 연결이 있는지, 키보드만으로 버튼에 접근할 수 있는지, 텍스트와 배경의 대비가 충분한지 확인한다. 화면을 예쁘게 만드는 것뿐 아니라 누구나 사용할 수 있게 만드는 것이 완성도의 중요한 기준이다.", createdAt: "2026-07-08T10:20:00+09:00", updatedAt: "2026-07-08T17:50:00+09:00", isPinned: false, tags: ["개발", "접근성", "UI"] },
-  { id: "memo-24", title: "6월 텃밭 기록", content: "방울토마토 줄기가 많이 자라 지지대를 새로 세웠다.", createdAt: "2026-06-24T07:40:00+09:00", updatedAt: "2026-06-24T07:40:00+09:00", isPinned: false, tags: ["일상", "취미"] },
-  { id: "memo-25", title: "아이의 첫 자전거", content: "처음에는 손을 놓지 말라고 했지만 몇 번 연습한 뒤 혼자 페달을 밟았다.", createdAt: "2026-06-15T16:10:00+09:00", updatedAt: "2026-06-15T16:10:00+09:00", isPinned: false, tags: ["육아", "가족"] },
-  { id: "memo-26", title: "상태 관리 공부", content: "상태는 화면이 기억해야 할 값이고 Props는 부모가 자식에게 건네는 값이다.", createdAt: "2026-06-03T21:00:00+09:00", updatedAt: "2026-06-04T08:30:00+09:00", isPinned: false, tags: ["개발", "React", "공부"] },
-  { id: "memo-27", title: "5월 가정의 달 계획", content: "부모님과 식사할 날짜를 정하고 아이가 직접 쓴 카드를 준비한다.", createdAt: "2026-05-26T12:00:00+09:00", updatedAt: "2026-05-26T12:00:00+09:00", isPinned: false, tags: ["가족", "계획"] },
-  { id: "memo-28", title: "봄철 러닝 기록", content: "날씨가 좋아 7킬로미터를 달렸다. 마지막 1킬로미터는 속도를 낮추고 호흡을 정리했다.", createdAt: "2026-05-18T06:25:00+09:00", updatedAt: "2026-05-18T06:25:00+09:00", isPinned: false, tags: ["운동", "건강"] },
-  { id: "memo-29", title: "5월 한 줄 기록", content: "", createdAt: "2026-05-09T22:15:00+09:00", updatedAt: "2026-05-09T22:15:00+09:00", isPinned: false, tags: ["생각"] },
-  { id: "memo-30", title: "장보기 동선 개선", content: "채소와 과일을 먼저 고르고 냉장 식품은 마지막에 담으면 이동 중 온도 변화를 줄일 수 있다. 목록을 매장 구역 순서대로 정리해 두면 같은 통로를 여러 번 오가지 않아도 되어 시간도 절약된다.", createdAt: "2026-05-02T10:45:00+09:00", updatedAt: "2026-05-02T10:45:00+09:00", isPinned: false, tags: ["장보기", "생활", "아이디어"] },
+interface MemoTheme {
+  tag: string;
+  secondaryTag: string;
+  mood: ImageMood;
+  titles: string[];
+  detail: string;
+}
+
+const themes: MemoTheme[] = [
+  {
+    tag: "개발",
+    secondaryTag: "공부",
+    mood: "네온",
+    titles: [
+      "선택 영역 편집기 회고", "컴포넌트 경계 다시 보기", "타입 안전성 점검", "접근성 검사 기록", "API 응답 설계",
+      "상태 관리 공부", "코드 리뷰 메모", "배포 전 확인 목록", "성능 개선 아이디어", "새 기술 실험 결과",
+    ],
+    detail: "작은 단위로 구현하고 타입 검사와 사용자 흐름을 함께 확인했다. 다음 작업에서는 경계 조건을 테스트에 먼저 적어 두기로 했다.",
+  },
+  {
+    tag: "육아",
+    secondaryTag: "가족",
+    mood: "수채화",
+    titles: [
+      "아이의 첫 자전거", "어린이집 상담 날", "함께 만든 종이비행기", "비 오는 날 그림 놀이", "처음 읽은 긴 그림책",
+      "가족 소풍 준비", "아이와 구운 쿠키", "스스로 신발 신은 날", "잠들기 전 작은 질문", "주말 동물원 나들이",
+    ],
+    detail: "서두르지 않고 아이가 스스로 선택할 시간을 주었더니 예상하지 못한 이야기와 웃음이 이어졌다. 오래 기억하고 싶은 하루였다.",
+  },
+  {
+    tag: "여행",
+    secondaryTag: "추억",
+    mood: "빈티지",
+    titles: [
+      "제주 바닷길의 오후", "부산 골목 산책", "경주에서 본 노을", "강릉 첫 기차 여행", "서울 야경 산책",
+      "전주 한옥마을 아침", "여수 바다의 밤", "속초 시장에서의 점심", "남해 작은 숙소", "춘천 호숫가 피크닉",
+    ],
+    detail: "계획표에서 잠시 벗어나 천천히 걸었다. 낯선 풍경과 그날의 공기, 함께 나눈 대화를 사진처럼 다시 떠올릴 수 있었다.",
+  },
+  {
+    tag: "운동",
+    secondaryTag: "건강",
+    mood: "흑백",
+    titles: [
+      "아침 5킬로미터 달리기", "수영 호흡 연습", "첫 플랭크 2분", "공원 계단 운동", "비 오는 날 홈 트레이닝",
+      "주말 자전거 기록", "저녁 요가 루틴", "한 달 걷기 회고", "러닝 자세 교정", "가벼운 회복 스트레칭",
+    ],
+    detail: "기록 경쟁보다 호흡과 자세에 집중했다. 무리하지 않고 꾸준히 이어 가는 것이 몸의 변화를 만드는 가장 좋은 방법임을 느꼈다.",
+  },
+  {
+    tag: "재테크",
+    secondaryTag: "경제",
+    mood: "빈티지",
+    titles: [
+      "이번 달 예산 점검", "비상금 목표 세우기", "자동이체 정리", "소비 습관 돌아보기", "장기 투자 원칙",
+      "보험 항목 확인", "연말정산 준비", "구독 서비스 정리", "아이 교육비 계획", "여행 적금 시작",
+    ],
+    detail: "숫자를 단순히 줄이기보다 지출의 목적을 살폈다. 생활의 안정과 미래의 선택지를 넓히는 방향으로 기준을 다시 정리했다.",
+  },
+  {
+    tag: "요리",
+    secondaryTag: "생활",
+    mood: "수채화",
+    titles: [
+      "된장찌개 비율 기록", "아이와 만든 주먹밥", "주말 브런치 메뉴", "냉장고 재료 정리", "여름 토마토 파스타",
+      "겨울 수프 레시피", "김치볶음밥 실험", "도시락 반찬 계획", "가족 생일 케이크", "비 오는 날 부침개",
+    ],
+    detail: "집에 있는 재료를 먼저 확인하고 간을 조금씩 맞췄다. 완성된 음식보다 함께 준비하고 식탁에 앉은 시간이 더 따뜻하게 남았다.",
+  },
+  {
+    tag: "독서",
+    secondaryTag: "성장",
+    mood: "흑백",
+    titles: [
+      "오래 품고 싶은 문장", "질문하는 태도", "소설 속 낯선 선택", "일의 감각 독서 노트", "아이와 읽은 그림책",
+      "여행 에세이의 한 장면", "습관에 관한 책", "경제 입문서 정리", "디자인 원칙 메모", "한 해 독서 회고",
+    ],
+    detail: "빠르게 결론을 내리기보다 문장이 건넨 질문을 오래 생각했다. 지금의 생활과 일에 연결되는 생각을 짧게 기록해 두었다.",
+  },
+  {
+    tag: "일상",
+    secondaryTag: "기록",
+    mood: "수채화",
+    titles: [
+      "창문을 연 아침", "동네 카페의 오후", "비가 그친 골목", "작은 화분의 새잎", "퇴근길에 본 달",
+      "주말 빨래와 음악", "오랜 친구의 전화", "따뜻한 차 한 잔", "조용한 새벽 시간", "오늘 고마웠던 일",
+    ],
+    detail: "평범해서 지나칠 뻔한 순간을 잠시 멈춰 바라보았다. 작은 변화와 고마움을 적어 두니 하루의 표정이 조금 더 선명해졌다.",
+  },
+  {
+    tag: "업무",
+    secondaryTag: "계획",
+    mood: "네온",
+    titles: [
+      "주간 우선순위", "회의 결정 사항", "사용자 피드백 정리", "기획안 수정 방향", "프로젝트 중간 회고",
+      "동료와 나눈 아이디어", "발표 준비 목록", "집중 시간 기록", "다음 분기 목표", "업무 자동화 후보",
+    ],
+    detail: "해야 할 일을 나열한 뒤 사용자에게 가장 큰 영향을 주는 순서로 다시 배치했다. 결정한 이유와 다음 행동을 함께 남겼다.",
+  },
+  {
+    tag: "취미",
+    secondaryTag: "창작",
+    mood: "네온",
+    titles: [
+      "필름 카메라 첫 롤", "수채화 색 조합", "기타 코드 연습", "텃밭 토마토 기록", "도자기 수업의 컵",
+      "밤하늘 사진 연습", "손글씨 한 문장", "작은 목공 선반", "봄꽃 스케치", "나만의 재생 목록",
+    ],
+    detail: "완성도를 걱정하기보다 손을 움직이며 과정 자체를 즐겼다. 다음번에 바꾸고 싶은 점과 우연히 발견한 재미를 기록했다.",
+  },
 ];
+
+const pad = (value: number): string => String(value).padStart(2, "0");
+
+const createDate = (index: number): string => {
+  if (index === 0) return "2026-09-01T09:10:00+09:00";
+  if (index === 1) return "2026-08-31T18:20:00+09:00";
+  if (index === 2) return "2026-08-28T07:40:00+09:00";
+  if (index === 3) return "2026-08-15T21:00:00+09:00";
+
+  if (index < 50) {
+    const month = 7 - ((index - 4) % 7);
+    const day = 27 - Math.floor((index - 4) / 7) * 3;
+    return `2026-${pad(month)}-${pad(day)}T${pad(8 + (index % 12))}:15:00+09:00`;
+  }
+
+  const year = index < 70 ? 2025 : index < 80 ? 2024 : index < 90 ? 2023 : 2022;
+  const month = 12 - (index % 12);
+  const day = 5 + (index % 20);
+  return `${year}-${pad(month)}-${pad(day)}T${pad(8 + (index % 12))}:30:00+09:00`;
+};
+
+export const initialMemos: Memo[] = themes.flatMap((theme, themeIndex) =>
+  theme.titles.map((title, titleIndex) => {
+    const index = themeIndex * 10 + titleIndex;
+    const timestamp = createDate(index);
+
+    return {
+      id: `memo-${pad(index + 1)}`,
+      title,
+      content: theme.detail,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      isPinned: index < 3,
+      tags: [theme.tag, theme.secondaryTag],
+      aiImageMood: theme.mood,
+    };
+  }),
+);
