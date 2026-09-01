@@ -82,7 +82,11 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
   const [plainText, setPlainText] = useState(editingMemo ? [editingMemo.title, editingMemo.content].filter(Boolean).join("\n") : "");
   const [imageUrl, setImageUrl] = useState(editingMemo?.imageUrl);
   const [tags, setTags] = useState(editingMemo?.tags.join(", ") ?? "");
+  const [aiImageMood, setAiImageMood] = useState<ImageMood>(
+    editingMemo?.aiImageMood ?? "수채화",
+  );
   const [analyzedText, setAnalyzedText] = useState(plainText);
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [isFormatOpen, setIsFormatOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [tableMenuPosition, setTableMenuPosition] = useState<TableMenuPosition | null>(null);
@@ -157,7 +161,7 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
       richContent: sanitizeEditorHtml(editor.innerHTML),
       tags,
       imageUrl,
-      aiImageMood: editingMemo?.aiImageMood ?? "수채화",
+      aiImageMood,
     });
   };
   const attachImage = (file: File | undefined): void => {
@@ -238,6 +242,18 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
     selectedCell.innerText = await navigator.clipboard.readText();
     syncText();
   };
+  const closeFormatLayer = (): void => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setIsFormatOpen(false);
+    setIsPaletteOpen(false);
+  };
+  const toggleFormatLayer = (): void => {
+    if (isFormatOpen) {
+      closeFormatLayer();
+      return;
+    }
+    setIsFormatOpen(true);
+  };
   const formatButton = "ios-tap flex h-11 min-w-11 items-center justify-center rounded-lg px-3 text-[15px] font-semibold text-white";
   const bottomButton = "ios-tap flex h-11 min-w-11 flex-1 items-center justify-center text-[#e5a93c]";
 
@@ -250,7 +266,7 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
             <span className="hidden sm:inline">메모</span>
           </button>
           <h2 id="memo-modal-title" className="sr-only">{editingMemo ? "메모 수정" : "새 메모"}</h2>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button type="button" onClick={() => document.execCommand("undo")} className="ios-tap h-11 w-10 text-xl text-[#e5a93c]" aria-label="실행 취소">↶</button>
             <button type="button" className="ios-tap h-11 w-10 text-xl text-[#e5a93c]" aria-label="공유">⇧</button>
             <button type="button" className="ios-tap h-11 w-10 text-xl font-bold text-[#e5a93c]" aria-label="더 보기">•••</button>
@@ -289,44 +305,78 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
             data-placeholder="메모를 입력하세요"
             dangerouslySetInnerHTML={{ __html: createInitialHtml(editingMemo) }}
           />
-          <section className="mt-8 border-t border-[#38383a] pt-4" aria-label="AI 추천 키워드">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-[#e5a93c]">AI 추천 키워드</h3>
-              <span className="text-xs text-[#8e8e93]">본문을 분석해 자동 추천합니다</span>
-            </div>
-            <div className="mt-3 flex min-h-8 flex-wrap gap-2">
-              {recommendedTags.length > 0 ? (
-                recommendedTags.map((tag) => {
-                  const isSelected = selectedTags.includes(tag);
-                  return (
+          <section className="mt-8 border-t border-[#38383a] pt-2" aria-labelledby="recommended-tags-title">
+            <button
+              type="button"
+              onClick={() => setIsTagsOpen((current) => !current)}
+              className="ios-tap flex h-11 w-full items-center justify-between gap-4 text-left"
+              aria-expanded={isTagsOpen}
+              aria-controls="recommended-tags-options"
+            >
+              <span id="recommended-tags-title" className="text-sm font-semibold text-[#e5a93c]">
+                AI 추천 태그
+              </span>
+              <span className="flex items-center gap-2 text-xs text-[#8e8e93]">
+                선택 옵션
+                <span aria-hidden="true">{isTagsOpen ? "⌃" : "⌄"}</span>
+              </span>
+            </button>
+            <div
+              id="recommended-tags-options"
+              className={isTagsOpen ? "grid gap-4 pb-2 pt-2" : "hidden"}
+              aria-hidden={!isTagsOpen}
+              inert={!isTagsOpen}
+            >
+              <div className="flex min-h-8 flex-wrap gap-2">
+                {recommendedTags.length > 0 ? (
+                  recommendedTags.map((tag) => {
+                    const isSelected = selectedTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => toggleTag(tag)}
+                        aria-pressed={isSelected}
+                        className={`ios-tap rounded-full border px-3 py-2 text-xs font-semibold ${isSelected ? "border-[#e5a93c] bg-[#e5a93c] text-black" : "border-[#636366] text-white"}`}
+                      >
+                        #{tag}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-[#636366]">본문을 입력하면 관련 태그가 표시됩니다.</p>
+                )}
+              </div>
+              <input
+                value={tags}
+                onChange={(event) => setTags(event.target.value)}
+                className="w-full rounded-xl border border-[#48484a] bg-[#1c1c1e] px-4 py-2 text-sm text-white outline-none focus:border-[#e5a93c]"
+                placeholder="태그 직접 추가: 쉼표로 구분"
+                aria-label="태그 직접 추가"
+              />
+              <div>
+                <p className="mb-2 text-xs font-semibold text-[#8e8e93]">AI 이미지 무드</p>
+                <div className="flex flex-wrap gap-2">
+                  {(["수채화", "네온", "흑백", "빈티지"] as ImageMood[]).map((mood) => (
                     <button
-                      key={tag}
+                      key={mood}
                       type="button"
-                      onClick={() => toggleTag(tag)}
-                      aria-pressed={isSelected}
-                      className={`ios-tap rounded-full border px-3 py-1.5 text-xs font-semibold ${isSelected ? "border-[#e5a93c] bg-[#e5a93c] text-black" : "border-[#636366] text-white"}`}
+                      onClick={() => setAiImageMood(mood)}
+                      aria-pressed={aiImageMood === mood}
+                      className={`ios-tap rounded-full border px-4 py-2 text-xs font-semibold ${aiImageMood === mood ? "border-[#e5a93c] bg-[#e5a93c] text-black" : "border-[#636366] text-white"}`}
                     >
-                      #{tag}
+                      {mood}
                     </button>
-                  );
-                })
-              ) : (
-                <p className="text-xs text-[#636366]">본문을 입력하면 관련 키워드가 여기에 표시됩니다.</p>
-              )}
+                  ))}
+                </div>
+              </div>
             </div>
-            <input
-              value={tags}
-              onChange={(event) => setTags(event.target.value)}
-              className="mt-3 w-full rounded-xl border border-[#48484a] bg-[#1c1c1e] px-3 py-2 text-sm text-white outline-none focus:border-[#e5a93c]"
-              placeholder="태그 직접 추가: 쉼표로 구분"
-              aria-label="태그 직접 추가"
-            />
           </section>
         </div>
 
         <div className="shrink-0 border-t border-[#38383a] bg-[#1c1c1e]/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
-          <div className="mx-auto flex max-w-xl items-center justify-around px-1 py-1">
-            <button type="button" onPointerDown={keepSelection} onClick={() => setIsFormatOpen((current) => !current)} className={bottomButton} aria-expanded={isFormatOpen} aria-label="텍스트 서식">
+          <div className="mx-auto flex max-w-xl items-center justify-around gap-2 px-2 py-1">
+            <button type="button" onPointerDown={keepSelection} onClick={toggleFormatLayer} className={bottomButton} aria-expanded={isFormatOpen} aria-label="텍스트 서식">
               <span className="text-base font-semibold" aria-hidden="true">가가</span>
             </button>
             <button type="button" onPointerDown={keepSelection} onClick={insertChecklist} className={bottomButton} aria-label="체크리스트">
@@ -340,19 +390,21 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
                 <path d="M8.4 12.7 14.8 6.3a3.1 3.1 0 0 1 4.4 4.4l-8.1 8.1a5 5 0 0 1-7.1-7.1l8-8" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
               </svg>
             </button>
-            <button type="button" onClick={() => document.querySelector('[aria-label="AI 추천 키워드"]')?.scrollIntoView({ behavior: "smooth" })} className={bottomButton} aria-label="AI 추천 키워드 보기">
-              <span className="text-sm font-bold" aria-hidden="true">AI</span>
-            </button>
             <input ref={imageInputRef} type="file" accept="image/*" onChange={(event) => attachImage(event.target.files?.[0])} className="hidden" />
           </div>
         </div>
       </form>
 
-      <section className={`absolute inset-x-0 bottom-0 z-20 rounded-t-3xl bg-[#2c2c2e] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_35px_rgb(0_0_0/0.45)] transition-transform duration-300 ${isFormatOpen ? "translate-y-0" : "translate-y-full"}`} aria-label="서식 도구" aria-hidden={!isFormatOpen}>
+      <section
+        className={`absolute inset-x-0 bottom-0 z-20 rounded-t-3xl bg-[#2c2c2e] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_35px_rgb(0_0_0/0.45)] transition-transform duration-300 ${isFormatOpen ? "translate-y-0" : "translate-y-full"}`}
+        aria-label="서식 도구"
+        aria-hidden={!isFormatOpen}
+        inert={!isFormatOpen}
+      >
         <div className="mx-auto max-w-xl">
           <div className="mb-2 flex items-center justify-between">
             <span className="h-1 w-9 rounded-full bg-[#636366]" />
-            <button type="button" onClick={() => setIsFormatOpen(false)} className="ios-tap h-9 w-9 rounded-full bg-[#48484a] text-lg" aria-label="서식 도구 닫기">×</button>
+            <button type="button" onClick={closeFormatLayer} className="ios-tap h-9 w-9 rounded-full bg-[#48484a] text-lg" aria-label="서식 도구 닫기">×</button>
           </div>
           <div className="grid grid-cols-5 rounded-xl bg-[#3a3a3c] p-1" aria-label="문단 스타일">
             {[["제목", "h1"], ["머리말", "h2"], ["부머리말", "h3"], ["본문", "p"], ["모노", "pre"]].map(([label, value]) => <button key={value} type="button" onPointerDown={keepSelection} onClick={() => applyFormat("formatBlock", value)} className={formatButton}>{label}</button>)}

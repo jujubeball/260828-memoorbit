@@ -2,8 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MemoCard } from "@/src/components/MemoCard";
+import {
+  MemoryOrbitView,
+  type MemoryCandidate,
+} from "@/src/components/MemoryOrbitView";
 import { MemoModal, type MemoDraft } from "@/src/components/MemoModal";
 import { initialMemos } from "@/src/data/initialMemos";
+import { createMemoImageDataUrl } from "@/src/lib/memoImage";
 import type { Memo } from "@/types/memo";
 
 interface MemoGroup {
@@ -25,12 +30,63 @@ const groupLabel = (iso: string): string => {
   return `${date.getMonth() + 1}월`;
 };
 
+const isSameDate = (left: Date, right: Date): boolean =>
+  left.getFullYear() === right.getFullYear() &&
+  left.getMonth() === right.getMonth() &&
+  left.getDate() === right.getDate();
+
+const selectMemoryCandidate = (memos: Memo[], target: Date): Memo | undefined =>
+  memos
+    .filter((memo) => isSameDate(new Date(memo.createdAt), target))
+    .sort(
+      (left, right) =>
+        Number(Boolean(right.imageUrl || right.aiImageUrl)) -
+          Number(Boolean(left.imageUrl || left.aiImageUrl)) ||
+        Number(right.isPinned) - Number(left.isPinned) ||
+        right.content.length - left.content.length,
+    )[0];
+
+const findMemoryCandidates = (memos: Memo[]): MemoryCandidate[] => {
+  const today = new Date();
+  const oneYearAgo = new Date(today);
+  oneYearAgo.setFullYear(today.getFullYear() - 1);
+  const oneHundredDaysAgo = new Date(today);
+  oneHundredDaysAgo.setDate(today.getDate() - 100);
+  const oneYearMemo = selectMemoryCandidate(memos, oneYearAgo);
+  const oneHundredDayMemo = selectMemoryCandidate(memos, oneHundredDaysAgo);
+
+  return [
+    ...(oneYearMemo ? [{ memo: oneYearMemo, intervalLabel: "1년 전" as const }] : []),
+    ...(oneHundredDayMemo ? [{ memo: oneHundredDayMemo, intervalLabel: "100일 전" as const }] : []),
+  ];
+};
+
 export default function Home(): React.JSX.Element {
   const [memos, setMemos] = useState<Memo[]>(initialMemos);
+  const [hasHydratedStorage, setHasHydratedStorage] = useState(false);
   const [editingMemo, setEditingMemo] = useState<Memo | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Memo | null>(null);
   const [isPinnedOpen, setIsPinnedOpen] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const storedMemos = window.localStorage.getItem("memoorbit-memos");
+        if (storedMemos) setMemos(JSON.parse(storedMemos) as Memo[]);
+      } catch {
+        window.localStorage.removeItem("memoorbit-memos");
+      } finally {
+        setHasHydratedStorage(true);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydratedStorage) return;
+    window.localStorage.setItem("memoorbit-memos", JSON.stringify(memos));
+  }, [hasHydratedStorage, memos]);
 
   useEffect(() => {
     if (!isEditorOpen && !deleteTarget) return;
@@ -47,10 +103,22 @@ export default function Home(): React.JSX.Element {
     if (!group) return [...result, { label, memos: [memo] }];
     return result.map((item) => item.label === label ? { ...item, memos: [...item.memos, memo] } : item);
   }, []);
+  const memoryCandidates = useMemo(() => findMemoryCandidates(memos), [memos]);
 
   const closeEditor = (): void => { setIsEditorOpen(false); setEditingMemo(null); };
   const submitMemo = (draft: MemoDraft): void => {
     const now = new Date().toISOString();
+    const sourceText = [draft.title, draft.content].filter(Boolean).join("\n");
+    const canReuseAiImage =
+      !draft.imageUrl &&
+      editingMemo?.aiImageSourceText === sourceText &&
+      editingMemo.aiImageMood === draft.aiImageMood &&
+      Boolean(editingMemo.aiImageUrl);
+    const aiImageUrl = draft.imageUrl
+      ? undefined
+      : canReuseAiImage
+        ? editingMemo?.aiImageUrl
+        : createMemoImageDataUrl(sourceText, draft.aiImageMood);
     const values = {
       title: draft.title,
       content: draft.content,
@@ -58,8 +126,8 @@ export default function Home(): React.JSX.Element {
       tags: toTags(draft.tags),
       imageUrl: draft.imageUrl,
       aiImageMood: draft.aiImageMood,
-      aiImageUrl: editingMemo?.content === draft.content ? editingMemo.aiImageUrl : undefined,
-      aiImageSourceText: editingMemo?.content === draft.content ? editingMemo.aiImageSourceText : undefined,
+      aiImageUrl,
+      aiImageSourceText: draft.imageUrl ? undefined : sourceText,
       updatedAt: now,
     };
     if (editingMemo) {
@@ -97,6 +165,13 @@ export default function Home(): React.JSX.Element {
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl px-4 pb-28">
+        <MemoryOrbitView
+          candidates={memoryCandidates}
+          onOpenMemo={(memo) => {
+            setEditingMemo(memo);
+            setIsEditorOpen(true);
+          }}
+        />
         {pinned.length > 0 && (
           <section className="mb-7" aria-labelledby="pinned-heading">
             <button
