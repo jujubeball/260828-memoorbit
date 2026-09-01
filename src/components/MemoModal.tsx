@@ -287,15 +287,15 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
   const bottomButton = "ios-tap flex h-11 min-w-11 flex-1 items-center justify-center text-[#e5a93c]";
 
   return (
-    <div className="fixed inset-0 z-[100] flex h-dvh flex-col overflow-hidden bg-black text-white" role="dialog" aria-modal="true" aria-labelledby="memo-modal-title">
-      <form id="memo-form" onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center justify-between px-3 pb-2 pt-[max(0.65rem,env(safe-area-inset-top))]">
+    <div className="fixed inset-0 z-[100] box-border flex h-dvh w-full max-w-full flex-col overflow-x-hidden overflow-y-hidden bg-black text-white" role="dialog" aria-modal="true" aria-labelledby="memo-modal-title">
+      <form id="memo-form" onSubmit={submit} className="box-border flex min-h-0 w-full max-w-full flex-1 flex-col overflow-x-hidden">
+        <header className="box-border flex w-full max-w-full shrink-0 items-center justify-between overflow-x-hidden px-3 pb-2 pt-[max(3.5rem,env(safe-area-inset-top))] xl:pt-[max(1rem,env(safe-area-inset-top))]">
           <button type="button" onClick={onClose} className="ios-tap flex h-11 items-center gap-1 px-1 text-[17px] text-[#e5a93c]" aria-label="메모 목록으로 돌아가기">
             <span className="text-3xl font-light" aria-hidden="true">‹</span>
             <span className="hidden sm:inline">메모</span>
           </button>
           <h2 id="memo-modal-title" className="sr-only">{editingMemo ? "메모 수정" : "새 메모"}</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <button type="button" onClick={() => document.execCommand("undo")} className="ios-tap h-11 w-10 text-xl text-[#e5a93c]" aria-label="실행 취소">↶</button>
             <button type="button" className="ios-tap h-11 w-10 text-xl text-[#e5a93c]" aria-label="공유">⇧</button>
             <button type="button" className="ios-tap h-11 w-10 text-xl font-bold text-[#e5a93c]" aria-label="더 보기">•••</button>
@@ -303,7 +303,7 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6">
+        <div className="box-border min-h-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-5 pb-6">
           <p className="pb-4 text-center text-xs text-[#8e8e93]">{formatDate(editingMemo?.updatedAt)}</p>
           {imageUrl && (
             <figure className="relative mb-4 overflow-hidden rounded-xl bg-[#1c1c1e]">
@@ -333,18 +333,18 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
             }}
             onSelect={rememberSelection}
             onKeyUp={rememberSelection}
-            className="rich-editor min-h-[60%] w-full select-text overflow-x-hidden text-[17px] leading-7 text-white outline-none"
+            className="rich-editor box-border min-h-[60%] w-full max-w-full select-text overflow-x-hidden break-words text-[17px] leading-7 text-white outline-none"
             data-placeholder="메모를 입력하세요"
             dangerouslySetInnerHTML={{ __html: createInitialHtml(editingMemo) }}
           />
-          <section className={`mt-8 border-t border-[#38383a] pt-4 transition-colors duration-200 ${isAnalyzingTags ? "border-[#e5a93c]/70 bg-[#e5a93c]/5" : ""}`} aria-labelledby="recommended-tags-title" aria-live="polite">
-            <div className="flex items-center justify-between gap-4">
+          <section className={`box-border mt-8 w-full max-w-full overflow-x-hidden border-t border-[#38383a] pt-4 transition-colors duration-200 ${isAnalyzingTags ? "border-[#e5a93c]/70 bg-[#e5a93c]/5" : ""}`} aria-labelledby="recommended-tags-title" aria-live="polite">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 id="recommended-tags-title" className="text-sm font-semibold text-[#e5a93c]">AI 추천 태그</h3>
               <span className={`text-xs text-[#8e8e93] ${isAnalyzingTags ? "animate-pulse text-[#ffc86b] motion-reduce:animate-none" : ""}`}>{isAnalyzingTags ? "키워드를 분석하고 있습니다…" : "선택하지 않아도 저장할 수 있습니다"}</span>
             </div>
             <div
               id="recommended-tags-options"
-              className="grid gap-4 pb-2 pt-4"
+              className="grid w-full max-w-full gap-4 overflow-x-hidden pb-2 pt-4"
             >
               <div className="flex min-h-8 flex-wrap gap-2">
                 {recommendedTags.length > 0 ? (
@@ -373,7 +373,7 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
                 placeholder="태그 직접 추가: 쉼표로 구분"
                 aria-label="태그 직접 추가"
               />
-              <div>
+              <div className="w-full max-w-full overflow-x-hidden">
                 <p className="mb-2 text-xs font-semibold text-[#8e8e93]">AI 이미지 무드</p>
                 <div className="flex flex-wrap gap-2">
                   {(["수채화", "네온", "흑백", "빈티지"] as ImageMood[]).map((mood) => (
@@ -393,8 +393,8 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
           </section>
         </div>
 
-        <div className="shrink-0 border-t border-[#38383a] bg-[#1c1c1e]/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
-          <div className="mx-auto flex max-w-xl items-center justify-around gap-2 px-2 py-1">
+        <div className="box-border w-full max-w-full shrink-0 overflow-x-hidden border-t border-[#38383a] bg-[#1c1c1e]/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+          <div className="mx-auto flex w-full max-w-xl flex-wrap items-center justify-around gap-2 px-2 py-1">
             <button type="button" onPointerDown={keepSelection} onClick={toggleFormatLayer} className={bottomButton} aria-expanded={isFormatOpen} aria-label="텍스트 서식">
               <span className="text-base font-semibold" aria-hidden="true">가가</span>
             </button>
@@ -415,12 +415,12 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
       </form>
 
       <section
-        className={`absolute inset-x-0 bottom-0 z-20 rounded-t-3xl bg-[#2c2c2e] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_35px_rgb(0_0_0/0.45)] transition-transform duration-300 ${isFormatOpen ? "translate-y-0" : "translate-y-full"}`}
+        className={`absolute inset-x-0 bottom-0 z-20 box-border w-full max-w-full overflow-x-hidden rounded-t-3xl bg-[#2c2c2e] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_35px_rgb(0_0_0/0.45)] transition-transform duration-300 ${isFormatOpen ? "translate-y-0" : "translate-y-full"}`}
         aria-label="서식 도구"
         aria-hidden={!isFormatOpen}
         inert={!isFormatOpen}
       >
-        <div className="mx-auto max-w-xl">
+        <div className="mx-auto w-full max-w-xl overflow-x-hidden">
           <div className="mb-2 flex items-center justify-between">
             <span className="h-1 w-9 rounded-full bg-[#636366]" />
             <button type="button" onClick={closeFormatLayer} className="ios-tap h-9 w-9 rounded-full bg-[#48484a] text-lg" aria-label="서식 도구 닫기">×</button>

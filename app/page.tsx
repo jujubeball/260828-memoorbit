@@ -205,7 +205,7 @@ export default function Home(): React.JSX.Element {
         <p className="mt-auto px-3 text-xs text-[#8e8e93]">생각의 궤도를 기록하고 다시 발견하세요.</p>
       </aside>
 
-      <header className="sticky top-0 z-40 border-b border-[#2a2e3d] bg-[#0f1117]/85 px-4 pb-3 pt-[max(0.8rem,env(safe-area-inset-top))] backdrop-blur-md">
+      <header className="sticky top-0 z-40 h-[calc(3rem+env(safe-area-inset-top))] border-b border-[#2a2e3d] bg-[#0f1117]/85 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-end justify-between">
           <div className="flex h-12 items-center gap-3">
             <button type="button" onClick={() => setIsDrawerOpen(true)} className="ios-tap flex h-11 w-11 items-center justify-center text-2xl xl:hidden" aria-label="메뉴 열기">☰</button>
@@ -223,7 +223,7 @@ export default function Home(): React.JSX.Element {
       <main className="mx-auto w-full max-w-5xl px-4 pb-28">
         {activeSection === "memos" && (
           <>
-            <div className="sticky top-0 z-20 mb-5 flex items-center justify-between gap-4 bg-[#0f1117]/80 py-3 backdrop-blur-md">
+            <div className="sticky top-[calc(3rem+env(safe-area-inset-top))] z-20 mb-5 flex items-center justify-between gap-4 bg-[#0f1117]/80 py-3 backdrop-blur-md xl:top-0">
               <div><h2 className="text-3xl font-bold">모든 메모 <span className="text-base font-normal text-[#9ca3af]">(전체 {memos.length}개)</span></h2></div>
               <div className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-1 backdrop-blur-md" aria-label="메모 보기 방식">
                 <button type="button" onClick={() => setMemoViewMode("list")} aria-pressed={memoViewMode === "list"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>📋 <span className="hidden sm:inline">텍스트 리스트</span></button>
