@@ -288,7 +288,7 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
 
   return (
     <div className="fixed inset-0 z-[100] box-border flex h-dvh w-full max-w-full flex-col overflow-x-hidden overflow-y-hidden bg-black text-white" role="dialog" aria-modal="true" aria-labelledby="memo-modal-title">
-      <form id="memo-form" onSubmit={submit} className="box-border flex min-h-0 w-full max-w-full flex-1 flex-col overflow-x-hidden">
+      <form id="memo-form" onSubmit={submit} className="box-border flex min-h-0 w-full max-w-full flex-1 flex-col overflow-x-hidden xl:mx-auto xl:max-w-2xl xl:border-x xl:border-[#2a2e3d] xl:bg-[#0f1117] xl:shadow-2xl">
         <header className="box-border flex w-full max-w-full shrink-0 items-center justify-between overflow-x-hidden px-3 pb-2 pt-[max(3.5rem,env(safe-area-inset-top))] xl:pt-[max(1rem,env(safe-area-inset-top))]">
           <button type="button" onClick={onClose} className="ios-tap flex h-11 items-center gap-1 px-1 text-[17px] text-[#e5a93c]" aria-label="메모 목록으로 돌아가기">
             <span className="text-3xl font-light" aria-hidden="true">‹</span>

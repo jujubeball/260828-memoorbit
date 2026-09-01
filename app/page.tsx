@@ -87,6 +87,7 @@ export default function Home(): React.JSX.Element {
   const [activeSection, setActiveSection] = useState<NavigationSection>("memos");
   const [memoViewMode, setMemoViewMode] = useState<MemoViewMode>("list");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isMemoToolbarStuck, setIsMemoToolbarStuck] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -100,6 +101,12 @@ export default function Home(): React.JSX.Element {
       }
     }, 0);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const trackScroll = (): void => setIsMemoToolbarStuck(window.scrollY > 0);
+    window.addEventListener("scroll", trackScroll, { passive: true });
+    return () => window.removeEventListener("scroll", trackScroll);
   }, []);
 
   useEffect(() => {
@@ -223,7 +230,7 @@ export default function Home(): React.JSX.Element {
       <main className="mx-auto w-full max-w-5xl px-4 pb-28">
         {activeSection === "memos" && (
           <>
-            <div className="sticky top-[calc(3rem+env(safe-area-inset-top))] z-20 mb-5 flex items-center justify-between gap-4 bg-[#0f1117]/80 py-3 backdrop-blur-md xl:top-0">
+            <div className={`sticky top-[calc(3rem+env(safe-area-inset-top))] z-30 mb-5 flex items-center justify-between gap-4 border-b border-transparent bg-[#0f1117]/90 py-3 backdrop-blur-md transition-all duration-200 xl:top-0 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}>
               <div><h2 className="text-3xl font-bold">모든 메모 <span className="text-base font-normal text-[#9ca3af]">(전체 {memos.length}개)</span></h2></div>
               <div className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-1 backdrop-blur-md" aria-label="메모 보기 방식">
                 <button type="button" onClick={() => setMemoViewMode("list")} aria-pressed={memoViewMode === "list"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>📋 <span className="hidden sm:inline">텍스트 리스트</span></button>
