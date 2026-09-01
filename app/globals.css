@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f1eb;
-  --foreground: #292524;
+  --background: #f2f2f7;
+  --foreground: #1c1c1e;
 }
 
 @theme inline {
@@ -15,7 +15,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", sans-serif;
   min-width: 100%;
   overflow-x: hidden;
 }
@@ -48,7 +48,7 @@ button:disabled {
 .rich-editor pre,
 .rich-content pre {
   border-radius: 0.5rem;
-  background: #f5f5f4;
+  background: #1c1c1e;
   padding: 0.25rem 0.5rem;
   font-family: var(--font-geist-mono), monospace;
   white-space: pre-wrap;
@@ -115,9 +115,9 @@ button:disabled {
   width: 1.25rem;
   height: 1.25rem;
   flex: 0 0 1.25rem;
-  border: 2px solid #78716c;
+  border: 2px solid #e5a93c;
   border-radius: 9999px;
-  background: #fff;
+  background: transparent;
   box-shadow: 0 2px 6px rgb(41 37 36 / 12%);
   transition:
     background-color 180ms ease,
@@ -146,8 +146,8 @@ button:disabled {
 
 .memo-check-item input[type="checkbox"]:checked,
 .rich-content input[type="checkbox"]:checked {
-  border-color: #57534e;
-  background: #57534e;
+  border-color: #e5a93c;
+  background: #e5a93c;
   transform: scale(1.05);
 }
 
@@ -184,6 +184,21 @@ button:disabled {
   }
 }
 
+.ios-tap {
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.ios-tap:active {
+  opacity: 0.55;
+  transform: scale(0.97);
+}
+
+.rich-editor:empty::before {
+  color: #636366;
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
 @media (hover: none) {
   .interactive-control:hover {
     background-color: inherit;
@@ -209,3 +224,9 @@ button:disabled {
 .format-color-button[data-color="#6d28d9"] {
   background-color: #6d28d9;
 }
+
+.format-color-button[data-color="#ffffff"] { background-color: #ffffff; }
+.format-color-button[data-color="#e5a93c"] { background-color: #e5a93c; }
+.format-color-button[data-color="#ff453a"] { background-color: #ff453a; }
+.format-color-button[data-color="#0a84ff"] { background-color: #0a84ff; }
+.format-color-button[data-color="#30d158"] { background-color: #30d158; }

@@ -6,33 +6,13 @@ import { MemoModal, type MemoDraft } from "@/src/components/MemoModal";
 import { initialMemos } from "@/src/data/initialMemos";
 import type { Memo } from "@/types/memo";
 
-interface MemoGroup {
-  label: string;
-  memos: Memo[];
-}
-
-const toTags = (value: string): string[] =>
-  value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-
+interface MemoGroup { label: string; memos: Memo[] }
+const toTags = (value: string): string[] => value.split(",").map((tag) => tag.trim()).filter(Boolean);
 const groupLabel = (iso: string): string => {
   const date = new Date(iso);
   const today = new Date();
-  const currentYear = today.getFullYear();
-  const memoYear = date.getFullYear();
-  const day = Math.floor(
-    (new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-    ).getTime() -
-      new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()) /
-      86400000,
-  );
-
-  if (memoYear < currentYear) return `${memoYear}년`;
+  const day = Math.floor((new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() - new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()) / 86400000);
+  if (date.getFullYear() < today.getFullYear()) return `${date.getFullYear()}년`;
   if (day === 0) return "오늘";
   if (day === 1) return "어제";
   if (day <= 7) return "이전 7일";
@@ -49,212 +29,99 @@ export default function Home(): React.JSX.Element {
 
   useEffect(() => {
     if (!isEditorOpen && !deleteTarget) return;
-
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
+    return () => { document.body.style.overflow = previousOverflow; };
   }, [deleteTarget, isEditorOpen]);
 
-  const sorted = useMemo(
-    () =>
-      [...memos].sort(
-        (a, b) =>
-          Number(b.isPinned) - Number(a.isPinned) ||
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      ),
-    [memos],
-  );
+  const sorted = useMemo(() => [...memos].sort((a, b) => Number(b.isPinned) - Number(a.isPinned) || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), [memos]);
   const pinned = sorted.filter((memo) => memo.isPinned);
-  const groups = sorted
-    .filter((memo) => !memo.isPinned)
-    .reduce<MemoGroup[]>((result, memo) => {
-      const label = groupLabel(memo.updatedAt);
-      const existingGroup = result.find((group) => group.label === label);
+  const groups = sorted.filter((memo) => !memo.isPinned).reduce<MemoGroup[]>((result, memo) => {
+    const label = groupLabel(memo.updatedAt);
+    const group = result.find((item) => item.label === label);
+    if (!group) return [...result, { label, memos: [memo] }];
+    return result.map((item) => item.label === label ? { ...item, memos: [...item.memos, memo] } : item);
+  }, []);
 
-      if (!existingGroup) return [...result, { label, memos: [memo] }];
-      return result.map((group) =>
-        group.label === label
-          ? { ...group, memos: [...group.memos, memo] }
-          : group,
-      );
-    }, []);
-
-  const closeEditor = (): void => {
-    setIsEditorOpen(false);
-    setEditingMemo(null);
-  };
-
+  const closeEditor = (): void => { setIsEditorOpen(false); setEditingMemo(null); };
   const submitMemo = (draft: MemoDraft): void => {
     const now = new Date().toISOString();
-    const sharedValues = {
+    const values = {
       title: draft.title,
       content: draft.content,
       richContent: draft.richContent,
       tags: toTags(draft.tags),
       imageUrl: draft.imageUrl,
       aiImageMood: draft.aiImageMood,
-      aiImageUrl:
-        editingMemo?.content === draft.content
-          ? editingMemo.aiImageUrl
-          : undefined,
-      aiImageSourceText:
-        editingMemo?.content === draft.content
-          ? editingMemo.aiImageSourceText
-          : undefined,
+      aiImageUrl: editingMemo?.content === draft.content ? editingMemo.aiImageUrl : undefined,
+      aiImageSourceText: editingMemo?.content === draft.content ? editingMemo.aiImageSourceText : undefined,
       updatedAt: now,
     };
-
     if (editingMemo) {
-      setMemos((current) => [
-        { ...editingMemo, ...sharedValues },
-        ...current.filter((memo) => memo.id !== editingMemo.id),
-      ]);
+      setMemos((current) => [{ ...editingMemo, ...values }, ...current.filter((memo) => memo.id !== editingMemo.id)]);
     } else {
-      setMemos((current) => [
-        {
-          id: crypto.randomUUID(),
-          ...sharedValues,
-          createdAt: now,
-          isPinned: false,
-        },
-        ...current,
-      ]);
+      setMemos((current) => [{ id: crypto.randomUUID(), ...values, createdAt: now, isPinned: false }, ...current]);
     }
     closeEditor();
   };
-
-  const renderCard = (memo: Memo): React.JSX.Element => (
+  const renderMemo = (memo: Memo): React.JSX.Element => (
     <MemoCard
       key={memo.id}
       memo={memo}
-      onEdit={(value) => {
-        setEditingMemo(value);
-        setIsEditorOpen(true);
-      }}
+      onEdit={(value) => { setEditingMemo(value); setIsEditorOpen(true); }}
       onDelete={setDeleteTarget}
-      onTogglePin={(id) =>
-        setMemos((current) =>
-          current.map((item) =>
-            item.id === id ? { ...item, isPinned: !item.isPinned } : item,
-          ),
-        )
-      }
+      onTogglePin={(id) => setMemos((current) => current.map((item) => item.id === id ? { ...item, isPinned: !item.isPinned } : item))}
     />
   );
 
   return (
-    <div className="min-h-screen w-full min-w-full overflow-x-hidden bg-[#f4f1eb] text-stone-800">
-      <header className="sticky top-0 z-50 border-b border-stone-200 bg-[#faf9f6]/90 backdrop-blur-md">
-        <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-3 px-4">
-          <div className="min-w-0">
-            <span className="text-lg font-bold text-stone-900 sm:text-xl">
-              MemoOrbit
-            </span>
-            <span className="ml-2 text-xs text-stone-600 sm:ml-3 sm:text-sm">
-              전체 {memos.length}개의 메모
-            </span>
+    <div className="min-h-dvh bg-[#f2f2f7] text-[#1c1c1e]">
+      <header className="sticky top-0 z-40 bg-[#f2f2f7]/90 px-5 pb-3 pt-[max(0.8rem,env(safe-area-inset-top))] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-2xl items-end justify-between">
+          <div>
+            <p className="text-sm font-medium text-[#8e8e93]">iCloud</p>
+            <h1 className="mt-1 text-[34px] font-bold tracking-tight">메모</h1>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsEditorOpen(true)}
-            aria-label="새 메모 작성"
-            className="new-memo-button shrink-0 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-white transition-colors active:scale-95 sm:px-4"
-          >
-            + 새 메모
+          <button type="button" onClick={() => setIsEditorOpen(true)} className="ios-tap flex h-11 w-11 items-center justify-center rounded-full text-2xl text-[#b77912]" aria-label="새 메모 작성">
+            <span aria-hidden="true">□̸</span>
           </button>
         </div>
       </header>
-
-      <main className="mx-auto w-full max-w-3xl px-4 py-7 xl:py-10">
-        <h1 className="mb-7 text-2xl font-bold text-stone-900 sm:text-3xl">
-          나의 모든 메모
-        </h1>
-
+      <main className="mx-auto w-full max-w-2xl px-4 pb-28">
         {pinned.length > 0 && (
-          <section className="mb-9" aria-labelledby="pinned-heading">
-            <button
-              type="button"
-              onClick={() => setIsPinnedOpen((current) => !current)}
-              className="interactive-control mb-2 flex w-full items-center justify-between rounded-lg px-1 py-2 text-left text-sm font-bold text-stone-800"
-              aria-expanded={isPinnedOpen}
-              aria-controls="pinned-memo-list"
-            >
-              <span id="pinned-heading">고정된 메모 {pinned.length}개</span>
-              <span aria-hidden="true">{isPinnedOpen ? "▾" : "▸"}</span>
+          <section className="mb-7" aria-labelledby="pinned-heading">
+            <button type="button" onClick={() => setIsPinnedOpen((current) => !current)} className="ios-tap flex w-full items-center justify-between px-1 pb-2 text-left" aria-expanded={isPinnedOpen} aria-controls="pinned-list">
+              <h2 id="pinned-heading" className="text-[22px] font-bold">고정됨</h2>
+              <span className="text-lg text-[#8e8e93]" aria-hidden="true">{isPinnedOpen ? "⌃" : "⌄"}</span>
             </button>
-            {isPinnedOpen && (
-              <div id="pinned-memo-list" className="xl:space-y-4">
-                {pinned.map(renderCard)}
-              </div>
-            )}
+            {isPinnedOpen && <div id="pinned-list" className="overflow-hidden rounded-xl bg-white">{pinned.map(renderMemo)}</div>}
           </section>
         )}
-
         {groups.map((group) => (
-          <section
-            key={group.label}
-            className="mb-9 xl:space-y-4"
-            aria-labelledby={`group-${group.label}`}
-          >
-            <h2
-              id={`group-${group.label}`}
-              className="text-sm font-bold text-stone-700"
-            >
-              {group.label}
-            </h2>
-            {group.memos.map(renderCard)}
+          <section key={group.label} className="mb-7" aria-labelledby={`group-${group.label}`}>
+            <h2 id={`group-${group.label}`} className="px-1 pb-2 text-[22px] font-bold">{group.label}</h2>
+            <div className="overflow-hidden rounded-xl bg-white">{group.memos.map(renderMemo)}</div>
           </section>
         ))}
       </main>
-
-      {isEditorOpen && (
-        <MemoModal
-          key={editingMemo?.id ?? "new"}
-          isOpen
-          editingMemo={editingMemo}
-          onClose={closeEditor}
-          onSubmit={submitMemo}
-        />
-      )}
-
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#c6c6c8] bg-[#f9f9f9]/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
+        <div className="mx-auto flex h-12 max-w-2xl items-center justify-between px-5">
+          <span className="w-11" />
+          <span className="text-xs text-[#636366]">{memos.length}개의 메모</span>
+          <button type="button" onClick={() => setIsEditorOpen(true)} className="ios-tap h-11 w-11 text-2xl text-[#b77912]" aria-label="새 메모 작성"><span aria-hidden="true">□̸</span></button>
+        </div>
+      </div>
+      {isEditorOpen && <MemoModal key={editingMemo?.id ?? "new"} isOpen editingMemo={editingMemo} onClose={closeEditor} onSubmit={submitMemo} />}
       {deleteTarget && (
-        <div
-          className="fixed inset-0 z-[110] flex w-full min-w-full items-center justify-center bg-stone-950/45 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-title"
-          aria-describedby="delete-description"
-        >
-          <div className="w-full max-w-sm rounded-3xl bg-[#faf9f6] p-6 shadow-2xl">
-            <h2 id="delete-title" className="text-lg font-bold text-stone-900">
-              메모를 삭제할까요?
-            </h2>
-            <p id="delete-description" className="mt-2 text-sm text-stone-700">
-              “{deleteTarget.title}” 메모는 삭제 후 되돌릴 수 없습니다.
-            </p>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                className="interactive-control rounded-xl px-4 py-2 text-stone-700 active:scale-95"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMemos((current) =>
-                    current.filter((memo) => memo.id !== deleteTarget.id),
-                  );
-                  setDeleteTarget(null);
-                }}
-                className="interactive-control rounded-xl bg-stone-800 px-4 py-2 font-semibold text-white active:scale-95"
-              >
-                삭제
-              </button>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-6" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+          <div className="w-full max-w-[300px] overflow-hidden rounded-2xl bg-[#f2f2f7]/95 text-center backdrop-blur-xl">
+            <div className="px-5 py-5">
+              <h2 id="delete-title" className="font-semibold">이 메모를 삭제하겠습니까?</h2>
+              <p className="mt-1 text-[13px] text-[#636366]">최근 삭제된 항목으로 이동합니다.</p>
+            </div>
+            <div className="grid grid-cols-2 border-t border-[#c6c6c8]">
+              <button type="button" onClick={() => setDeleteTarget(null)} className="ios-tap h-12 border-r border-[#c6c6c8] text-[#b77912]">취소</button>
+              <button type="button" onClick={() => { setMemos((current) => current.filter((memo) => memo.id !== deleteTarget.id)); setDeleteTarget(null); }} className="ios-tap h-12 font-semibold text-[#ff3b30]">삭제</button>
             </div>
           </div>
         </div>
