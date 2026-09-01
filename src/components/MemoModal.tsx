@@ -4,6 +4,8 @@ import {
   type FormEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -24,6 +26,21 @@ interface MemoModalProps {
   onClose: () => void;
   onSubmit: (draft: MemoDraft) => void;
 }
+
+interface TableMenuPosition {
+  left: number;
+  top: number;
+}
+
+const TAG_RULES: Array<[RegExp, string]> = [
+  [/운동|달리기|수영|산책/, "운동"],
+  [/아이|육아|어린이집|가족/, "육아"],
+  [/개발|코드|react|next|typescript/i, "개발"],
+  [/장보기|마트|구매|식재료/, "장보기"],
+  [/여행|숙소|기차|비행기/, "여행"],
+  [/책|독서|문장/, "독서"],
+  [/오늘|일상|아침|저녁/, "일상"],
+];
 
 const escapeHtml = (value: string): string =>
   value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -61,10 +78,28 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const savedRange = useRef<Range | null>(null);
+  const selectedCellRef = useRef<HTMLTableCellElement | null>(null);
   const [plainText, setPlainText] = useState(editingMemo ? [editingMemo.title, editingMemo.content].filter(Boolean).join("\n") : "");
   const [imageUrl, setImageUrl] = useState(editingMemo?.imageUrl);
+  const [tags, setTags] = useState(editingMemo?.tags.join(", ") ?? "");
+  const [analyzedText, setAnalyzedText] = useState(plainText);
   const [isFormatOpen, setIsFormatOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [tableMenuPosition, setTableMenuPosition] = useState<TableMenuPosition | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAnalyzedText(plainText), 300);
+    return () => window.clearTimeout(timer);
+  }, [plainText]);
+
+  const recommendedTags = useMemo(
+    () => TAG_RULES.filter(([pattern]) => pattern.test(analyzedText)).map(([, tag]) => tag),
+    [analyzedText],
+  );
+  const selectedTags = useMemo(
+    () => tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+    [tags],
+  );
 
   if (!isOpen) return null;
 
@@ -96,20 +131,112 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
     syncText();
   };
   const keepSelection = (event: ReactMouseEvent<HTMLButtonElement> | ReactPointerEvent<HTMLButtonElement>): void => event.preventDefault();
-  const insertChecklist = (): void => insertAtCaret('<div class="memo-check-item"><input type="checkbox" contenteditable="false" aria-label="체크리스트 완료"><span class="memo-check-text"><br></span></div><div><br></div>');
+  const insertChecklist = (): void => {
+    insertAtCaret('<div class="memo-check-item" data-new-check="true"><input type="checkbox" contenteditable="false" aria-label="체크리스트 완료"><span class="memo-check-text"><br></span></div><div><br></div>');
+    const item = editorRef.current?.querySelector<HTMLElement>('[data-new-check="true"]');
+    const text = item?.querySelector<HTMLElement>(".memo-check-text");
+    item?.removeAttribute("data-new-check");
+    if (!text) return;
+    const range = document.createRange();
+    range.selectNodeContents(text);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    savedRange.current = range.cloneRange();
+  };
   const insertTable = (): void => insertAtCaret("<table><tbody><tr><td><br></td><td><br></td></tr><tr><td><br></td><td><br></td></tr></tbody></table><div><br></div>");
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     const editor = editorRef.current;
     if (!editor?.innerText.trim()) return;
     const [title, ...body] = editor.innerText.split("\n");
-    onSubmit({ title: title.trim(), content: body.join("\n").trim(), richContent: sanitizeEditorHtml(editor.innerHTML), tags: editingMemo?.tags.join(", ") ?? "", imageUrl, aiImageMood: editingMemo?.aiImageMood ?? "수채화" });
+    onSubmit({
+      title: title.trim(),
+      content: body.join("\n").trim(),
+      richContent: sanitizeEditorHtml(editor.innerHTML),
+      tags,
+      imageUrl,
+      aiImageMood: editingMemo?.aiImageMood ?? "수채화",
+    });
   };
   const attachImage = (file: File | undefined): void => {
     if (!file?.type.startsWith("image/")) return;
     const reader = new FileReader();
     reader.addEventListener("load", () => { if (typeof reader.result === "string") setImageUrl(reader.result); });
     reader.readAsDataURL(file);
+  };
+  const toggleTag = (tag: string): void => {
+    const nextTags = selectedTags.includes(tag)
+      ? selectedTags.filter((item) => item !== tag)
+      : [...selectedTags, tag];
+    setTags(nextTags.join(", "));
+  };
+  const selectTableCell = (cell: HTMLTableCellElement): void => {
+    selectedCellRef.current?.removeAttribute("data-selected");
+    cell.setAttribute("data-selected", "true");
+    selectedCellRef.current = cell;
+    const rect = cell.getBoundingClientRect();
+    setTableMenuPosition({
+      left: Math.min(window.innerWidth - 244, Math.max(8, rect.left)),
+      top: Math.min(window.innerHeight - 310, rect.bottom + 8),
+    });
+  };
+  const handleEditorClick = (event: ReactMouseEvent<HTMLDivElement>): void => {
+    const target = event.target;
+    if (target instanceof HTMLInputElement && target.type === "checkbox") {
+      if (target.checked) target.setAttribute("checked", "");
+      else target.removeAttribute("checked");
+      syncText();
+      return;
+    }
+    const cell = target instanceof Element ? target.closest("td") : null;
+    if (cell instanceof HTMLTableCellElement) selectTableCell(cell);
+    else {
+      selectedCellRef.current?.removeAttribute("data-selected");
+      selectedCellRef.current = null;
+      setTableMenuPosition(null);
+    }
+  };
+  const mutateTable = (action: "addRow" | "deleteRow" | "addColumn" | "deleteColumn"): void => {
+    const selectedCell = selectedCellRef.current;
+    if (!selectedCell) return;
+    const row = selectedCell.parentElement;
+    const table = selectedCell.closest("table");
+    if (!(row instanceof HTMLTableRowElement) || !(table instanceof HTMLTableElement)) return;
+    if (action === "addRow") {
+      const nextRow = row.cloneNode(true) as HTMLTableRowElement;
+      [...nextRow.cells].forEach((cell) => { cell.innerHTML = "<br>"; cell.removeAttribute("data-selected"); });
+      row.after(nextRow);
+    }
+    if (action === "deleteRow" && table.rows.length > 1) row.remove();
+    if (action === "addColumn") {
+      const index = selectedCell.cellIndex;
+      [...table.rows].forEach((tableRow) => {
+        const cell = tableRow.insertCell(index + 1);
+        cell.innerHTML = "<br>";
+      });
+    }
+    if (action === "deleteColumn" && row.cells.length > 1) {
+      const index = selectedCell.cellIndex;
+      [...table.rows].forEach((tableRow) => tableRow.deleteCell(index));
+    }
+    selectedCellRef.current = null;
+    setTableMenuPosition(null);
+    syncText();
+  };
+  const copyCell = async (cut: boolean): Promise<void> => {
+    const selectedCell = selectedCellRef.current;
+    if (!selectedCell) return;
+    await navigator.clipboard.writeText(selectedCell.innerText);
+    if (cut) selectedCell.innerHTML = "<br>";
+    syncText();
+  };
+  const pasteCell = async (): Promise<void> => {
+    const selectedCell = selectedCellRef.current;
+    if (!selectedCell) return;
+    selectedCell.innerText = await navigator.clipboard.readText();
+    syncText();
   };
   const formatButton = "ios-tap flex h-11 min-w-11 items-center justify-center rounded-lg px-3 text-[15px] font-semibold text-white";
   const bottomButton = "ios-tap flex h-11 min-w-11 flex-1 items-center justify-center text-[#e5a93c]";
@@ -141,18 +268,81 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
               <button type="button" onClick={() => setImageUrl(undefined)} className="absolute right-2 top-2 rounded-full bg-black/75 px-3 py-1.5 text-xs">사진 제거</button>
             </figure>
           )}
-          <div ref={editorRef} contentEditable suppressContentEditableWarning role="textbox" aria-label="메모 내용" aria-multiline="true" onInput={(event) => setPlainText(event.currentTarget.innerText)} onSelect={rememberSelection} onKeyUp={rememberSelection} className="rich-editor min-h-full w-full select-text overflow-x-hidden text-[17px] leading-7 text-white outline-none" data-placeholder="메모를 입력하세요" dangerouslySetInnerHTML={{ __html: createInitialHtml(editingMemo) }} />
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            role="textbox"
+            aria-label="메모 내용"
+            aria-multiline="true"
+            onClick={handleEditorClick}
+            onContextMenu={(event) => {
+              const cell = event.target instanceof Element ? event.target.closest("td") : null;
+              if (!(cell instanceof HTMLTableCellElement)) return;
+              event.preventDefault();
+              selectTableCell(cell);
+            }}
+            onInput={(event) => setPlainText(event.currentTarget.innerText)}
+            onSelect={rememberSelection}
+            onKeyUp={rememberSelection}
+            className="rich-editor min-h-[60%] w-full select-text overflow-x-hidden text-[17px] leading-7 text-white outline-none"
+            data-placeholder="메모를 입력하세요"
+            dangerouslySetInnerHTML={{ __html: createInitialHtml(editingMemo) }}
+          />
+          <section className="mt-8 border-t border-[#38383a] pt-4" aria-label="AI 추천 키워드">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-[#e5a93c]">AI 추천 키워드</h3>
+              <span className="text-xs text-[#8e8e93]">본문을 분석해 자동 추천합니다</span>
+            </div>
+            <div className="mt-3 flex min-h-8 flex-wrap gap-2">
+              {recommendedTags.length > 0 ? (
+                recommendedTags.map((tag) => {
+                  const isSelected = selectedTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleTag(tag)}
+                      aria-pressed={isSelected}
+                      className={`ios-tap rounded-full border px-3 py-1.5 text-xs font-semibold ${isSelected ? "border-[#e5a93c] bg-[#e5a93c] text-black" : "border-[#636366] text-white"}`}
+                    >
+                      #{tag}
+                    </button>
+                  );
+                })
+              ) : (
+                <p className="text-xs text-[#636366]">본문을 입력하면 관련 키워드가 여기에 표시됩니다.</p>
+              )}
+            </div>
+            <input
+              value={tags}
+              onChange={(event) => setTags(event.target.value)}
+              className="mt-3 w-full rounded-xl border border-[#48484a] bg-[#1c1c1e] px-3 py-2 text-sm text-white outline-none focus:border-[#e5a93c]"
+              placeholder="태그 직접 추가: 쉼표로 구분"
+              aria-label="태그 직접 추가"
+            />
+          </section>
         </div>
 
         <div className="shrink-0 border-t border-[#38383a] bg-[#1c1c1e]/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
           <div className="mx-auto flex max-w-xl items-center justify-around px-1 py-1">
-            <button type="button" onPointerDown={keepSelection} onClick={() => setIsFormatOpen((current) => !current)} className={bottomButton} aria-expanded={isFormatOpen} aria-label="텍스트 서식"><span className="text-base font-semibold" aria-hidden="true">가가</span></button>
-            <button type="button" onPointerDown={keepSelection} onClick={insertChecklist} className={bottomButton} aria-label="체크리스트"><span className="text-2xl" aria-hidden="true">✓⃝</span></button>
-            <button type="button" onPointerDown={keepSelection} onClick={insertTable} className={bottomButton} aria-label="표"><span className="text-xl" aria-hidden="true">▦</span></button>
-            <button type="button" onPointerDown={keepSelection} onClick={() => imageInputRef.current?.click()} className={bottomButton} aria-label="사진 첨부"><span className="text-xl" aria-hidden="true">▧</span></button>
-            <button type="button" className={bottomButton} aria-label="손글씨와 드로잉"><span className="text-xl" aria-hidden="true">⌁</span></button>
-            <button type="button" className={bottomButton} aria-label="AI 추천"><span className="text-xl" aria-hidden="true">✦</span></button>
-            <button type="button" onClick={() => { editorRef.current?.focus(); document.execCommand("selectAll"); document.execCommand("delete"); syncText(); }} className={bottomButton} aria-label="새 메모 작성"><span className="text-xl" aria-hidden="true">□̸</span></button>
+            <button type="button" onPointerDown={keepSelection} onClick={() => setIsFormatOpen((current) => !current)} className={bottomButton} aria-expanded={isFormatOpen} aria-label="텍스트 서식">
+              <span className="text-base font-semibold" aria-hidden="true">가가</span>
+            </button>
+            <button type="button" onPointerDown={keepSelection} onClick={insertChecklist} className={bottomButton} aria-label="체크리스트">
+              <span className="text-2xl" aria-hidden="true">✓⃝</span>
+            </button>
+            <button type="button" onPointerDown={keepSelection} onClick={insertTable} className={bottomButton} aria-label="표">
+              <span className="text-xl" aria-hidden="true">▦</span>
+            </button>
+            <button type="button" onPointerDown={keepSelection} onClick={() => imageInputRef.current?.click()} className={bottomButton} aria-label="사진 또는 파일 첨부">
+              <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
+                <path d="M8.4 12.7 14.8 6.3a3.1 3.1 0 0 1 4.4 4.4l-8.1 8.1a5 5 0 0 1-7.1-7.1l8-8" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+              </svg>
+            </button>
+            <button type="button" onClick={() => document.querySelector('[aria-label="AI 추천 키워드"]')?.scrollIntoView({ behavior: "smooth" })} className={bottomButton} aria-label="AI 추천 키워드 보기">
+              <span className="text-sm font-bold" aria-hidden="true">AI</span>
+            </button>
             <input ref={imageInputRef} type="file" accept="image/*" onChange={(event) => attachImage(event.target.files?.[0])} className="hidden" />
           </div>
         </div>
@@ -182,6 +372,38 @@ export function MemoModal({ isOpen, editingMemo, onClose, onSubmit }: MemoModalP
           </div>
         </div>
       </section>
+
+      {tableMenuPosition && (
+        <div
+          className="fixed z-[160] w-60 overflow-hidden rounded-xl border border-[#545458] bg-[#2c2c2e]/95 py-1 text-sm text-white shadow-2xl backdrop-blur-xl"
+          style={{ left: tableMenuPosition.left, top: tableMenuPosition.top }}
+          role="menu"
+          aria-label="표 셀 메뉴"
+        >
+          <div className="grid grid-cols-2">
+            <button type="button" onClick={() => mutateTable("addRow")} className="table-menu-item" role="menuitem">아래 행 추가</button>
+            <button type="button" onClick={() => mutateTable("deleteRow")} className="table-menu-item text-[#ff6961]" role="menuitem">행 삭제</button>
+            <button type="button" onClick={() => mutateTable("addColumn")} className="table-menu-item" role="menuitem">오른쪽 열 추가</button>
+            <button type="button" onClick={() => mutateTable("deleteColumn")} className="table-menu-item text-[#ff6961]" role="menuitem">열 삭제</button>
+          </div>
+          <div className="grid grid-cols-3 border-t border-[#545458]">
+            <button type="button" onClick={() => void copyCell(false)} className="table-menu-item" role="menuitem">복사</button>
+            <button type="button" onClick={() => void copyCell(true)} className="table-menu-item" role="menuitem">오려두기</button>
+            <button type="button" onClick={() => void pasteCell()} className="table-menu-item" role="menuitem">붙여넣기</button>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              selectedCellRef.current?.toggleAttribute("data-highlight");
+              setTableMenuPosition(null);
+            }}
+            className="table-menu-item w-full border-t border-[#545458] text-left"
+            role="menuitem"
+          >
+            셀 포맷 강조 전환
+          </button>
+        </div>
+      )}
     </div>
   );
 }

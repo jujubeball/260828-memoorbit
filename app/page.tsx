@@ -6,8 +6,13 @@ import { MemoModal, type MemoDraft } from "@/src/components/MemoModal";
 import { initialMemos } from "@/src/data/initialMemos";
 import type { Memo } from "@/types/memo";
 
-interface MemoGroup { label: string; memos: Memo[] }
-const toTags = (value: string): string[] => value.split(",").map((tag) => tag.trim()).filter(Boolean);
+interface MemoGroup {
+  label: string;
+  memos: Memo[];
+}
+
+const toTags = (value: string): string[] =>
+  value.split(",").map((tag) => tag.trim()).filter(Boolean);
 const groupLabel = (iso: string): string => {
   const date = new Date(iso);
   const today = new Date();
@@ -77,22 +82,36 @@ export default function Home(): React.JSX.Element {
   return (
     <div className="min-h-dvh bg-[#f2f2f7] text-[#1c1c1e]">
       <header className="sticky top-0 z-40 bg-[#f2f2f7]/90 px-5 pb-3 pt-[max(0.8rem,env(safe-area-inset-top))] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-2xl items-end justify-between">
-          <div>
-            <p className="text-sm font-medium text-[#8e8e93]">iCloud</p>
-            <h1 className="mt-1 text-[34px] font-bold tracking-tight">메모</h1>
+        <div className="mx-auto flex max-w-5xl items-end justify-between">
+          <div className="flex h-12 items-center gap-3">
+            <h1 className="text-[30px] font-bold leading-10 tracking-tight">
+              MemoOrbit
+            </h1>
+            <span className="text-sm leading-10 text-[#8e8e93]">
+              전체 {memos.length}개의 메모
+            </span>
           </div>
           <button type="button" onClick={() => setIsEditorOpen(true)} className="ios-tap flex h-11 w-11 items-center justify-center rounded-full text-2xl text-[#b77912]" aria-label="새 메모 작성">
             <span aria-hidden="true">□̸</span>
           </button>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-2xl px-4 pb-28">
+      <main className="mx-auto w-full max-w-5xl px-4 pb-28">
         {pinned.length > 0 && (
           <section className="mb-7" aria-labelledby="pinned-heading">
-            <button type="button" onClick={() => setIsPinnedOpen((current) => !current)} className="ios-tap flex w-full items-center justify-between px-1 pb-2 text-left" aria-expanded={isPinnedOpen} aria-controls="pinned-list">
-              <h2 id="pinned-heading" className="text-[22px] font-bold">고정됨</h2>
-              <span className="text-lg text-[#8e8e93]" aria-hidden="true">{isPinnedOpen ? "⌃" : "⌄"}</span>
+            <button
+              type="button"
+              onClick={() => setIsPinnedOpen((current) => !current)}
+              className="ios-tap flex h-11 w-full items-center justify-between px-1 text-left"
+              aria-expanded={isPinnedOpen}
+              aria-controls="pinned-list"
+            >
+              <h2 id="pinned-heading" className="text-[22px] font-bold leading-7">
+                고정됨
+              </h2>
+              <span className="flex h-7 w-7 items-center justify-center text-lg leading-7 text-[#8e8e93]" aria-hidden="true">
+                {isPinnedOpen ? "⌃" : "⌄"}
+              </span>
             </button>
             {isPinnedOpen && <div id="pinned-list" className="overflow-hidden rounded-xl bg-white">{pinned.map(renderMemo)}</div>}
           </section>
@@ -105,7 +124,7 @@ export default function Home(): React.JSX.Element {
         ))}
       </main>
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#c6c6c8] bg-[#f9f9f9]/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
-        <div className="mx-auto flex h-12 max-w-2xl items-center justify-between px-5">
+        <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-5">
           <span className="w-11" />
           <span className="text-xs text-[#636366]">{memos.length}개의 메모</span>
           <button type="button" onClick={() => setIsEditorOpen(true)} className="ios-tap h-11 w-11 text-2xl text-[#b77912]" aria-label="새 메모 작성"><span aria-hidden="true">□̸</span></button>

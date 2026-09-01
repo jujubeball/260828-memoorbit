@@ -105,8 +105,9 @@ button:disabled {
 .memo-check-item,
 .rich-content .memo-check-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
+  min-height: 1.75rem;
 }
 
 .memo-check-item input[type="checkbox"],
@@ -123,12 +124,14 @@ button:disabled {
     background-color 180ms ease,
     border-color 180ms ease,
     transform 180ms ease;
+  margin-top: 0.25rem;
 }
 
 .memo-check-text {
   min-width: 0;
   flex: 1;
   cursor: text;
+  line-height: 1.75rem;
 }
 
 .memo-check-item input[type="checkbox"]::after,
@@ -158,9 +161,30 @@ button:disabled {
 
 .memo-check-item input[type="checkbox"]:checked + span,
 .rich-content input[type="checkbox"]:checked + span {
-  color: #78716c;
-  text-decoration: line-through;
-  transition: color 180ms ease;
+  color: inherit;
+  text-decoration: none;
+}
+
+.rich-editor td[data-selected="true"] {
+  background: rgb(229 169 60 / 24%);
+  outline: 2px solid #e5a93c;
+  outline-offset: -2px;
+}
+
+.rich-editor td[data-highlight] {
+  background: rgb(229 169 60 / 18%);
+}
+
+.table-menu-item {
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  transition: background-color 120ms ease;
+}
+
+.table-menu-item:hover,
+.table-menu-item:focus-visible {
+  background: #48484a;
+  outline: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
