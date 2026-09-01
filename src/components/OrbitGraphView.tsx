@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import type { Memo } from "@/types/memo";
+import { MainContentHeader } from "@/src/components/MainContentHeader";
 
 interface OrbitGraphViewProps {
   memos: Memo[];
@@ -145,11 +146,14 @@ export function OrbitGraphView({ memos, onOpenMemo }: OrbitGraphViewProps): Reac
 
   return (
     <section className="text-[#f3f4f6] xl:flex xl:h-full xl:flex-col xl:overflow-hidden" aria-labelledby="orbit-graph-title">
-      <p className="text-sm font-semibold text-[#ffc86b]">Orbit Graph</p>
-      <h2 id="orbit-graph-title" className="mt-1 text-3xl font-bold">생각 궤적 탐색</h2>
-      <p className="mt-2 text-sm text-[#9ca3af]">태그 행성을 따라 연결된 기록을 탐색하세요.</p>
+      <MainContentHeader
+        id="orbit-graph-title"
+        label="ORBIT GRAPH"
+        title="생각 궤적 탐색"
+        description="태그 행성을 따라 연결된 생각 궤도를 탐색하세요."
+      />
 
-      <div className="glass-panel relative mt-5 hidden overflow-hidden xl:block xl:min-h-0 xl:flex-1">
+      <div className="glass-panel relative hidden overflow-hidden xl:block xl:min-h-0 xl:flex-1">
         <canvas
           ref={canvasRef}
           className="h-full w-full cursor-grab active:cursor-grabbing"
@@ -180,7 +184,7 @@ export function OrbitGraphView({ memos, onOpenMemo }: OrbitGraphViewProps): Reac
         {selectedTag && <div className="absolute inset-x-4 bottom-4 grid max-h-[300px] gap-2 overflow-y-auto rounded-2xl border border-[#2a2e3d] bg-[#0f1117]/80 p-3 backdrop-blur-md">{relatedMemos.map((memo) => <button key={memo.id} type="button" onClick={() => onOpenMemo(memo)} className="rounded-xl bg-white/5 px-4 py-3 text-left hover:bg-white/10"><strong className="block truncate text-sm">{memo.title}</strong><span className="text-xs text-[#9ca3af]">{memo.tags.map((tag) => `#${tag}`).join(" ")}</span></button>)}</div>}
       </div>
 
-      <div className="mt-5 xl:hidden">
+      <div className="xl:hidden">
         <div className="scrollbar-hidden flex snap-x gap-4 overflow-x-auto px-[12vw] py-8">
           {nodes.map((node) => <button key={node.name} type="button" onClick={() => selectMobileTag(node.name)} className="orbit-node flex aspect-square w-36 shrink-0 snap-center flex-col items-center justify-center rounded-full border border-[#596077] bg-[#1a1d26]/80 shadow-[0_0_30px_rgb(229_169_60/0.2)]"><strong>#{node.name}</strong><span className="mt-2 text-xs text-[#9ca3af]">{node.count}개의 기록</span></button>)}
         </div>

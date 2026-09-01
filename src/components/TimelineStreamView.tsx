@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ResponsiveDatePicker } from "@/src/components/ResponsiveDatePicker";
+import { MainContentHeader } from "@/src/components/MainContentHeader";
 import type { Memo } from "@/types/memo";
 
 interface TimelineStreamViewProps {
@@ -74,11 +75,13 @@ export function TimelineStreamView({ memos, onOpenMemo }: TimelineStreamViewProp
 
   return (
     <section className="text-[#f3f4f6]" aria-labelledby="timeline-title">
-      <p className="text-sm font-semibold text-[#ffc86b]">Timeline Stream</p>
-      <h2 id="timeline-title" className="mt-1 text-3xl font-bold">
-        시간 궤도 분석
-      </h2>
-      <div className="glass-panel relative z-40 mt-5 grid w-full gap-4 overflow-visible p-4 sm:grid-cols-2">
+      <MainContentHeader
+        id="timeline-title"
+        label="TIMELINE STREAM"
+        title="시간 궤도 분석"
+        description="지정한 기간 동안 쌓인 기록의 성찰과 실행 궤도를 분석합니다."
+      />
+      <div className="glass-panel relative z-40 grid w-full gap-4 overflow-visible p-4 sm:grid-cols-2">
         <ResponsiveDatePicker id="timeline-start" label="시작일" value={startDate} onChange={setStartDate} />
         <ResponsiveDatePicker id="timeline-end" label="종료일" value={endDate} onChange={setEndDate} />
       </div>

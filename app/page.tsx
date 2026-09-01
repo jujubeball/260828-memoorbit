@@ -7,6 +7,7 @@ import {
   type MemoryCandidate,
 } from "@/src/components/MemoryOrbitView";
 import { MemoModal, type MemoDraft } from "@/src/components/MemoModal";
+import { MainContentHeader } from "@/src/components/MainContentHeader";
 import { OrbitGraphView } from "@/src/components/OrbitGraphView";
 import { TimelineStreamView } from "@/src/components/TimelineStreamView";
 import { initialMemos } from "@/src/data/initialMemos";
@@ -230,12 +231,20 @@ export default function Home(): React.JSX.Element {
       <main className={`mx-auto w-full max-w-5xl px-4 pb-28 ${activeSection === "orbit" ? "xl:h-dvh xl:overflow-hidden xl:pb-0" : ""}`}>
         {activeSection === "memos" && (
           <>
-            <div className={`sticky top-12 z-30 mb-5 flex items-center justify-between gap-4 border-b border-transparent bg-[#0f1117] py-3 backdrop-blur-md transition-all duration-200 xl:top-0 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}>
-              <h2 className="truncate text-base font-bold sm:text-lg">모든 메모 <span className="text-sm font-normal text-[#9ca3af]">(전체 {memos.length}개)</span></h2>
-              <div className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-1 backdrop-blur-md" aria-label="메모 보기 방식">
-                <button type="button" onClick={() => setMemoViewMode("list")} aria-pressed={memoViewMode === "list"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>📋 <span className="hidden sm:inline">텍스트 리스트</span></button>
-                <button type="button" onClick={() => setMemoViewMode("gallery")} aria-pressed={memoViewMode === "gallery"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>🖼️ <span className="hidden sm:inline">사진 카드</span></button>
-              </div>
+            <div className={`sticky top-12 z-30 border-b border-transparent bg-[#0f1117] py-3 backdrop-blur-md transition-all duration-200 xl:top-0 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}>
+              <MainContentHeader
+                id="all-memos-title"
+                label="ALL MEMOS"
+                title="모든 메모"
+                badge={`전체 ${memos.length}개`}
+                description="수집된 생각과 기록을 한눈에 탐색하고 관리합니다."
+                action={(
+                  <div className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-1 backdrop-blur-md" aria-label="메모 보기 방식">
+                    <button type="button" onClick={() => setMemoViewMode("list")} aria-pressed={memoViewMode === "list"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>📋 <span className="hidden sm:inline">텍스트 리스트</span></button>
+                    <button type="button" onClick={() => setMemoViewMode("gallery")} aria-pressed={memoViewMode === "gallery"} className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}>🖼️ <span className="hidden sm:inline">사진 카드</span></button>
+                  </div>
+                )}
+              />
             </div>
             {memoViewMode === "gallery" && (
               <MemoryOrbitView candidates={memoryCandidates} onOpenMemo={openMemo} />
