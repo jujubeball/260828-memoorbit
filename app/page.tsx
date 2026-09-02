@@ -23,6 +23,7 @@ type NavigationSection = "memos" | "orbit" | "timeline";
 type MemoViewMode = "list" | "gallery";
 
 const AI_IMAGE_MOODS: ImageMood[] = ["수채화", "네온", "흑백", "빈티지"];
+const MEMO_STORAGE_KEY = "memoorbit-memos";
 
 // 💡 [AI 이미지 무드 자동 선택]
 // 사용자가 사진을 직접 첨부하지 않아 새 AI 배경이 필요할 때 네 가지 무드 중 하나의 배열 위치를 무작위로 골라 돌려줍니다.
@@ -131,14 +132,46 @@ export default function Home(): React.JSX.Element {
   const [, setIsContentHeaderVisible] = useState(true);
 
   // 💡 [브라우저 저장소 불러오기]
-  // 첫 화면이 열린 뒤 이전 방문에서 저장한 메모를 읽고, 읽기가 끝난 뒤에만 새 변경을 다시 저장하도록 표시합니다.
+  // 첫 화면이 열린 뒤 이전 방문에서 저장한 메모를 읽습니다.
+  // 저장된 메모 수가 최신 기본 데이터보다 적으면 구버전으로 판단해 200개 기본 데이터로 즉시 교체합니다.
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
-        const storedMemos = window.localStorage.getItem("memoorbit-memos");
-        if (storedMemos) setMemos(JSON.parse(storedMemos) as Memo[]);
+        const storedMemos = window.localStorage.getItem(MEMO_STORAGE_KEY);
+
+        if (!storedMemos) {
+          window.localStorage.setItem(
+            MEMO_STORAGE_KEY,
+            JSON.stringify(initialMemos),
+          );
+          setMemos(initialMemos);
+          return;
+        }
+
+        const parsedMemos: unknown = JSON.parse(storedMemos);
+
+        // 💡 [구버전 LocalStorage 자동 동기화]
+        // 저장된 값이 배열이고 최신 기본 메모보다 적으면 예전 목업 데이터로 보고, 화면과 저장소를 함께 최신 데이터로 맞춥니다.
+        if (
+          Array.isArray(parsedMemos) &&
+          parsedMemos.length >= initialMemos.length
+        ) {
+          setMemos(parsedMemos as Memo[]);
+          return;
+        }
+
+        window.localStorage.setItem(
+          MEMO_STORAGE_KEY,
+          JSON.stringify(initialMemos),
+        );
+        setMemos(initialMemos);
       } catch {
-        window.localStorage.removeItem("memoorbit-memos");
+        // JSON이 깨진 경우에도 잘못된 값을 남겨 두지 않고 최신 기본 데이터로 복구합니다.
+        window.localStorage.setItem(
+          MEMO_STORAGE_KEY,
+          JSON.stringify(initialMemos),
+        );
+        setMemos(initialMemos);
       } finally {
         setHasHydratedStorage(true);
       }
@@ -156,7 +189,7 @@ export default function Home(): React.JSX.Element {
   // memos 배열이 바뀔 때마다 브라우저 저장소에도 같은 배열을 기록해 새로고침 후에도 유지합니다.
   useEffect(() => {
     if (!hasHydratedStorage) return;
-    window.localStorage.setItem("memoorbit-memos", JSON.stringify(memos));
+    window.localStorage.setItem(MEMO_STORAGE_KEY, JSON.stringify(memos));
   }, [hasHydratedStorage, memos]);
 
   // 💡 [삭제 확인창 바디 스크롤 잠금]
