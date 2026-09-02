@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
 
 interface ResponsiveDatePickerProps {
   id: string;
@@ -101,16 +102,7 @@ export function ResponsiveDatePicker({
       document.removeEventListener("pointerdown", closeOnOutsidePointer);
   }, [isOpen]);
 
-  // 💡 [달력 팝업 바디 스크롤 잠금]
-  // PC 팝오버와 모바일 모달이 열린 동안 뒤쪽 페이지가 휠이나 손가락 입력으로 움직이지 않게 하고, 닫힐 때 기존 설정으로 복원합니다.
-  useEffect(() => {
-    if (!isOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow || "unset";
-    };
-  }, [isOpen]);
+  usePageScrollLock(isOpen);
 
   // 💡 [현재 월 날짜 배열 메모이제이션]
   // 표시 월이 바뀔 때만 앞쪽 빈칸과 실제 날짜를 다시 만들어 7열 달력 화면에 전달합니다.

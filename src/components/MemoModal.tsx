@@ -12,6 +12,7 @@ import {
 import type { Memo } from "@/types/memo";
 import { requestGeminiAnalysis } from "@/src/lib/geminiClient";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
+import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
 import {
   selectRepresentativeImage,
   type AttachedImage,
@@ -121,16 +122,7 @@ export function MemoModal({
   const [tableMenuPosition, setTableMenuPosition] =
     useState<TableMenuPosition | null>(null);
 
-  // 💡 [메모 편집기 바디 스크롤 잠금]
-  // 편집기가 열리면 뒤쪽 메모 목록이 손가락이나 휠에 따라 움직이지 않게 막고, 편집기를 닫을 때 기존 스크롤 설정을 되돌립니다.
-  useEffect(() => {
-    if (!isOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow || "unset";
-    };
-  }, [isOpen]);
+  usePageScrollLock(isOpen);
 
   // 💡 [300ms Gemini 실시간 분석]
   // 사용자가 입력을 잠깐 멈추면 서버 Route에 최신 본문을 보내고, 실패할 때만 브라우저의 로컬 핵심어 분석기를 사용합니다.

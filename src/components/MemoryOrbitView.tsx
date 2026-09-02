@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
 import { exportMemoryImage } from "@/src/utils/exportMemoryImage";
 import type { Memo } from "@/types/memo";
 
@@ -64,16 +65,7 @@ export function MemoryOrbitView({
     return () => window.clearTimeout(timer);
   }, []);
 
-  // 💡 [공유 확인창 배경 스크롤 잠금]
-  // 확인창이 열린 동안 뒤쪽 메모 목록이 움직이지 않게 막고 닫을 때 이전 body 설정으로 복원합니다.
-  useEffect(() => {
-    if (!exportTarget) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow || "unset";
-    };
-  }, [exportTarget]);
+  usePageScrollLock(Boolean(exportTarget));
 
   // 숨긴 ID가 바뀔 때만 후보 배열을 다시 걸러 현재 화면에 남아야 할 카드만 계산합니다.
   const visibleCandidates = useMemo(

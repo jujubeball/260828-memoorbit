@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type CSSProperties,
@@ -17,6 +18,7 @@ import { MainContentHeader } from "@/src/components/MainContentHeader";
 import { OrbitGraphView } from "@/src/components/OrbitGraphView";
 import { TimelineStreamView } from "@/src/components/TimelineStreamView";
 import { initialMemos } from "@/src/data/initialMemos";
+import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
 import type { Memo } from "@/types/memo";
 
 interface MemoGroup {
@@ -136,6 +138,22 @@ export default function Home(): React.JSX.Element {
   // 페이지별 콘텐츠 제목이 화면에 들어왔는지는 공통 헤더 관찰기가 갱신하며, 화면 전환 시 관찰 상태를 초기화합니다.
   const [, setIsContentHeaderVisible] = useState(true);
 
+  // 💡 [새로고침 최상단 초기화]
+  // 브라우저가 이전 스크롤 위치를 자동 복원하기 전에 수동 복원 모드로 바꾸고, 첫 화면을 항상 문서 맨 위에서 시작합니다.
+  useLayoutEffect(() => {
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
+    return () => {
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }, []);
+
+  usePageScrollLock(Boolean(deleteTarget) || isDrawerOpen);
+
   // 💡 [브라우저 저장소 불러오기]
   // 첫 화면이 열린 뒤 이전 방문에서 저장한 메모를 읽습니다.
   // 저장된 메모 수가 최신 기본 데이터보다 적으면 구버전으로 판단해 200개 기본 데이터로 즉시 교체합니다.
@@ -239,17 +257,6 @@ export default function Home(): React.JSX.Element {
     if (!hasHydratedStorage) return;
     window.localStorage.setItem(MEMO_STORAGE_KEY, JSON.stringify(memos));
   }, [hasHydratedStorage, memos]);
-
-  // 💡 [삭제 확인창 바디 스크롤 잠금]
-  // 삭제 확인창이 열려 있을 때만 목록 배경을 고정합니다. 편집기의 잠금은 MemoModal이 직접 관리해 중복 복원을 방지합니다.
-  useEffect(() => {
-    if (!deleteTarget) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow || "unset";
-    };
-  }, [deleteTarget]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent): void => {
