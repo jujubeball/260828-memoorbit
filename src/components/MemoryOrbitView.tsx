@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MemoOrbitDefaultCover } from "@/src/components/MemoOrbitDefaultCover";
 import { exportMemoryImage } from "@/src/utils/exportMemoryImage";
 import type { Memo } from "@/types/memo";
 
@@ -151,16 +150,14 @@ export function MemoryOrbitView({
                 aria-label={`${memo.title} 메모 열기`}
               >
                 <div className="relative aspect-[4/3] overflow-hidden bg-[#0f1117]">
-                  {/* 사용자 첨부 사진이 없는 과거 메모도 빈 카드가 되지 않도록 동일한 브랜드 커버를 사용합니다. */}
-                  {memo.imageUrl ? (
+                  {/* 사진형 갤러리 밖의 회상 카드는 사용자가 첨부한 이미지가 있을 때만 사진 영역을 채웁니다. */}
+                  {memo.imageUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={memo.imageUrl}
                       alt=""
                       className="h-full w-full object-cover"
                     />
-                  ) : (
-                    <MemoOrbitDefaultCover title={memo.title} />
                   )}
                   <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white">
                     {intervalLabel}

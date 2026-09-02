@@ -341,20 +341,14 @@ export function OrbitGraphView({
               className="py-4"
               aria-labelledby="mobile-related-memos-title"
             >
-              <div className="flex items-center justify-between gap-3">
+              {/* 다른 행성을 누르면 목록이 자연스럽게 교체되므로 별도의 닫기 버튼 없이 관련 메모 제목만 표시합니다. */}
+              <div>
                 <h3
                   id="mobile-related-memos-title"
                   className="truncate text-sm font-bold"
                 >
                   #{selectedTag} 관련 메모 ({relatedMemos.length}개)
                 </h3>
-                <button
-                  type="button"
-                  onClick={() => setSelectedTag(null)}
-                  className="shrink-0 text-xs text-[#9ca3af] underline underline-offset-4"
-                >
-                  닫기
-                </button>
               </div>
               {/* 선택된 태그의 메모를 팝업이 아닌 현재 문서 흐름 안에서 세로로 쌓아 보여 줍니다. */}
               <div className="mt-3 flex flex-col gap-2">

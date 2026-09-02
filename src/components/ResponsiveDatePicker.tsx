@@ -102,12 +102,9 @@ export function ResponsiveDatePicker({
   }, [isOpen]);
 
   // 💡 [달력 팝업 바디 스크롤 잠금]
-  // 모바일 달력 뒤의 페이지가 손가락 움직임을 따라 스크롤되지 않도록 열려 있는 동안 body를 고정하고 닫힐 때 원래 값으로 복원합니다.
+  // PC 팝오버와 모바일 모달이 열린 동안 뒤쪽 페이지가 휠이나 손가락 입력으로 움직이지 않게 하고, 닫힐 때 기존 설정으로 복원합니다.
   useEffect(() => {
     if (!isOpen) return;
-    // PC 팝오버는 페이지 흐름을 유지하고, 전체 딤드 모달을 쓰는 모바일·태블릿에서만 스크롤을 잠급니다.
-    const isMobileModal = !window.matchMedia("(min-width: 1280px)").matches;
-    if (!isMobileModal) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {

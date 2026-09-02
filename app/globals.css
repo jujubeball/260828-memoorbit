@@ -131,23 +131,26 @@ button:disabled {
 }
 
 @media (min-width: 1280px) {
+  /* 💡 [PC 전역 스크롤바 시인성]
+     어두운 화면에서도 현재 위치를 쉽게 찾도록 손잡이에 밝은 골드 테두리를 주고, 마우스를 올리면 전체를 골드로 바꿉니다. */
   * {
-    scrollbar-color: #2a2e3d transparent;
+    scrollbar-color: #3a3f52 #10121a;
     scrollbar-width: thin;
   }
 
   *::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
 
   *::-webkit-scrollbar-track {
-    background: transparent;
+    background: #10121a;
   }
 
   *::-webkit-scrollbar-thumb {
-    border-radius: 9999px;
-    background: #2a2e3d;
+    border: 1px solid #e5a93c;
+    border-radius: 4px;
+    background: #3a3f52;
   }
 
   *::-webkit-scrollbar-thumb:hover {
