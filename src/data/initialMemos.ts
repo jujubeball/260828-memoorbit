@@ -10,19 +10,19 @@ interface TagDistribution {
 }
 
 // 💡 [태그 분포 설계]
-// #개발 35개 | #기록 22개 | #일상 15개 | #육아 10개 | #여행 6개 | #요리 3개 | #독서 2개
-// 위 필수 태그의 합은 93개이므로, 정확히 100개를 만들기 위해 #음악 3개·#운동 2개·#영화 2개를 작은 검증용 위성으로 더합니다.
+// #개발 70개 | #기록 44개 | #일상 30개 | #육아 20개 | #여행 12개 | #요리 6개 | #독서 4개
+// 위 필수 태그의 합은 186개이므로, 정확히 200개를 만들기 위해 #음악 6개·#운동 4개·#영화 4개를 작은 검증용 위성으로 더합니다.
 const TAG_DISTRIBUTIONS: TagDistribution[] = [
-  { tag: "개발", count: 35, subject: "프론트엔드 구조와 사용자 경험", mood: "네온", imagePath: "/memo-images/development.png", imageMemoCount: 10 },
-  { tag: "기록", count: 22, subject: "생각과 결정의 배경", mood: "빈티지", imagePath: "/memo-images/journal.png", imageMemoCount: 10 },
-  { tag: "일상", count: 15, subject: "평범한 하루에서 발견한 변화", mood: "수채화", imagePath: "/memo-images/daily-life.png", imageMemoCount: 8 },
-  { tag: "육아", count: 10, subject: "아이와 함께 배우고 웃었던 순간", mood: "수채화", imagePath: "/memo-images/parenting.png", imageMemoCount: 5 },
-  { tag: "여행", count: 6, subject: "낯선 장소에서 마주한 풍경", mood: "빈티지", imagePath: "/memo-images/travel.png", imageMemoCount: 5 },
-  { tag: "요리", count: 3, subject: "가족 식탁을 위한 조리 과정", mood: "수채화", imagePath: "/memo-images/cooking.png", imageMemoCount: 3 },
-  { tag: "독서", count: 2, subject: "책에서 오래 남은 질문", mood: "흑백", imagePath: "/memo-images/reading.png", imageMemoCount: 2 },
-  { tag: "음악", count: 3, subject: "오늘의 감정과 닮은 재생 목록", mood: "네온", imagePath: "/memo-images/music.png", imageMemoCount: 3 },
-  { tag: "운동", count: 2, subject: "몸의 리듬을 되찾은 짧은 움직임", mood: "흑백", imagePath: "/memo-images/exercise.png", imageMemoCount: 2 },
-  { tag: "영화", count: 2, subject: "장면이 남긴 이야기와 여운", mood: "빈티지", imagePath: "/memo-images/movie.png", imageMemoCount: 2 },
+  { tag: "개발", count: 70, subject: "프론트엔드 구조와 사용자 경험", mood: "네온", imagePath: "/memo-images/development.png", imageMemoCount: 70 },
+  { tag: "기록", count: 44, subject: "생각과 결정의 배경", mood: "빈티지", imagePath: "/memo-images/journal.png", imageMemoCount: 44 },
+  { tag: "일상", count: 30, subject: "평범한 하루에서 발견한 변화", mood: "수채화", imagePath: "/memo-images/daily-life.png", imageMemoCount: 30 },
+  { tag: "육아", count: 20, subject: "아이와 함께 배우고 웃었던 순간", mood: "수채화", imagePath: "/memo-images/parenting.png", imageMemoCount: 20 },
+  { tag: "여행", count: 12, subject: "낯선 장소에서 마주한 풍경", mood: "빈티지", imagePath: "/memo-images/travel.png", imageMemoCount: 12 },
+  { tag: "요리", count: 6, subject: "가족 식탁을 위한 조리 과정", mood: "수채화", imagePath: "/memo-images/cooking.png", imageMemoCount: 6 },
+  { tag: "독서", count: 4, subject: "책에서 오래 남은 질문", mood: "흑백", imagePath: "/memo-images/reading.png", imageMemoCount: 4 },
+  { tag: "음악", count: 6, subject: "오늘의 감정과 닮은 재생 목록", mood: "네온", imagePath: "/memo-images/music.png", imageMemoCount: 6 },
+  { tag: "운동", count: 4, subject: "몸의 리듬을 되찾은 짧은 움직임", mood: "흑백", imagePath: "/memo-images/exercise.png", imageMemoCount: 4 },
+  { tag: "영화", count: 4, subject: "장면이 남긴 이야기와 여운", mood: "빈티지", imagePath: "/memo-images/movie.png", imageMemoCount: 4 },
 ];
 
 const TITLE_ENDINGS = ["오늘의 메모", "다시 확인할 것", "작은 실험", "배운 점", "다음 행동"];
@@ -46,11 +46,11 @@ const LONG_CONTENTS = [
 ];
 
 // 💡 [목업 날짜 만들기]
-// 최신 메모는 2026년 9월에 두고 인덱스가 커질수록 6일씩 과거로 이동시켜 2025년 초까지 날짜가 자연스럽게 퍼지게 합니다.
+// 최신 메모는 2026년 9월에 두고 인덱스가 커질수록 3일씩 과거로 이동시켜 200개 모두 2025년 초까지 자연스럽게 퍼지게 합니다.
 const createTimestamp = (index: number): string => {
   const latestDate = Date.UTC(2026, 8, 1, 9, 0, 0);
-  const sixDays = 6 * 24 * 60 * 60 * 1000;
-  return new Date(latestDate - index * sixDays).toISOString();
+  const threeDays = 3 * 24 * 60 * 60 * 1000;
+  return new Date(latestDate - index * threeDays).toISOString();
 };
 
 // 💡 [본문 길이 선택]
