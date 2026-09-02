@@ -12,7 +12,7 @@ import { OrbitGraphView } from "@/src/components/OrbitGraphView";
 import { TimelineStreamView } from "@/src/components/TimelineStreamView";
 import { initialMemos } from "@/src/data/initialMemos";
 import { createMemoImageDataUrl } from "@/src/lib/memoImage";
-import type { Memo } from "@/types/memo";
+import type { ImageMood, Memo } from "@/types/memo";
 
 interface MemoGroup {
   label: string;
@@ -21,6 +21,13 @@ interface MemoGroup {
 
 type NavigationSection = "memos" | "orbit" | "timeline";
 type MemoViewMode = "list" | "gallery";
+
+const AI_IMAGE_MOODS: ImageMood[] = ["수채화", "네온", "흑백", "빈티지"];
+
+// 💡 [AI 이미지 무드 자동 선택]
+// 사용자가 사진을 직접 첨부하지 않아 새 AI 배경이 필요할 때 네 가지 무드 중 하나의 배열 위치를 무작위로 골라 돌려줍니다.
+const getRandomMood = (): ImageMood =>
+  AI_IMAGE_MOODS[Math.floor(Math.random() * AI_IMAGE_MOODS.length)];
 
 const NAVIGATION_ITEMS: Array<{
   id: NavigationSection;
@@ -222,20 +229,24 @@ export default function Home(): React.JSX.Element {
     const canReuseAiImage =
       !draft.imageUrl &&
       editingMemo?.aiImageSourceText === sourceText &&
-      editingMemo.aiImageMood === draft.aiImageMood &&
       Boolean(editingMemo.aiImageUrl);
+    // 본문이 그대로인 기존 AI 이미지는 원래 무드를 유지하고, 새로 생성할 때만 사용자가 보지 않아도 무드를 자동 선택합니다.
+    const generatedImageMood = canReuseAiImage
+      ? editingMemo?.aiImageMood ?? getRandomMood()
+      : getRandomMood();
+    const aiImageMood = draft.imageUrl ? undefined : generatedImageMood;
     const aiImageUrl = draft.imageUrl
       ? undefined
       : canReuseAiImage
         ? editingMemo?.aiImageUrl
-        : createMemoImageDataUrl(sourceText, draft.aiImageMood);
+        : createMemoImageDataUrl(sourceText, generatedImageMood);
     const values = {
       title: draft.title,
       content: draft.content,
       richContent: draft.richContent,
       tags: toTags(draft.tags),
       imageUrl: draft.imageUrl,
-      aiImageMood: draft.aiImageMood,
+      aiImageMood,
       aiImageUrl,
       aiImageSourceText: draft.imageUrl ? undefined : sourceText,
       updatedAt: now,

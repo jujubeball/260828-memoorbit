@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ImageMood, Memo } from "@/types/memo";
+import type { Memo } from "@/types/memo";
 import { requestGeminiAnalysis } from "@/src/lib/geminiClient";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
 
@@ -19,7 +19,6 @@ export interface MemoDraft {
   richContent: string;
   tags: string;
   imageUrl?: string;
-  aiImageMood: ImageMood;
 }
 
 interface MemoModalProps {
@@ -104,9 +103,6 @@ export function MemoModal({
   );
   const [imageUrl, setImageUrl] = useState(editingMemo?.imageUrl);
   const [tags, setTags] = useState(editingMemo?.tags.join(", ") ?? "");
-  const [aiImageMood, setAiImageMood] = useState<ImageMood>(
-    editingMemo?.aiImageMood ?? "수채화",
-  );
   const [recommendedTags, setRecommendedTags] = useState(() => extractDynamicKeywords(plainText));
   const [isUsingLocalAnalysis, setIsUsingLocalAnalysis] = useState(false);
   const [isAnalyzingTags, setIsAnalyzingTags] = useState(false);
@@ -264,7 +260,6 @@ export function MemoModal({
       richContent: sanitizeEditorHtml(editor.innerHTML),
       tags,
       imageUrl,
-      aiImageMood,
     });
     return true;
   };
@@ -405,9 +400,9 @@ export function MemoModal({
         id="memo-form"
         onSubmit={submit}
         onClick={(event) => event.stopPropagation()}
-        className="box-border flex min-h-0 w-full max-w-full flex-1 flex-col overflow-x-hidden xl:mx-auto xl:h-[75vh] xl:max-h-[80vh] xl:max-w-2xl xl:flex-none xl:overflow-hidden xl:rounded-3xl xl:border xl:border-[#2a2e3d] xl:bg-[#0f1117] xl:shadow-2xl"
+        className="box-border flex h-[100dvh] min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#0f1117] xl:mx-auto xl:h-[75vh] xl:max-h-[80vh] xl:max-w-2xl xl:flex-none xl:rounded-3xl xl:border xl:border-[#2a2e3d] xl:shadow-2xl"
       >
-        <header className="box-border flex w-full max-w-full shrink-0 items-center justify-between overflow-x-hidden px-4 pb-2 pt-3">
+        <header className="box-border flex w-full max-w-full flex-none items-center justify-between overflow-x-hidden px-4 pb-2 pt-3">
           <button
             type="button"
             onClick={closeEditor}
@@ -505,8 +500,12 @@ export function MemoModal({
             data-placeholder="메모를 입력하세요"
             dangerouslySetInnerHTML={{ __html: createInitialHtml(editingMemo) }}
           />
+        </div>
+
+        {/* AI 추천 태그와 빠른 도구는 flex-none 하단 패널에 함께 있어 본문을 스크롤해도 화면 아래에 계속 남습니다. */}
+        <div className="box-border flex-none w-full max-w-full overflow-x-hidden border-t border-[#2a2e3d] bg-[#0f1117] pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
           <section
-            className={`box-border mt-8 w-full max-w-full overflow-x-hidden border-t border-[#38383a] pt-4 transition-colors duration-200 ${isAnalyzingTags ? "border-[#e5a93c]/70 bg-[#e5a93c]/5" : ""}`}
+            className={`box-border w-full max-w-full overflow-x-hidden px-4 pb-2 pt-3 transition-colors duration-200 ${isAnalyzingTags ? "bg-[#e5a93c]/5" : ""}`}
             aria-labelledby="recommended-tags-title"
             aria-live="polite"
           >
@@ -518,73 +517,45 @@ export function MemoModal({
                 AI 추천 태그
               </h3>
               <span
-                className={`text-xs text-[#8e8e93] ${isAnalyzingTags ? "animate-pulse text-[#ffc86b] motion-reduce:animate-none" : ""}`}
+                className={`text-[10px] text-[#8e8e93] ${isAnalyzingTags ? "animate-pulse text-[#ffc86b] motion-reduce:animate-none" : ""}`}
               >
                 {isAnalyzingTags
-                  ? "Gemini가 문맥을 분석하고 있습니다…"
+                  ? "Gemini 분석 중…"
                   : isUsingLocalAnalysis
-                    ? "연결 실패로 로컬 분석 결과를 표시합니다"
-                    : "선택하지 않아도 저장할 수 있습니다"}
+                    ? "로컬 분석 결과"
+                    : "선택하지 않아도 저장됩니다"}
               </span>
             </div>
-            <div
-              id="recommended-tags-options"
-              className="grid w-full max-w-full gap-4 overflow-x-hidden pb-2 pt-4"
-            >
-              <div className="flex min-h-8 flex-wrap gap-2">
-                {recommendedTags.length > 0 ? (
-                  recommendedTags.map((tag) => {
-                    const isSelected = selectedTags.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => toggleTag(tag)}
-                        aria-pressed={isSelected}
-                        className={`ios-tap animate-[fade-in_180ms_ease-out] rounded-full border px-3 py-2 text-xs font-semibold motion-reduce:animate-none ${isSelected ? "border-[#e5a93c] bg-[#e5a93c] text-black" : "border-[#636366] text-white"}`}
-                      >
-                        #{tag}
-                      </button>
-                    );
-                  })
-                ) : (
-                  <p className="text-xs text-[#636366]">
-                    본문을 입력하면 관련 태그가 표시됩니다.
-                  </p>
-                )}
-              </div>
-              <input
-                value={tags}
-                onChange={(event) => setTags(event.target.value)}
-                className="w-full rounded-xl border border-[#48484a] bg-[#1c1c1e] px-4 py-2 text-sm text-white outline-none focus:border-[#e5a93c]"
-                placeholder="태그 직접 추가: 쉼표로 구분"
-                aria-label="태그 직접 추가"
-              />
-              <div className="w-full max-w-full overflow-x-hidden">
-                <p className="mb-2 text-xs font-semibold text-[#8e8e93]">
-                  AI 이미지 무드
+            <div className="scrollbar-hidden mt-2 flex min-h-8 gap-2 overflow-x-auto">
+              {recommendedTags.length > 0 ? (
+                recommendedTags.map((tag) => {
+                  const isSelected = selectedTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleTag(tag)}
+                      aria-pressed={isSelected}
+                      className={`ios-tap shrink-0 animate-[fade-in_180ms_ease-out] rounded-full border px-3 py-1.5 text-xs font-semibold motion-reduce:animate-none ${isSelected ? "border-[#e5a93c] bg-[#e5a93c] text-black" : "border-[#636366] text-white"}`}
+                    >
+                      #{tag}
+                    </button>
+                  );
+                })
+              ) : (
+                <p className="text-xs text-[#636366]">
+                  본문을 입력하면 관련 태그가 표시됩니다.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {(["수채화", "네온", "흑백", "빈티지"] as ImageMood[]).map(
-                    (mood) => (
-                      <button
-                        key={mood}
-                        type="button"
-                        onClick={() => setAiImageMood(mood)}
-                        aria-pressed={aiImageMood === mood}
-                        className={`ios-tap rounded-full border px-4 py-2 text-xs font-semibold ${aiImageMood === mood ? "border-[#e5a93c] bg-[#e5a93c] text-black" : "border-[#636366] text-white"}`}
-                      >
-                        {mood}
-                      </button>
-                    ),
-                  )}
-                </div>
-              </div>
+              )}
             </div>
+            <input
+              value={tags}
+              onChange={(event) => setTags(event.target.value)}
+              className="mt-2 w-full rounded-lg border border-[#2a2e3d] bg-[#1a1d26] px-3 py-2 text-xs text-white outline-none focus:border-[#e5a93c]"
+              placeholder="태그 직접 추가: 쉼표로 구분"
+              aria-label="태그 직접 추가"
+            />
           </section>
-        </div>
-
-        <div className="box-border w-full max-w-full shrink-0 overflow-x-hidden border-t border-[#38383a] bg-[#1c1c1e]/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
           <div className="mx-auto flex w-full max-w-xl flex-wrap items-center justify-around gap-2 px-2 py-1">
             <button
               type="button"
