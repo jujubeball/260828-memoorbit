@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { MemoCard } from "@/src/components/MemoCard";
 import {
   MemoryOrbitView,
@@ -24,6 +30,9 @@ type MemoViewMode = "list" | "gallery";
 
 const AI_IMAGE_MOODS: ImageMood[] = ["수채화", "네온", "흑백", "빈티지"];
 const MEMO_STORAGE_KEY = "memoorbit-memos";
+const MIN_PANEL_WIDTH = 280;
+const MAX_PANEL_WIDTH = 600;
+const DEFAULT_PANEL_WIDTH = 288;
 
 // 💡 [AI 이미지 무드 자동 선택]
 // 사용자가 사진을 직접 첨부하지 않아 새 AI 배경이 필요할 때 네 가지 무드 중 하나의 배열 위치를 무작위로 골라 돌려줍니다.
@@ -128,6 +137,10 @@ export default function Home(): React.JSX.Element {
   const [memoViewMode, setMemoViewMode] = useState<MemoViewMode>("list");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMemoToolbarStuck, setIsMemoToolbarStuck] = useState(false);
+  // 💡 [PC 왼쪽 패널 너비 State]
+  // panelWidth는 현재 LNB의 실제 너비를 기억하고, isPanelResizing은 사용자가 구분선을 잡고 있는 동안만 마우스 이동을 너비 변경으로 연결합니다.
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
+  const [isPanelResizing, setIsPanelResizing] = useState(false);
   // 페이지별 콘텐츠 제목이 화면에 들어왔는지는 공통 헤더 관찰기가 갱신하며, 화면 전환 시 관찰 상태를 초기화합니다.
   const [, setIsContentHeaderVisible] = useState(true);
 
@@ -185,6 +198,49 @@ export default function Home(): React.JSX.Element {
     window.addEventListener("scroll", trackScroll, { passive: true });
     return () => window.removeEventListener("scroll", trackScroll);
   }, []);
+
+  // 💡 [PC 패널 드래그 너비 제한]
+  // 화면 왼쪽부터 마우스까지의 거리를 새 너비로 계산하되, 280px보다 작거나 600px보다 커지지 않도록 두 경계 사이에 끼워 넣습니다.
+  useEffect(() => {
+    if (!isPanelResizing) return;
+
+    const handleMouseMove = (event: MouseEvent): void => {
+      const clampedWidth = Math.max(
+        MIN_PANEL_WIDTH,
+        Math.min(MAX_PANEL_WIDTH, event.clientX),
+      );
+      setPanelWidth(clampedWidth);
+    };
+    const handleMouseUp = (): void => setIsPanelResizing(false);
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+    };
+  }, [isPanelResizing]);
+
+  // 키보드 사용자는 구분선에 초점을 둔 뒤 방향키로 16px씩 패널 너비를 조절할 수 있으며, 같은 최소·최대 경계를 적용받습니다.
+  const handlePanelResizeKeyDown = (
+    event: ReactKeyboardEvent<HTMLDivElement>,
+  ): void => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const direction = event.key === "ArrowLeft" ? -1 : 1;
+    setPanelWidth((current) =>
+      Math.max(
+        MIN_PANEL_WIDTH,
+        Math.min(MAX_PANEL_WIDTH, current + direction * 16),
+      ),
+    );
+  };
 
   // memos 배열이 바뀔 때마다 브라우저 저장소에도 같은 배열을 기록해 새로고침 후에도 유지합니다.
   useEffect(() => {
@@ -319,9 +375,10 @@ export default function Home(): React.JSX.Element {
 
   return (
     <div
-      className={`min-h-dvh bg-[#0f1117] text-[#f3f4f6] xl:pl-72 ${activeSection === "orbit" ? "xl:h-screen xl:overflow-hidden" : ""}`}
+      style={{ "--panel-width": `${panelWidth}px` } as CSSProperties}
+      className={`min-h-dvh bg-[#0f1117] text-[#f3f4f6] xl:pl-[var(--panel-width)] ${activeSection === "orbit" ? "xl:h-screen xl:overflow-hidden" : ""}`}
     >
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 border-r border-[#2a2e3d] bg-[#1a1d26]/80 p-5 backdrop-blur-md xl:flex xl:flex-col">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-[var(--panel-width)] min-w-[280px] max-w-[600px] border-r border-[#2a2e3d] bg-[#1a1d26]/80 p-5 backdrop-blur-md xl:flex xl:flex-col">
         <button
           type="button"
           onClick={() => selectNavigation("memos")}
@@ -372,6 +429,19 @@ export default function Home(): React.JSX.Element {
         <p className="mt-auto px-3 text-xs text-[#8e8e93]">
           생각의 궤도를 기록하고 다시 발견하세요.
         </p>
+        {/* 마우스와 키보드가 함께 사용할 수 있는 PC LNB 너비 조절 구분선입니다. */}
+        <div
+          role="separator"
+          tabIndex={0}
+          aria-label="왼쪽 메뉴 너비 조절"
+          aria-orientation="vertical"
+          aria-valuemin={MIN_PANEL_WIDTH}
+          aria-valuemax={MAX_PANEL_WIDTH}
+          aria-valuenow={panelWidth}
+          onMouseDown={() => setIsPanelResizing(true)}
+          onKeyDown={handlePanelResizeKeyDown}
+          className="absolute inset-y-0 right-0 w-2 translate-x-1/2 cursor-col-resize touch-none outline-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-[#2a2e3d] hover:after:bg-[#e5a93c] focus-visible:after:w-0.5 focus-visible:after:bg-[#e5a93c]"
+        />
       </aside>
 
       <header className="sticky top-0 z-30 flex h-12 w-full items-center border-b border-[#2a2e3d] bg-[#0f1117] px-2 xl:hidden">
