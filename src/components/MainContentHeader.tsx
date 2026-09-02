@@ -60,7 +60,12 @@ export function MainContentHeader({
       >
         {description}
       </p>
-      {action && <div className="mb-6 xl:hidden">{action}</div>}
+      {/* 모바일에서는 전체 폭을 정렬 기준으로만 사용하고, 실제 토글은 내용 너비만 차지한 채 오른쪽에 붙습니다. */}
+      {action && (
+        <div className="mb-6 flex w-full justify-end xl:hidden">
+          {action}
+        </div>
+      )}
     </header>
   );
 }

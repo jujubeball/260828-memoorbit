@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
 import { ResponsiveDatePicker } from "@/src/components/ResponsiveDatePicker";
-import { requestGeminiAnalysis } from "@/src/lib/geminiClient";
+import {
+  GeminiApiError,
+  requestGeminiAnalysis,
+} from "@/src/lib/geminiClient";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
 import type { Memo } from "@/types/memo";
 
@@ -138,8 +141,15 @@ export function TimelineStreamView({
         const analysis = await requestGeminiAnalysis(periodText, "timeline", controller.signal);
         setGeminiComment(analysis.comment);
         setIsUsingLocalComment(false);
-      } catch {
+      } catch (error) {
         if (controller.signal.aborted) return;
+        // 서버 응답의 details를 전용 오류 객체에서 꺼내 DNS·시간 초과 같은 근본 원인을 개발자 도구에 정확히 남깁니다.
+        const causeDetail = error instanceof GeminiApiError
+          ? error.details
+          : error instanceof Error
+            ? error.message
+            : String(error);
+        console.error("🔥 Gemini Fetch Error Cause:", causeDetail);
         setGeminiComment(report.spectrumComment);
         setIsUsingLocalComment(true);
       } finally {

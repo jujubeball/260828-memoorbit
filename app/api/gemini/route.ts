@@ -8,15 +8,45 @@ interface GeminiRequestBody {
 }
 
 const MAX_TEXT_LENGTH = 30_000;
-const PREFERRED_MODEL = "gemini-2.5-flash";
-const CURRENT_FLASH_MODEL = "gemini-3.6-flash";
-let availableModel = PREFERRED_MODEL;
+const GEMINI_MODEL = "gemini-2.5-flash";
+
+// 💡 [네트워크 하위 원인 안전 문자열화]
+// fetch failed 안에 숨은 DNS·시간 초과 정보를 찾되, API 키나 요청 객체가 섞일 수 있는 전체 cause는 복사하지 않고 허용한 필드만 골라냅니다.
+const stringifyNetworkCause = (cause: unknown): string | undefined => {
+  if (!cause) return undefined;
+  if (typeof cause !== "object") return String(cause);
+
+  const causeRecord = cause as Record<string, unknown>;
+  const safeFields = [
+    "name",
+    "message",
+    "code",
+    "errno",
+    "syscall",
+    "hostname",
+    "address",
+    "port",
+  ] as const;
+  const safeCause = Object.fromEntries(
+    safeFields
+      .filter((field) => causeRecord[field] !== undefined)
+      .map((field) => [field, String(causeRecord[field])]),
+  );
+  return Object.keys(safeCause).length > 0
+    ? JSON.stringify(safeCause)
+    : Object.prototype.toString.call(cause);
+};
 
 // 💡 [안전한 Gemini 오류 정보 만들기]
-// 서버 로그에는 오류 이름과 메시지만 남기고 API 키나 사용자의 메모 본문은 절대 포함하지 않습니다.
-const getSafeErrorDetails = (error: unknown): { name: string; message: string } => {
+// 서버 로그에는 오류 이름·메시지와 위에서 선별한 네트워크 원인만 남기고 API 키나 사용자의 메모 본문은 절대 포함하지 않습니다.
+const getSafeErrorDetails = (error: unknown): {
+  name: string;
+  message: string;
+  cause?: string;
+} => {
   if (error instanceof Error) {
-    return { name: error.name, message: error.message };
+    const cause = stringifyNetworkCause(error.cause);
+    return { name: error.name, message: error.message, cause };
   }
   return { name: "알 수 없는 오류", message: String(error) };
 };
@@ -67,17 +97,24 @@ const normalizeAnalysis = (value: unknown): GeminiAnalysis | null => {
 export async function POST(request: Request): Promise<NextResponse> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.error("Gemini 설정 오류", {
-      reason: "GEMINI_API_KEY 환경 변수가 없습니다.",
-    });
-    return NextResponse.json({ error: "Gemini API 키가 설정되지 않았습니다." }, { status: 503 });
+    console.error("Gemini 설정 오류: GEMINI_API_KEY 환경 변수가 없습니다.");
+    return NextResponse.json(
+      {
+        error: "Gemini API 키가 설정되지 않았습니다.",
+        details: "배포 환경의 GEMINI_API_KEY 설정을 확인하세요.",
+      },
+      { status: 500 },
+    );
   }
 
   let body: GeminiRequestBody;
   try {
     body = await request.json() as GeminiRequestBody;
   } catch (error) {
-    console.error("Gemini 요청 JSON 해석 오류", getSafeErrorDetails(error));
+    const details = getSafeErrorDetails(error);
+    console.error(
+      `Gemini 요청 JSON 해석 오류: ${details.name} - ${details.message}`,
+    );
     return NextResponse.json({ error: "요청 본문은 JSON이어야 합니다." }, { status: 400 });
   }
 
@@ -94,45 +131,32 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const ai = new GoogleGenAI({ apiKey });
     const contents = `${task}\n\n규칙:\n- 태그는 본문에 근거한 명사·기술명·주제어 3~5개만 작성합니다.\n- 태그에는 # 기호를 넣지 않습니다.\n- 코멘트는 과장하지 말고 한국어 한 문장으로 작성합니다.\n\n분석할 기록:\n${text}`;
-    const generate = (model: string) => ai.models.generateContent({
-      model,
+    // 공식 Gemini 2.5 Flash 모델 하나만 명시해 환경마다 다른 모델로 전환되는 혼선을 방지합니다.
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
       contents,
       config: {
         responseMimeType: "application/json",
         responseJsonSchema: RESPONSE_SCHEMA,
       },
     });
-
-    // 요청한 2.5 Flash를 먼저 사용하되, Google이 신규 키에 모델 종료 404를 반환하면 공식 현행 Flash로 한 번만 전환합니다.
-    let response;
-    try {
-      response = await generate(availableModel);
-    } catch (modelError) {
-      console.error("Gemini 모델 호출 오류", {
-        model: availableModel,
-        ...getSafeErrorDetails(modelError),
-      });
-      const message = modelError instanceof Error ? modelError.message : "";
-      const isRetiredModel = availableModel === PREFERRED_MODEL
-        && (message.includes("404") || message.includes("no longer available"));
-      if (!isRetiredModel) throw modelError;
-      availableModel = CURRENT_FLASH_MODEL;
-      try {
-        response = await generate(availableModel);
-      } catch (fallbackError) {
-        console.error("Gemini 대체 모델 호출 오류", {
-          model: availableModel,
-          ...getSafeErrorDetails(fallbackError),
-        });
-        throw fallbackError;
-      }
-    }
     const analysis = normalizeAnalysis(JSON.parse(response.text ?? "null"));
     if (!analysis) throw new Error("Gemini 응답 검증 실패");
     return NextResponse.json(analysis);
   } catch (error) {
     // 서버 로그에는 원인만 남기고 API 키나 전체 메모 본문은 절대 출력하지 않습니다.
-    console.error("Gemini 메모 분석에 실패했습니다.", getSafeErrorDetails(error));
-    return NextResponse.json({ error: "Gemini 분석을 완료하지 못했습니다." }, { status: 502 });
+    const details = getSafeErrorDetails(error);
+    console.error(
+      `Gemini 메모 분석 실패: 모델=${GEMINI_MODEL}, 오류=${details.name}, 원인=${details.message}${details.cause ? `, 하위 원인=${details.cause}` : ""}`,
+    );
+    return NextResponse.json(
+      {
+        error: "Gemini 분석을 완료하지 못했습니다.",
+        details: details.cause
+          ? `${details.message} (${details.cause})`
+          : details.message,
+      },
+      { status: 500 },
+    );
   }
 }

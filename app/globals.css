@@ -12,6 +12,17 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* 💡 [모바일 가로 오버플로우 차단]
+   브라우저 화면부터 앱의 루트와 main까지 최대 너비를 기기 폭 안으로 묶어, 자식 카드가 넓어져도 페이지 전체가 좌우로 흔들리지 않게 합니다. */
+html,
+body,
+#root,
+#__next,
+main {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

@@ -351,7 +351,7 @@ export default function Home(): React.JSX.Element {
         </div>
       </header>
       <main
-        className={`mx-auto w-full max-w-5xl px-4 pb-28 ${activeSection === "orbit" ? "xl:h-dvh xl:overflow-hidden xl:pb-0" : ""}`}
+        className={`mx-auto w-full max-w-full overflow-x-hidden px-4 pb-28 xl:max-w-5xl ${activeSection === "orbit" ? "xl:h-dvh xl:overflow-hidden xl:pb-0" : ""}`}
       >
         {activeSection === "memos" && (
           <>
@@ -367,14 +367,14 @@ export default function Home(): React.JSX.Element {
                 onVisibilityChange={setIsContentHeaderVisible}
                 action={
                   <div
-                    className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-1 backdrop-blur-md"
+                    className="inline-flex w-fit gap-1 rounded-lg border border-[#2a2e3d] bg-[#1a1d26] p-1 backdrop-blur-md"
                     aria-label="메모 보기 방식"
                   >
                     <button
                       type="button"
                       onClick={() => setMemoViewMode("list")}
                       aria-pressed={memoViewMode === "list"}
-                      className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}
+                      className={`rounded-md p-1.5 text-xs font-bold transition-colors ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af] hover:text-[#f3f4f6]"}`}
                     >
                       📋 <span className="hidden sm:inline">텍스트 리스트</span>
                     </button>
@@ -382,7 +382,7 @@ export default function Home(): React.JSX.Element {
                       type="button"
                       onClick={() => setMemoViewMode("gallery")}
                       aria-pressed={memoViewMode === "gallery"}
-                      className={`rounded-lg px-3 py-2 text-sm ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af]"}`}
+                      className={`rounded-md p-1.5 text-xs font-bold transition-colors ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af] hover:text-[#f3f4f6]"}`}
                     >
                       🖼️ <span className="hidden sm:inline">사진 카드</span>
                     </button>
