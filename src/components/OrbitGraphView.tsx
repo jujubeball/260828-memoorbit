@@ -2,7 +2,6 @@
 
 import {
   type MouseEvent as ReactMouseEvent,
-  type WheelEvent,
   useEffect,
   useMemo,
   useRef,
@@ -30,6 +29,8 @@ interface ViewTransform {
   y: number;
   scale: number;
 }
+
+const MAX_PAN = 250;
 
 // 💡 [메모 개수별 태그 행성 크기 계산]
 // createNodes가 미리 세어 둔 태그별 메모 개수를 받아 크기·글자·빛 효과를 하나의 Tailwind 클래스 문자열로 돌려줍니다.
@@ -89,6 +90,28 @@ export function OrbitGraphView({
   const relatedMemos = selectedTag
     ? memos.filter((memo) => memo.tags.includes(selectedTag))
     : [];
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // 💡 [Passive 이벤트 오류 해결]
+    // 브라우저가 휠 이벤트를 먼저 스크롤에 사용하지 않도록 passive: false로 등록하며, 사용자의 휠 입력은 확대 배율과 화면 다시 그리기로 이어집니다.
+    const handleWheel = (event: globalThis.WheelEvent): void => {
+      event.preventDefault();
+      transformRef.current.scale = Math.min(
+        2.4,
+        Math.max(
+          0.55,
+          transformRef.current.scale * (event.deltaY > 0 ? 0.9 : 1.1),
+        ),
+      );
+      setRenderVersion((current) => current + 1);
+    };
+
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", handleWheel);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -192,17 +215,6 @@ export function OrbitGraphView({
         <canvas
           ref={canvasRef}
           className="h-full w-full cursor-grab active:cursor-grabbing"
-          onWheel={(event: WheelEvent<HTMLCanvasElement>) => {
-            event.preventDefault();
-            transformRef.current.scale = Math.min(
-              2.4,
-              Math.max(
-                0.55,
-                transformRef.current.scale * (event.deltaY > 0 ? 0.9 : 1.1),
-              ),
-            );
-            setRenderVersion((current) => current + 1);
-          }}
           onMouseDown={(event) => {
             dragRef.current = {
               active: true,
@@ -219,8 +231,21 @@ export function OrbitGraphView({
           }}
           onMouseMove={(event: ReactMouseEvent<HTMLCanvasElement>) => {
             if (dragRef.current.active) {
-              transformRef.current.x += event.clientX - dragRef.current.x;
-              transformRef.current.y += event.clientY - dragRef.current.y;
+              const rawPanX =
+                transformRef.current.x + event.clientX - dragRef.current.x;
+              const rawPanY =
+                transformRef.current.y + event.clientY - dragRef.current.y;
+
+              // 💡 [드래그 이동 경계 고정]
+              // 현재 궤도 위치에 마우스 이동량을 더한 뒤 ±250px 안으로 잘라, 계속 끌어도 노드가 캔버스 밖으로 사라지지 않게 합니다.
+              transformRef.current.x = Math.max(
+                -MAX_PAN,
+                Math.min(MAX_PAN, rawPanX),
+              );
+              transformRef.current.y = Math.max(
+                -MAX_PAN,
+                Math.min(MAX_PAN, rawPanY),
+              );
               dragRef.current.x = event.clientX;
               dragRef.current.y = event.clientY;
               setRenderVersion((current) => current + 1);
