@@ -246,6 +246,7 @@ export default function Home(): React.JSX.Element {
       richContent: draft.richContent,
       tags: toTags(draft.tags),
       imageUrl: draft.imageUrl,
+      images: draft.images,
       aiImageMood,
       aiImageUrl,
       aiImageSourceText: draft.imageUrl ? undefined : sourceText,

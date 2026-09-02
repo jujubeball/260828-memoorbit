@@ -12,6 +12,10 @@ import {
 import type { Memo } from "@/types/memo";
 import { requestGeminiAnalysis } from "@/src/lib/geminiClient";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
+import {
+  selectRepresentativeImage,
+  type AttachedImage,
+} from "@/src/utils/selectRepresentativeImage";
 
 export interface MemoDraft {
   title: string;
@@ -19,6 +23,7 @@ export interface MemoDraft {
   richContent: string;
   tags: string;
   imageUrl?: string;
+  images: AttachedImage[];
 }
 
 interface MemoModalProps {
@@ -101,7 +106,12 @@ export function MemoModal({
       ? [editingMemo.title, editingMemo.content].filter(Boolean).join("\n")
       : "",
   );
-  const [imageUrl, setImageUrl] = useState(editingMemo?.imageUrl);
+  const [images, setImages] = useState<AttachedImage[]>(
+    editingMemo?.images
+      ?? (editingMemo?.imageUrl
+        ? [{ url: editingMemo.imageUrl, name: "기존 첨부 이미지" }]
+        : []),
+  );
   const [tags, setTags] = useState(editingMemo?.tags.join(", ") ?? "");
   const [recommendedTags, setRecommendedTags] = useState(() => extractDynamicKeywords(plainText));
   const [isUsingLocalAnalysis, setIsUsingLocalAnalysis] = useState(false);
@@ -165,6 +175,11 @@ export function MemoModal({
         .map((tag) => tag.trim())
         .filter(Boolean),
     [tags],
+  );
+  // 본문이나 태그, 첨부 목록이 바뀔 때마다 같은 점수 함수를 다시 실행해 화면 미리보기의 대표 사진도 즉시 갱신합니다.
+  const imageUrl = useMemo(
+    () => selectRepresentativeImage(plainText, selectedTags, images),
+    [images, plainText, selectedTags],
   );
 
   if (!isOpen) return null;
@@ -260,6 +275,7 @@ export function MemoModal({
       richContent: sanitizeEditorHtml(editor.innerHTML),
       tags,
       imageUrl,
+      images,
     });
     return true;
   };
@@ -268,14 +284,27 @@ export function MemoModal({
     if (saveCurrentMemo()) return;
     onClose();
   };
-  // 사용자가 고른 이미지 파일을 브라우저에서 미리 볼 수 있는 데이터 주소로 읽어 imageUrl State에 저장합니다.
-  const attachImage = (file: File | undefined): void => {
-    if (!file?.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      if (typeof reader.result === "string") setImageUrl(reader.result);
-    });
-    reader.readAsDataURL(file);
+  // 💡 [여러 이미지 첨부]
+  // 사용자가 고른 모든 이미지 파일을 Data URL로 읽고 원본 파일명과 함께 기존 첨부 배열 뒤에 불변 방식으로 추가합니다.
+  const attachImages = async (files: File[]): Promise<void> => {
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+    const attachedImages = await Promise.all(
+      imageFiles.map(
+        (file) => new Promise<AttachedImage>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.addEventListener("load", () => {
+            if (typeof reader.result === "string") {
+              resolve({ url: reader.result, name: file.name });
+              return;
+            }
+            reject(new Error("이미지 파일을 읽지 못했습니다."));
+          });
+          reader.addEventListener("error", () => reject(reader.error));
+          reader.readAsDataURL(file);
+        }),
+      ),
+    );
+    setImages((current) => [...current, ...attachedImages]);
   };
   // 추천 태그를 누르면 기존 쉼표 문자열을 배열로 바꿔 추가·삭제한 뒤 다시 입력창 형식으로 합칩니다.
   const toggleTag = (tag: string): void => {
@@ -455,23 +484,34 @@ export function MemoModal({
           <p className="pb-4 text-center text-xs text-[#8e8e93]">
             {formatDate(editingMemo?.updatedAt)}
           </p>
-          {imageUrl && (
-            <figure className="relative mb-4 overflow-hidden rounded-xl bg-[#1c1c1e]">
-              {/* 로컬 파일 미리보기는 운영 저장소 URL로 교체될 예정이다. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imageUrl}
-                alt="첨부한 메모 이미지 미리보기"
-                className="max-h-72 w-full object-cover"
-              />
-              <button
-                type="button"
-                onClick={() => setImageUrl(undefined)}
-                className="absolute right-2 top-2 rounded-full bg-black/75 px-3 py-1.5 text-xs"
-              >
-                사진 제거
-              </button>
-            </figure>
+          {images.length > 0 && (
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              {images.map((image, index) => (
+                <figure
+                  key={`${image.name}-${index}`}
+                  className={`relative overflow-hidden rounded-xl bg-[#1c1c1e] ${image.url === imageUrl ? "ring-2 ring-[#e5a93c]" : ""}`}
+                >
+                  {/* 브라우저가 읽은 로컬 사진을 첨부 순서대로 미리 보여 줍니다. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={image.url}
+                    alt={`${image.name} 첨부 이미지`}
+                    className="aspect-video w-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setImages((current) =>
+                        current.filter((_, imageIndex) => imageIndex !== index),
+                      )
+                    }
+                    className="absolute right-1.5 top-1.5 rounded-full bg-black/75 px-2 py-1 text-[10px]"
+                  >
+                    제거
+                  </button>
+                </figure>
+              ))}
+            </div>
           )}
           <div
             ref={editorRef}
@@ -613,7 +653,11 @@ export function MemoModal({
               ref={imageInputRef}
               type="file"
               accept="image/*"
-              onChange={(event) => attachImage(event.target.files?.[0])}
+              multiple
+              onChange={(event) => {
+                void attachImages(Array.from(event.target.files ?? []));
+                event.currentTarget.value = "";
+              }}
               className="hidden"
             />
           </div>
