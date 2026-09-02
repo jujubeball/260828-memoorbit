@@ -68,9 +68,10 @@ export function OrbitGraphView({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const transformRef = useRef<ViewTransform>({ x: 0, y: 0, scale: 1 });
   const dragRef = useRef({ active: false, x: 0, y: 0 });
+  // 💡 [선택한 태그 State]
+  // 모바일과 PC에서 누른 태그 이름을 기억하며, 이 값이 바뀌면 아래 관련 메모 목록도 즉시 다시 계산됩니다.
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [hoveredTag, setHoveredTag] = useState<string | null>(null);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [renderVersion, setRenderVersion] = useState(0);
   const nodes = useMemo(() => createNodes(memos), [memos]);
   const relatedMemos = selectedTag
@@ -138,15 +139,6 @@ export function OrbitGraphView({
     return () => window.removeEventListener("resize", draw);
   }, [hoveredTag, nodes, renderVersion, selectedTag]);
 
-  useEffect(() => {
-    if (!isSheetOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow || "unset";
-    };
-  }, [isSheetOpen]);
-
   const findNode = (clientX: number, clientY: number): TagNode | undefined => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
@@ -163,20 +155,10 @@ export function OrbitGraphView({
     );
   };
 
+  // 💡 [모바일 태그 선택 함수]
+  // 태그 행성을 누르면 같은 태그는 닫고 다른 태그는 선택하여, 팝업 없이 그래프 아래 목록을 교체합니다.
   const selectMobileTag = (tag: string): void => {
-    setSelectedTag(tag);
-    setIsSheetOpen(true);
-  };
-
-  const closeSheet = (): void => {
-    if (document.activeElement instanceof HTMLElement)
-      document.activeElement.blur();
-    setIsSheetOpen(false);
-  };
-
-  const openRelatedMemo = (memo: Memo): void => {
-    closeSheet();
-    onOpenMemo(memo);
+    setSelectedTag((current) => (current === tag ? null : tag));
   };
 
   return (
@@ -186,9 +168,9 @@ export function OrbitGraphView({
     >
       <MainContentHeader
         id="orbit-graph-title"
-        label="ORBIT GRAPH"
-        title="생각 궤적 탐색"
-        description="태그 행성을 따라 연결된 생각 궤도를 탐색하세요."
+        label="TAG ORBIT"
+        title="태그 궤도 탐색"
+        description="태그 행성을 따라 연결된 메모 궤도를 탐색하세요."
         onVisibilityChange={onHeaderVisibilityChange}
       />
 
@@ -272,14 +254,15 @@ export function OrbitGraphView({
         )}
       </div>
 
-      <div className="xl:hidden">
+      <div className="pb-6 xl:hidden">
         <div className="scrollbar-hidden flex snap-x gap-4 overflow-x-auto px-[12vw] py-8">
           {nodes.map((node) => (
             <button
               key={node.name}
               type="button"
               onClick={() => selectMobileTag(node.name)}
-              className="orbit-node flex aspect-square w-36 shrink-0 snap-center flex-col items-center justify-center rounded-full border border-[#596077] bg-[#1a1d26]/80 shadow-[0_0_30px_rgb(229_169_60/0.2)]"
+              aria-pressed={selectedTag === node.name}
+              className={`orbit-node flex aspect-square w-36 shrink-0 snap-center flex-col items-center justify-center rounded-full border shadow-[0_0_30px_rgb(229_169_60/0.2)] transition-colors ${selectedTag === node.name ? "border-[#ffc86b] bg-[#e5a93c] text-[#0f1117]" : "border-[#596077] bg-[#1a1d26]/80"}`}
             >
               <strong>#{node.name}</strong>
               <span className="mt-2 text-xs text-[#9ca3af]">
@@ -291,59 +274,45 @@ export function OrbitGraphView({
         <p className="text-center text-xs text-[#9ca3af]">
           좌우로 밀어 태그 행성을 탐색하세요
         </p>
-      </div>
-
-      {isSheetOpen && selectedTag && (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-[#0f1117]/70 p-3 xl:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="orbit-sheet-title"
-          onClick={closeSheet}
-        >
-          <div
-            className="relative max-h-[70dvh] w-full overflow-y-auto overscroll-contain rounded-3xl border border-[#2a2e3d] bg-[rgba(26,29,38,0.85)] shadow-[0_-20px_60px_rgb(0_0_0/0.45)] backdrop-blur-md"
-            onClick={(event) => event.stopPropagation()}
+        {selectedTag && (
+          <section
+            className="mt-5 border-t border-[#2a2e3d] pt-4"
+            aria-labelledby="mobile-related-memos-title"
           >
-            <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[#2a2e3d] bg-[#1a1d26]/90 p-5 backdrop-blur-md">
-              <div className="flex min-w-0 items-center gap-2">
-                <h3
-                  id="orbit-sheet-title"
-                  className="truncate text-xl font-bold"
-                >
-                  #{selectedTag} 궤도의 메모
-                </h3>
-                <span className="shrink-0 rounded-full bg-[#e5a93c]/15 px-2.5 py-1 text-xs font-semibold text-[#ffc86b]">
-                  총 {relatedMemos.length}개
-                </span>
-              </div>
+            <div className="flex items-center justify-between gap-3">
+              <h3
+                id="mobile-related-memos-title"
+                className="truncate text-sm font-bold"
+              >
+                #{selectedTag} 관련 메모 ({relatedMemos.length}개)
+              </h3>
               <button
                 type="button"
-                onClick={closeSheet}
-                className="glass-icon-button shrink-0"
-                aria-label="연관 메모 닫기"
+                onClick={() => setSelectedTag(null)}
+                className="shrink-0 text-xs text-[#9ca3af] underline underline-offset-4"
               >
-                ×
+                닫기
               </button>
-            </header>
-            <div className="grid gap-2 p-5">
+            </div>
+            {/* 선택된 태그의 메모를 팝업이 아닌 현재 문서 흐름 안에서 세로로 쌓아 보여 줍니다. */}
+            <div className="mt-3 flex flex-col gap-2">
               {relatedMemos.map((memo) => (
                 <button
                   key={memo.id}
                   type="button"
-                  onClick={() => openRelatedMemo(memo)}
-                  className="rounded-xl border border-[#2a2e3d] bg-[#0f1117]/45 p-4 text-left shadow-sm"
+                  onClick={() => onOpenMemo(memo)}
+                  className="rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-3 text-left shadow-sm"
                 >
-                  <strong>{memo.title}</strong>
-                  <p className="mt-1 line-clamp-2 text-sm text-[#9ca3af]">
+                  <strong className="block truncate text-sm">{memo.title}</strong>
+                  <p className="mt-1 line-clamp-2 text-xs text-[#9ca3af]">
                     {memo.content}
                   </p>
                 </button>
               ))}
             </div>
-          </div>
-        </div>
-      )}
+          </section>
+        )}
+      </div>
     </section>
   );
 }

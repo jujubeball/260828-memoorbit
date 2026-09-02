@@ -32,8 +32,8 @@ const NAVIGATION_ITEMS: Array<{
   {
     id: "orbit",
     icon: "🌌",
-    label: "생각 궤적 탐색",
-    description: "Orbit Graph",
+    label: "태그 궤도 탐색",
+    description: "Tag Orbit",
   },
   {
     id: "timeline",
@@ -120,7 +120,8 @@ export default function Home(): React.JSX.Element {
   const [memoViewMode, setMemoViewMode] = useState<MemoViewMode>("list");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMemoToolbarStuck, setIsMemoToolbarStuck] = useState(false);
-  const [isContentHeaderVisible, setIsContentHeaderVisible] = useState(true);
+  // 페이지별 콘텐츠 제목이 화면에 들어왔는지는 공통 헤더 관찰기가 갱신하며, 화면 전환 시 관찰 상태를 초기화합니다.
+  const [, setIsContentHeaderVisible] = useState(true);
 
   // 💡 [브라우저 저장소 불러오기]
   // 첫 화면이 열린 뒤 이전 방문에서 저장한 메모를 읽고, 읽기가 끝난 뒤에만 새 변경을 다시 저장하도록 표시합니다.
@@ -328,7 +329,7 @@ export default function Home(): React.JSX.Element {
         </p>
       </aside>
 
-      <header className="sticky top-0 z-30 flex h-14 w-full items-center border-b border-[#2a2e3d] bg-[#0f1117] px-2 xl:hidden">
+      <header className="sticky top-0 z-30 flex h-12 w-full items-center border-b border-[#2a2e3d] bg-[#0f1117] px-2 xl:hidden">
         <div className="mx-auto grid w-full max-w-5xl grid-cols-[44px_minmax(0,1fr)_44px] items-center">
           <button
             type="button"
@@ -338,34 +339,15 @@ export default function Home(): React.JSX.Element {
           >
             ☰
           </button>
-          <div className="min-w-0 text-center">
-            {isContentHeaderVisible ? (
-              <button
-                type="button"
-                onClick={() => selectNavigation("memos")}
-                className="max-w-full truncate text-lg font-bold transition-opacity"
-                aria-label="MemoOrbit 메모 목록 홈"
-              >
-                MemoOrbit
-              </button>
-            ) : (
-              <strong className="block truncate px-2 text-[17px] font-semibold">
-                {NAVIGATION_ITEMS.find((item) => item.id === activeSection)?.label}
-              </strong>
-            )}
-          </div>
-          {isContentHeaderVisible ? (
-            <span className="h-11 w-11" aria-hidden="true" />
-          ) : (
-            <button
-              type="button"
-              onClick={() => selectNavigation("memos")}
-              className="ios-tap flex h-11 w-11 items-center justify-center text-xl text-[#e5a93c]"
-              aria-label="MemoOrbit 메모 목록 홈"
-            >
-              ◉
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => selectNavigation("memos")}
+            className="min-w-0 truncate px-2 text-center text-[17px] font-semibold"
+            aria-label="MemoOrbit 메모 목록 홈"
+          >
+            MemoOrbit
+          </button>
+          <span className="h-11 w-11" aria-hidden="true" />
         </div>
       </header>
       <main
@@ -441,7 +423,7 @@ export default function Home(): React.JSX.Element {
                     id="pinned-list"
                     className={
                       memoViewMode === "gallery"
-                        ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                        ? "grid grid-cols-2 gap-3 lg:grid-cols-3"
                         : "overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 backdrop-blur-md"
                     }
                   >
@@ -465,7 +447,7 @@ export default function Home(): React.JSX.Element {
                 <div
                   className={
                     memoViewMode === "gallery"
-                      ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                      ? "grid grid-cols-2 gap-3 lg:grid-cols-3"
                       : "overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 backdrop-blur-md"
                   }
                 >
@@ -497,37 +479,12 @@ export default function Home(): React.JSX.Element {
             setEditingMemo(null);
             setIsEditorOpen(true);
           }}
-          className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-5 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-[#e5a93c] text-4xl font-light text-[#0f1117] shadow-[0_14px_35px_rgb(0_0_0/0.5)] active:scale-95 xl:hidden"
+          className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-5 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-[#e5a93c] text-4xl font-light text-[#0f1117] shadow-[0_14px_35px_rgb(0_0_0/0.5)] active:scale-95 xl:hidden"
           aria-label="새 메모 작성"
         >
           +
         </button>
       )}
-      <nav
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-[#2a2e3d] bg-[#0f1117]/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md xl:hidden"
-        aria-label="모바일 하단 주요 메뉴"
-      >
-        {NAVIGATION_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => selectNavigation(item.id)}
-            aria-current={activeSection === item.id ? "page" : undefined}
-            className={`flex min-h-16 flex-col items-center justify-center gap-1 px-2 text-xs transition-colors ${activeSection === item.id ? "text-[#ffc86b]" : "text-[#9ca3af]"}`}
-          >
-            <span className="text-xl" aria-hidden="true">
-              {item.icon}
-            </span>
-            <span>
-              {item.id === "memos"
-                ? "메모 목록"
-                : item.id === "orbit"
-                  ? "생각 궤도"
-                  : "시간 궤도"}
-            </span>
-          </button>
-        ))}
-      </nav>
       {isDrawerOpen && (
         <div role="dialog" aria-modal="true" aria-label="메뉴">
           <button

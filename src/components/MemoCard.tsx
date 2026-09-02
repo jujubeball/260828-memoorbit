@@ -227,11 +227,12 @@ export function MemoCard({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
-        className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 pb-5 pl-4 pr-14 pt-0" : "border-b border-[#2a2e3d] py-3.5 pl-4 pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
+        className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 pb-3 pl-3 pr-3 pt-0" : "border-b border-[#2a2e3d] py-3.5 pl-4 pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
         style={{ transform: `translateX(${offset}px)` }}
       >
         {viewMode === "gallery" && (
-          <div className="-ml-4 -mr-14 mb-4 aspect-[4/3] overflow-hidden bg-gradient-to-br from-[#e5a93c] via-[#8e8e93] to-[#1c1c1e]">
+          // 갤러리의 두 열이 작은 화면에도 나란히 들어가도록 썸네일 비율과 안쪽 여백을 작게 유지합니다.
+          <div className="-ml-3 -mr-3 mb-3 aspect-video overflow-hidden bg-gradient-to-br from-[#e5a93c] via-[#8e8e93] to-[#1c1c1e]">
             {(memo.imageUrl || memo.aiImageUrl) && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -265,11 +266,15 @@ export function MemoCard({
               ●
             </span>
           )}
-          <h3 className="truncate text-[17px] font-semibold leading-5">
+          <h3
+            className={`truncate font-semibold ${viewMode === "gallery" ? "text-sm leading-5" : "text-[17px] leading-5"}`}
+          >
             {memo.title}
           </h3>
         </div>
-        <p className="mt-1 flex min-w-0 gap-2 text-[15px] leading-5">
+        <p
+          className={`mt-1 min-w-0 ${viewMode === "gallery" ? "grid gap-0.5 text-xs leading-4" : "flex gap-2 text-[15px] leading-5"}`}
+        >
           <time className="shrink-0 text-[#f3f4f6]">
             {formatMemoDate(memo.updatedAt)}
           </time>
