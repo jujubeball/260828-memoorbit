@@ -1,5 +1,3 @@
-export type ImageMood = "수채화" | "네온" | "흑백" | "빈티지";
-
 export interface MemoImageAttachment {
   url: string;
   name: string;
@@ -17,7 +15,4 @@ export interface Memo {
   tags: string[];
   imageUrl?: string;
   images?: MemoImageAttachment[];
-  aiImageUrl?: string;
-  aiImageMood?: ImageMood;
-  aiImageSourceText?: string;
 }

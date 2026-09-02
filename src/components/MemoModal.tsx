@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { MemoOrbitDefaultCover } from "@/src/components/MemoOrbitDefaultCover";
 import type { Memo } from "@/types/memo";
 import { requestGeminiAnalysis } from "@/src/lib/geminiClient";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
@@ -512,6 +513,14 @@ export function MemoModal({
                 </figure>
               ))}
             </div>
+          )}
+          {/* 💡 [메모 편집 화면 기본 커버 분기]
+              첨부 사진이 하나도 없으면 빈 공간 대신 현재 메모 제목을 담은 MemoOrbit 궤도 커버를 보여 줍니다. */}
+          {images.length === 0 && (
+            <MemoOrbitDefaultCover
+              title={editingMemo?.title || plainText.split("\n")[0]}
+              className="mb-4 aspect-video rounded-xl border border-[#2a2e3d]"
+            />
           )}
           <div
             ref={editorRef}

@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { MemoOrbitDefaultCover } from "@/src/components/MemoOrbitDefaultCover";
 import type { Memo } from "@/types/memo";
 
 interface MemoCardProps {
@@ -232,14 +233,18 @@ export function MemoCard({
       >
         {viewMode === "gallery" && (
           // 갤러리의 두 열이 작은 화면에도 나란히 들어가도록 썸네일 비율과 안쪽 여백을 작게 유지합니다.
-          <div className="-ml-3 -mr-3 mb-3 aspect-video overflow-hidden bg-gradient-to-br from-[#e5a93c] via-[#8e8e93] to-[#1c1c1e]">
-            {(memo.imageUrl || memo.aiImageUrl) && (
+          <div className="-ml-3 -mr-3 mb-3 aspect-video overflow-hidden bg-[#0f1117]">
+            {/* 💡 [메모 카드 기본 커버 분기]
+                사용자가 첨부한 imageUrl이 있으면 사진을 보여 주고, 없으면 같은 자리에 MemoOrbit 브랜드 궤도 그래픽을 채웁니다. */}
+            {memo.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={memo.imageUrl ?? memo.aiImageUrl}
+                src={memo.imageUrl}
                 alt=""
                 className="h-full w-full object-cover"
               />
+            ) : (
+              <MemoOrbitDefaultCover title={memo.title} />
             )}
           </div>
         )}

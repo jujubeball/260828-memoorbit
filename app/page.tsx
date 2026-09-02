@@ -17,8 +17,7 @@ import { MainContentHeader } from "@/src/components/MainContentHeader";
 import { OrbitGraphView } from "@/src/components/OrbitGraphView";
 import { TimelineStreamView } from "@/src/components/TimelineStreamView";
 import { initialMemos } from "@/src/data/initialMemos";
-import { createMemoImageDataUrl } from "@/src/lib/memoImage";
-import type { ImageMood, Memo } from "@/types/memo";
+import type { Memo } from "@/types/memo";
 
 interface MemoGroup {
   label: string;
@@ -28,16 +27,10 @@ interface MemoGroup {
 type NavigationSection = "memos" | "orbit" | "timeline";
 type MemoViewMode = "list" | "gallery";
 
-const AI_IMAGE_MOODS: ImageMood[] = ["수채화", "네온", "흑백", "빈티지"];
 const MEMO_STORAGE_KEY = "memoorbit-memos";
 const MIN_PANEL_WIDTH = 280;
 const MAX_PANEL_WIDTH = 600;
 const DEFAULT_PANEL_WIDTH = 288;
-
-// 💡 [AI 이미지 무드 자동 선택]
-// 사용자가 사진을 직접 첨부하지 않아 새 AI 배경이 필요할 때 네 가지 무드 중 하나의 배열 위치를 무작위로 골라 돌려줍니다.
-const getRandomMood = (): ImageMood =>
-  AI_IMAGE_MOODS[Math.floor(Math.random() * AI_IMAGE_MOODS.length)];
 
 const NAVIGATION_ITEMS: Array<{
   id: NavigationSection;
@@ -98,8 +91,7 @@ const selectMemoryCandidate = (memos: Memo[], target: Date): Memo | undefined =>
     .filter((memo) => isSameDate(new Date(memo.createdAt), target))
     .sort(
       (left, right) =>
-        Number(Boolean(right.imageUrl || right.aiImageUrl)) -
-          Number(Boolean(left.imageUrl || left.aiImageUrl)) ||
+        Number(Boolean(right.imageUrl)) - Number(Boolean(left.imageUrl)) ||
         Number(right.isPinned) - Number(left.isPinned) ||
         right.content.length - left.content.length,
     )[0];
@@ -314,21 +306,6 @@ export default function Home(): React.JSX.Element {
   // 완료 버튼과 뒤로가기 자동 저장이 모두 이 함수를 사용하며, 기존 메모는 교체하고 새 메모는 목록 맨 앞에 추가합니다.
   const submitMemo = (draft: MemoDraft): void => {
     const now = new Date().toISOString();
-    const sourceText = [draft.title, draft.content].filter(Boolean).join("\n");
-    const canReuseAiImage =
-      !draft.imageUrl &&
-      editingMemo?.aiImageSourceText === sourceText &&
-      Boolean(editingMemo.aiImageUrl);
-    // 본문이 그대로인 기존 AI 이미지는 원래 무드를 유지하고, 새로 생성할 때만 사용자가 보지 않아도 무드를 자동 선택합니다.
-    const generatedImageMood = canReuseAiImage
-      ? editingMemo?.aiImageMood ?? getRandomMood()
-      : getRandomMood();
-    const aiImageMood = draft.imageUrl ? undefined : generatedImageMood;
-    const aiImageUrl = draft.imageUrl
-      ? undefined
-      : canReuseAiImage
-        ? editingMemo?.aiImageUrl
-        : createMemoImageDataUrl(sourceText, generatedImageMood);
     const values = {
       title: draft.title,
       content: draft.content,
@@ -336,9 +313,6 @@ export default function Home(): React.JSX.Element {
       tags: toTags(draft.tags),
       imageUrl: draft.imageUrl,
       images: draft.images,
-      aiImageMood,
-      aiImageUrl,
-      aiImageSourceText: draft.imageUrl ? undefined : sourceText,
       updatedAt: now,
     };
     // map 대신 새 객체와 filter를 사용해 기존 State를 직접 변경하지 않고 새로운 배열을 만듭니다.

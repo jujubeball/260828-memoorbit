@@ -127,7 +127,7 @@ export const exportMemoryImage = async (memo: Memo): Promise<void> => {
   context.lineWidth = 2;
   context.stroke();
 
-  await drawMemoryPhoto(context, memo.imageUrl ?? memo.aiImageUrl);
+  await drawMemoryPhoto(context, memo.imageUrl);
 
   context.fillStyle = "#F3F4F6";
   context.font = "700 20px system-ui, sans-serif";
