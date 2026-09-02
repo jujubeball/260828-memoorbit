@@ -14,6 +14,7 @@ import { MainContentHeader } from "@/src/components/MainContentHeader";
 interface OrbitGraphViewProps {
   memos: Memo[];
   onOpenMemo: (memo: Memo) => void;
+  onHeaderVisibilityChange?: (isVisible: boolean) => void;
 }
 
 interface TagNode {
@@ -62,6 +63,7 @@ const createNodes = (memos: Memo[]): TagNode[] => {
 export function OrbitGraphView({
   memos,
   onOpenMemo,
+  onHeaderVisibilityChange,
 }: OrbitGraphViewProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const transformRef = useRef<ViewTransform>({ x: 0, y: 0, scale: 1 });
@@ -187,6 +189,7 @@ export function OrbitGraphView({
         label="ORBIT GRAPH"
         title="생각 궤적 탐색"
         description="태그 행성을 따라 연결된 생각 궤도를 탐색하세요."
+        onVisibilityChange={onHeaderVisibilityChange}
       />
 
       <div className="glass-panel relative hidden overflow-hidden xl:block xl:min-h-0 xl:flex-1">

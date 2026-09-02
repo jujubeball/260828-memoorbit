@@ -120,6 +120,7 @@ export default function Home(): React.JSX.Element {
   const [memoViewMode, setMemoViewMode] = useState<MemoViewMode>("list");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMemoToolbarStuck, setIsMemoToolbarStuck] = useState(false);
+  const [isContentHeaderVisible, setIsContentHeaderVisible] = useState(true);
 
   // 💡 [브라우저 저장소 불러오기]
   // 첫 화면이 열린 뒤 이전 방문에서 저장한 메모를 읽고, 읽기가 끝난 뒤에만 새 변경을 다시 저장하도록 표시합니다.
@@ -208,7 +209,9 @@ export default function Home(): React.JSX.Element {
   };
   const selectNavigation = (section: NavigationSection): void => {
     setActiveSection(section);
+    setIsContentHeaderVisible(true);
     setIsDrawerOpen(false);
+    window.scrollTo({ top: 0, behavior: "auto" });
   };
   // 💡 [메모 저장과 자동 저장의 공통 입구]
   // 완료 버튼과 뒤로가기 자동 저장이 모두 이 함수를 사용하며, 기존 메모는 교체하고 새 메모는 목록 맨 앞에 추가합니다.
@@ -325,32 +328,44 @@ export default function Home(): React.JSX.Element {
         </p>
       </aside>
 
-      <header className="sticky top-0 z-30 flex h-12 w-full items-center border-b border-[#2a2e3d] bg-[#0f1117] px-4 xl:hidden">
-        <div className="mx-auto flex w-full max-w-5xl items-center">
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsDrawerOpen(true)}
-              className="ios-tap flex h-11 w-11 items-center justify-center text-2xl xl:hidden"
-              aria-label="메뉴 열기"
-            >
-              ☰
-            </button>
+      <header className="sticky top-0 z-30 flex h-14 w-full items-center border-b border-[#2a2e3d] bg-[#0f1117] px-2 xl:hidden">
+        <div className="mx-auto grid w-full max-w-5xl grid-cols-[44px_minmax(0,1fr)_44px] items-center">
+          <button
+            type="button"
+            onClick={() => setIsDrawerOpen(true)}
+            className="ios-tap flex h-11 w-11 items-center justify-center text-2xl"
+            aria-label="메뉴 열기"
+          >
+            ☰
+          </button>
+          <div className="min-w-0 text-center">
+            {isContentHeaderVisible ? (
+              <button
+                type="button"
+                onClick={() => selectNavigation("memos")}
+                className="max-w-full truncate text-lg font-bold transition-opacity"
+                aria-label="MemoOrbit 메모 목록 홈"
+              >
+                MemoOrbit
+              </button>
+            ) : (
+              <strong className="block truncate px-2 text-[17px] font-semibold">
+                {NAVIGATION_ITEMS.find((item) => item.id === activeSection)?.label}
+              </strong>
+            )}
+          </div>
+          {isContentHeaderVisible ? (
+            <span className="h-11 w-11" aria-hidden="true" />
+          ) : (
             <button
               type="button"
               onClick={() => selectNavigation("memos")}
-              className="truncate text-lg font-bold"
+              className="ios-tap flex h-11 w-11 items-center justify-center text-xl text-[#e5a93c]"
               aria-label="MemoOrbit 메모 목록 홈"
             >
-              MemoOrbit
+              ◉
             </button>
-            <span className="truncate text-xs text-[#9ca3af]">
-              {
-                NAVIGATION_ITEMS.find((item) => item.id === activeSection)
-                  ?.label
-              }
-            </span>
-          </div>
+          )}
         </div>
       </header>
       <main
@@ -359,7 +374,7 @@ export default function Home(): React.JSX.Element {
         {activeSection === "memos" && (
           <>
             <div
-              className={`sticky top-12 z-20 border-b border-transparent bg-[#0f1117] py-3 backdrop-blur-md transition-all duration-200 xl:top-0 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
+              className={`border-b border-transparent bg-[#0f1117] transition-all duration-200 xl:sticky xl:top-0 xl:z-20 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
             >
               <MainContentHeader
                 id="all-memos-title"
@@ -367,6 +382,7 @@ export default function Home(): React.JSX.Element {
                 title="모든 메모"
                 badge={`전체 ${memos.length}개`}
                 description="수집된 생각과 기록을 한눈에 탐색하고 관리합니다."
+                onVisibilityChange={setIsContentHeaderVisible}
                 action={
                   <div
                     className="flex rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-1 backdrop-blur-md"
@@ -460,10 +476,18 @@ export default function Home(): React.JSX.Element {
           </>
         )}
         {activeSection === "orbit" && (
-          <OrbitGraphView memos={memos} onOpenMemo={openMemo} />
+          <OrbitGraphView
+            memos={memos}
+            onOpenMemo={openMemo}
+            onHeaderVisibilityChange={setIsContentHeaderVisible}
+          />
         )}
         {activeSection === "timeline" && (
-          <TimelineStreamView memos={memos} onOpenMemo={openMemo} />
+          <TimelineStreamView
+            memos={memos}
+            onOpenMemo={openMemo}
+            onHeaderVisibilityChange={setIsContentHeaderVisible}
+          />
         )}
       </main>
       {activeSection === "memos" && (

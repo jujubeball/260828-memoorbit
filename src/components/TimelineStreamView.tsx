@@ -10,6 +10,7 @@ import type { Memo } from "@/types/memo";
 interface TimelineStreamViewProps {
   memos: Memo[];
   onOpenMemo: (memo: Memo) => void;
+  onHeaderVisibilityChange?: (isVisible: boolean) => void;
 }
 
 interface ResurfacedIdea {
@@ -37,7 +38,11 @@ const incompleteChecklistItems = (memo: Memo): string[] => {
     .filter(Boolean);
 };
 
-export function TimelineStreamView({ memos, onOpenMemo }: TimelineStreamViewProps): React.JSX.Element {
+export function TimelineStreamView({
+  memos,
+  onOpenMemo,
+  onHeaderVisibilityChange,
+}: TimelineStreamViewProps): React.JSX.Element {
   // 💡 [기간 선택 State]
   // 메모가 있으면 가장 오래된 날부터 최신 날짜까지를 처음 분석 범위로 사용합니다.
   const timestamps = memos.map((memo) => new Date(memo.createdAt).getTime()).filter(Number.isFinite);
@@ -155,6 +160,7 @@ export function TimelineStreamView({ memos, onOpenMemo }: TimelineStreamViewProp
         label="TIMELINE STREAM"
         title="시간 궤도 분석"
         description="지정한 기간 동안 쌓인 기록의 성찰과 실행 궤도를 분석합니다."
+        onVisibilityChange={onHeaderVisibilityChange}
       />
       <div className="glass-panel relative z-10 grid w-full gap-4 overflow-visible p-4 sm:grid-cols-2">
         <ResponsiveDatePicker id="timeline-start" label="시작일" value={startDate} onChange={setStartDate} />

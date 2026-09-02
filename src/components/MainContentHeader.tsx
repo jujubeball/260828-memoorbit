@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useRef, type ReactNode } from "react";
 
 interface MainContentHeaderProps {
   id: string;
@@ -7,6 +9,7 @@ interface MainContentHeaderProps {
   description: string;
   badge?: string;
   action?: ReactNode;
+  onVisibilityChange?: (isVisible: boolean) => void;
 }
 
 // 세 주요 화면이 같은 간격과 정보 순서를 사용하도록 영문 라벨·제목·설명을 한곳에서 그립니다.
@@ -17,9 +20,25 @@ export function MainContentHeader({
   description,
   badge,
   action,
+  onVisibilityChange,
 }: MainContentHeaderProps): React.JSX.Element {
+  const headerRef = useRef<HTMLElement>(null);
+
+  // 💡 [큰 페이지 제목 노출 감지]
+  // 콘텐츠 헤더가 상단바 아래에서 사라졌는지 관찰해 모바일 상단바가 브랜드와 축약 페이지명 중 무엇을 보여 줄지 알려줍니다.
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header || !onVisibilityChange) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => onVisibilityChange(entry.isIntersecting),
+      { rootMargin: "-56px 0px 0px 0px", threshold: 0 },
+    );
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [onVisibilityChange]);
+
   return (
-    <header className="pt-6">
+    <header ref={headerRef} className="pt-5 xl:pt-6">
       <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#e5a93c]">
         {label}
       </p>
@@ -34,9 +53,14 @@ export function MainContentHeader({
             </span>
           )}
         </div>
-        {action && <div className="shrink-0">{action}</div>}
+        {action && <div className="hidden shrink-0 xl:block">{action}</div>}
       </div>
-      <p className="mb-6 text-sm text-[#9ca3af]">{description}</p>
+      <p
+        className={`${action ? "mb-4 xl:mb-6" : "mb-6"} text-sm text-[#9ca3af]`}
+      >
+        {description}
+      </p>
+      {action && <div className="mb-6 xl:hidden">{action}</div>}
     </header>
   );
 }
