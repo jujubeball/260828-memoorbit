@@ -7,7 +7,7 @@ interface MainContentHeaderProps {
   label: string;
   title: string;
   description: string;
-  badge?: string;
+  badgeCount?: number;
   action?: ReactNode;
   onVisibilityChange?: (isVisible: boolean) => void;
 }
@@ -18,7 +18,7 @@ export function MainContentHeader({
   label,
   title,
   description,
-  badge,
+  badgeCount,
   action,
   onVisibilityChange,
 }: MainContentHeaderProps): React.JSX.Element {
@@ -47,9 +47,10 @@ export function MainContentHeader({
           <h2 id={id} className="truncate">
             {title}
           </h2>
-          {badge && (
+          {/* 메모 배열의 실제 길이를 숫자로 받아, 화면에 표시할 문구를 헤더 내부에서 일관되게 만듭니다. */}
+          {badgeCount !== undefined && (
             <span className="shrink-0 rounded-full border border-[#2a2e3d] bg-[#1a1d26]/80 px-2.5 py-1 text-xs font-semibold text-[#ffc86b]">
-              {badge}
+              전체 {badgeCount}개
             </span>
           )}
         </div>

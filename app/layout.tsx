@@ -29,7 +29,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       className={`${geistSans.variable} ${geistMono.variable} h-full max-w-full overflow-x-hidden antialiased`}
     >
       {/* 루트 본문도 기기 너비를 넘지 않도록 막아 모든 페이지가 같은 가로 경계를 공유합니다. */}
-      <body className="flex min-h-full max-w-full flex-col overflow-x-hidden">
+      <body className="flex min-h-full w-full max-w-full flex-col overflow-x-hidden">
         {children}
       </body>
     </html>

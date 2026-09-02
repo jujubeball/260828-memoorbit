@@ -12,6 +12,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* 모든 요소의 테두리와 안쪽 여백을 선언한 너비 안에 포함시켜 예상하지 못한 가로 확장을 막습니다. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 /* 💡 [모바일 가로 오버플로우 차단]
    브라우저 화면부터 앱의 루트와 main까지 최대 너비를 기기 폭 안으로 묶어, 자식 카드가 넓어져도 페이지 전체가 좌우로 흔들리지 않게 합니다. */
 html,
@@ -19,7 +26,9 @@ body,
 #root,
 #__next,
 main {
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
   overflow-x: hidden;
 }
 

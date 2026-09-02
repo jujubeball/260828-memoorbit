@@ -374,7 +374,7 @@ export default function Home(): React.JSX.Element {
                 id="all-memos-title"
                 label="ALL MEMOS"
                 title="모든 메모"
-                badge={`전체 ${memos.length}개`}
+                badgeCount={memos.length}
                 description="수집된 생각과 기록을 한눈에 탐색하고 관리합니다."
                 onVisibilityChange={setIsContentHeaderVisible}
                 action={
