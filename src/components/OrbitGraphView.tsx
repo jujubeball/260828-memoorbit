@@ -31,6 +31,18 @@ interface ViewTransform {
   scale: number;
 }
 
+// 💡 [메모 개수별 태그 행성 크기 계산]
+// createNodes가 미리 세어 둔 태그별 메모 개수를 받아 크기·글자·빛 효과를 하나의 Tailwind 클래스 문자열로 돌려줍니다.
+const getTagPlanetSize = (memoCount: number): string => {
+  if (memoCount >= 8) {
+    return "h-20 w-20 text-sm border-[#e5a93c] bg-[#e5a93c] font-bold text-[#0f1117] shadow-[0_0_20px_rgba(229,169,60,0.6)]";
+  }
+  if (memoCount >= 4) {
+    return "h-16 w-16 text-xs border-[#75658f] bg-[#242334]/90 font-semibold text-[#f3f4f6] shadow-[0_0_12px_rgba(117,101,143,0.35)]";
+  }
+  return "h-12 w-12 text-[10px] border-[#2a2e3d] bg-[#1a1d26]/90 text-[#9ca3af]";
+};
+
 const createNodes = (memos: Memo[]): TagNode[] => {
   const counts = new Map<string, number>();
   const links = new Map<string, Set<string>>();
@@ -163,16 +175,18 @@ export function OrbitGraphView({
 
   return (
     <section
-      className="text-[#f3f4f6] xl:flex xl:h-full xl:flex-col xl:overflow-hidden"
+      className="flex h-[calc(100dvh-48px)] flex-col overflow-hidden text-[#f3f4f6] xl:h-full"
       aria-labelledby="orbit-graph-title"
     >
-      <MainContentHeader
-        id="orbit-graph-title"
-        label="TAG ORBIT"
-        title="태그 궤도 탐색"
-        description="태그 행성을 따라 연결된 메모 궤도를 탐색하세요."
-        onVisibilityChange={onHeaderVisibilityChange}
-      />
+      <div className="flex-none">
+        <MainContentHeader
+          id="orbit-graph-title"
+          label="TAG ORBIT"
+          title="태그 궤도 탐색"
+          description="태그 행성을 따라 연결된 메모 궤도를 탐색하세요."
+          onVisibilityChange={onHeaderVisibilityChange}
+        />
+      </div>
 
       <div className="glass-panel relative hidden overflow-hidden xl:block xl:min-h-0 xl:flex-1">
         <canvas
@@ -254,64 +268,95 @@ export function OrbitGraphView({
         )}
       </div>
 
-      <div className="pb-6 xl:hidden">
-        <div className="scrollbar-hidden flex snap-x gap-4 overflow-x-auto px-[12vw] py-8">
-          {nodes.map((node) => (
-            <button
-              key={node.name}
-              type="button"
-              onClick={() => selectMobileTag(node.name)}
-              aria-pressed={selectedTag === node.name}
-              className={`orbit-node flex aspect-square w-36 shrink-0 snap-center flex-col items-center justify-center rounded-full border shadow-[0_0_30px_rgb(229_169_60/0.2)] transition-colors ${selectedTag === node.name ? "border-[#ffc86b] bg-[#e5a93c] text-[#0f1117]" : "border-[#596077] bg-[#1a1d26]/80"}`}
-            >
-              <strong>#{node.name}</strong>
-              <span className="mt-2 text-xs text-[#9ca3af]">
-                {node.count}개의 기록
-              </span>
-            </button>
-          ))}
-        </div>
-        <p className="text-center text-xs text-[#9ca3af]">
-          좌우로 밀어 태그 행성을 탐색하세요
-        </p>
-        {selectedTag && (
-          <section
-            className="mt-5 border-t border-[#2a2e3d] pt-4"
-            aria-labelledby="mobile-related-memos-title"
+      <div className="flex min-h-0 flex-1 flex-col xl:hidden">
+        {/* 상단 궤도는 줄어들지 않는 flex-none 영역이라 아래 메모를 스크롤해도 같은 자리에 남습니다. */}
+        <div className="relative flex-none overflow-hidden border-b border-[#2a2e3d] bg-[#0f1117]">
+          <svg
+            className="pointer-events-none absolute inset-x-0 top-1/2 h-32 w-full -translate-y-1/2 opacity-30"
+            viewBox="0 0 360 128"
+            aria-hidden="true"
           >
-            <div className="flex items-center justify-between gap-3">
-              <h3
-                id="mobile-related-memos-title"
-                className="truncate text-sm font-bold"
-              >
-                #{selectedTag} 관련 메모 ({relatedMemos.length}개)
-              </h3>
+            <ellipse
+              cx="180"
+              cy="64"
+              rx="155"
+              ry="48"
+              fill="none"
+              stroke="#e5a93c"
+              strokeWidth="1.5"
+              strokeDasharray="5 5"
+            />
+          </svg>
+          <div className="scrollbar-hidden relative z-10 flex h-36 snap-x snap-mandatory items-center gap-4 overflow-x-auto px-[12vw] py-6">
+            {nodes.map((node) => (
               <button
+                key={node.name}
                 type="button"
-                onClick={() => setSelectedTag(null)}
-                className="shrink-0 text-xs text-[#9ca3af] underline underline-offset-4"
+                onClick={() => selectMobileTag(node.name)}
+                aria-pressed={selectedTag === node.name}
+                // 태그에 연결된 메모 개수가 많을수록 큰 행성 클래스를 적용하고, 선택된 행성에는 별도의 황금 링을 더합니다.
+                className={`orbit-node flex shrink-0 snap-center flex-col items-center justify-center rounded-full border transition-all duration-300 ${getTagPlanetSize(node.count)} ${selectedTag === node.name ? "z-20 scale-110 ring-2 ring-[#ffc86b] ring-offset-2 ring-offset-[#0f1117]" : "opacity-85"}`}
               >
-                닫기
+                <strong className="max-w-[90%] truncate">#{node.name}</strong>
+                <span className="mt-1 text-[9px] font-normal opacity-75">
+                  {node.count}개
+                </span>
               </button>
-            </div>
-            {/* 선택된 태그의 메모를 팝업이 아닌 현재 문서 흐름 안에서 세로로 쌓아 보여 줍니다. */}
-            <div className="mt-3 flex flex-col gap-2">
-              {relatedMemos.map((memo) => (
-                <button
-                  key={memo.id}
-                  type="button"
-                  onClick={() => onOpenMemo(memo)}
-                  className="rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-3 text-left shadow-sm"
+            ))}
+          </div>
+          <p className="pb-3 text-center text-[11px] text-[#9ca3af]">
+            기록이 많이 쌓일수록 궤도 안의 행성이 커집니다
+          </p>
+        </div>
+
+        {/* 하단 목록만 남은 화면 높이를 사용하고, 내용이 길면 이 영역 안에서만 세로로 움직입니다. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-6">
+          {selectedTag && (
+            <section
+              className="py-4"
+              aria-labelledby="mobile-related-memos-title"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h3
+                  id="mobile-related-memos-title"
+                  className="truncate text-sm font-bold"
                 >
-                  <strong className="block truncate text-sm">{memo.title}</strong>
-                  <p className="mt-1 line-clamp-2 text-xs text-[#9ca3af]">
-                    {memo.content}
-                  </p>
+                  #{selectedTag} 관련 메모 ({relatedMemos.length}개)
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTag(null)}
+                  className="shrink-0 text-xs text-[#9ca3af] underline underline-offset-4"
+                >
+                  닫기
                 </button>
-              ))}
-            </div>
-          </section>
-        )}
+              </div>
+              {/* 선택된 태그의 메모를 팝업이 아닌 현재 문서 흐름 안에서 세로로 쌓아 보여 줍니다. */}
+              <div className="mt-3 flex flex-col gap-2">
+                {relatedMemos.map((memo) => (
+                  <button
+                    key={memo.id}
+                    type="button"
+                    onClick={() => onOpenMemo(memo)}
+                    className="rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-3 text-left shadow-sm"
+                  >
+                    <strong className="block truncate text-sm">
+                      {memo.title}
+                    </strong>
+                    <p className="mt-1 line-clamp-2 text-xs text-[#9ca3af]">
+                      {memo.content}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+          {!selectedTag && (
+            <p className="px-4 py-8 text-center text-sm text-[#9ca3af]">
+              좌우로 밀어 태그 행성을 선택하세요.
+            </p>
+          )}
+        </div>
       </div>
     </section>
   );
