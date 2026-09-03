@@ -227,7 +227,7 @@ export function MemoCard({
       <button
         type="button"
         onClick={togglePin}
-        className="absolute inset-y-0 left-0 flex w-[74px] flex-col items-center justify-center bg-[#e5a93c] text-white xl:hidden"
+        className={`absolute inset-y-0 left-0 flex w-[74px] flex-col items-center justify-center bg-[#e5a93c] text-white xl:hidden ${offset < 0 ? "invisible pointer-events-none" : "visible"}`}
         aria-label={
           memo.isPinned ? `${memo.title} 고정 해제` : `${memo.title} 고정`
         }
@@ -239,7 +239,9 @@ export function MemoCard({
           {memo.isPinned ? "해제" : "고정"}
         </span>
       </button>
-      <div className="absolute inset-y-0 right-0 flex w-[148px] xl:hidden">
+      <div
+        className={`absolute inset-y-0 right-0 flex w-[148px] xl:hidden ${offset > 0 ? "invisible pointer-events-none" : "visible"}`}
+      >
         <button
           type="button"
           onClick={() => {
