@@ -36,7 +36,7 @@ const ACTION_WIDTH = 148;
 // 사용자가 오른쪽으로 살짝 밀었을 때 고정 버튼 하나만 열린 채 기다리도록 맞춘 거리입니다.
 const PIN_ACTION_WIDTH = 74;
 const PIN_REVEAL_THRESHOLD = 60;
-const PIN_TOGGLE_THRESHOLD = 120;
+const PIN_TOGGLE_THRESHOLD = 160;
 
 const formatMemoDate = (iso: string): string => {
   // 저장된 ISO 날짜 문자열을 사용자가 목록에서 읽기 쉬운 연월일 값으로 바꿉니다.
@@ -67,11 +67,10 @@ export function MemoCard({
   const startOffset = useRef(0);
   const currentOffset = useRef(0);
 
-  // 💡 [스와이프 방향과 자동 실행 잠금]
-  // 세로 스크롤과 가로 스와이프를 구분하고, 한 번의 긴 스와이프에서 고정 함수가 중복 실행되지 않게 막습니다.
+  // 💡 [스와이프 방향 판별]
+  // 세로 스크롤과 가로 스와이프를 구분해 목록을 위아래로 움직이는 손짓이 고정 동작으로 오인되지 않게 합니다.
   const swipeAxis = useRef<SwipeAxis>(null);
   const suppressClick = useRef(false);
-  const didAutoTogglePin = useRef(false);
 
   // 💡 [카드 상호작용 State]
   // offset은 화면 이동 거리, isDragging은 애니메이션 여부, menuPosition은 PC 메뉴 좌표를 화면에 전달합니다.
@@ -113,7 +112,6 @@ export function MemoCard({
     setOffset(visibleOffset);
     swipeAxis.current = null;
     suppressClick.current = false;
-    didAutoTogglePin.current = false;
     setIsDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -141,22 +139,18 @@ export function MemoCard({
     currentOffset.current = nextOffset;
     setOffset(nextOffset);
 
-    // 2단계인 120px에 닿으면 손을 떼기 전이라도 고정 상태를 한 번만 전환하고 카드를 닫습니다.
-    if (nextOffset >= PIN_TOGGLE_THRESHOLD && !didAutoTogglePin.current) {
-      didAutoTogglePin.current = true;
-      onTogglePin(memo.id);
-      onSwipeOpenChange(false);
-      currentOffset.current = 0;
-      setOffset(0);
-      window.navigator.vibrate?.(20);
-    }
   };
 
   const handlePointerEnd = (event: PointerEvent<HTMLElement>): void => {
-    // 60px 미만은 원위치, 1단계는 74px 버튼 위치, 2단계는 토글 후 원위치로 정렬합니다.
+    // 드래그 도중에는 메모 순서를 바꾸지 않고, 160px 끝까지 당긴 채 손을 뗀 순간에만 고정 상태를 전환합니다.
     setIsDragging(false);
     if (swipeAxis.current === "horizontal") {
-      const finalOffset = didAutoTogglePin.current
+      const shouldTogglePin = currentOffset.current >= PIN_TOGGLE_THRESHOLD;
+      if (shouldTogglePin) {
+        onTogglePin(memo.id);
+        window.navigator.vibrate?.(20);
+      }
+      const finalOffset = shouldTogglePin
         ? 0
         : currentOffset.current >= PIN_REVEAL_THRESHOLD
           ? PIN_ACTION_WIDTH
@@ -170,6 +164,18 @@ export function MemoCard({
         suppressClick.current = false;
       }, 0);
     }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    swipeAxis.current = null;
+  };
+
+  const handlePointerCancel = (event: PointerEvent<HTMLElement>): void => {
+    // 브라우저가 제스처를 취소한 경우에는 사용자가 손을 뗀 것으로 보지 않고 아무 작업 없이 카드를 닫습니다.
+    setIsDragging(false);
+    currentOffset.current = 0;
+    setOffset(0);
+    onSwipeOpenChange(false);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -271,7 +277,7 @@ export function MemoCard({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
-        onPointerCancel={handlePointerEnd}
+        onPointerCancel={handlePointerCancel}
         className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 pb-3 pl-3 pr-3 pt-0" : "border-b border-[#2a2e3d] py-3.5 pl-4 pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
         style={{ transform: `translateX(${isSwipeOpen || isDragging ? offset : 0}px)` }}
       >
