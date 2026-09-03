@@ -1,6 +1,7 @@
 import type { GeminiAnalysis, GeminiAnalysisPurpose } from "@/src/types/gemini";
 import type { GeminiMemoLink } from "@/src/types/gemini";
 import type { Memo } from "@/types/memo";
+import type { MemoLink } from "@/types/memo";
 
 // 💡 [Gemini 서버 오류 전달 상자]
 // 일반 Error에 서버가 보낸 details를 별도 칸으로 보존해, 시간 궤도 화면이 fetch failed의 실제 하위 원인을 그대로 읽을 수 있게 합니다.
@@ -70,6 +71,30 @@ export const requestMemoLinks = async (
   const result = await response.json() as { links?: unknown };
   if (!Array.isArray(result.links)) throw new Error("메모 연관 응답 형식이 올바르지 않습니다.");
   return result.links as GeminiMemoLink[];
+};
+
+// 💡 [저장 직후 메모 연결 요청]
+// 방금 저장한 메모와 나머지 메모의 작은 텍스트 정보만 보내고, 새 메모에서 출발하는 링크 배열을 받습니다.
+export const requestLinksForMemo = async (
+  memo: Memo,
+  existingMemos: Memo[],
+): Promise<MemoLink[]> => {
+  const response = await fetch("/api/memos/link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      memo: { id: memo.id, title: memo.title, content: memo.content.slice(0, 600) },
+      existingMemos: existingMemos.map(({ id, title, content }) => ({
+        id,
+        title,
+        content: content.slice(0, 600),
+      })),
+    }),
+  });
+  if (!response.ok) throw new Error("Gemini 메모 연관 분석에 실패했습니다.");
+  const result: unknown = await response.json();
+  if (!Array.isArray(result)) throw new Error("메모 연관 응답 형식이 올바르지 않습니다.");
+  return result as MemoLink[];
 };
 
 // 💡 [Gemini 서버 요청 함수]

@@ -26,6 +26,7 @@ import {
 } from "@/src/lib/memoStorage";
 import type { Memo } from "@/types/memo";
 import type { GeminiMemoLink } from "@/src/types/gemini";
+import { requestLinksForMemo } from "@/src/lib/geminiClient";
 
 interface MemoGroup {
   label: string;
@@ -319,16 +320,36 @@ export default function Home(): React.JSX.Element {
       links: undefined,
     };
     // map 대신 새 객체와 filter를 사용해 기존 State를 직접 변경하지 않고 새로운 배열을 만듭니다.
+    const savedMemo: Memo = editingMemo
+      ? { ...editingMemo, ...values }
+      : {
+          id: crypto.randomUUID(),
+          ...values,
+          createdAt: now,
+          isPinned: false,
+        };
     if (editingMemo) {
       setMemos((current) => [
-        { ...editingMemo, ...values },
+        savedMemo,
         ...current.filter((memo) => memo.id !== editingMemo.id),
       ]);
     } else {
       setMemos((current) => [
-        { id: crypto.randomUUID(), ...values, createdAt: now, isPinned: false },
+        savedMemo,
         ...current,
       ]);
+    }
+    const existingMemos = memos.filter((memo) => memo.id !== savedMemo.id);
+    if (existingMemos.length > 0) {
+      void requestLinksForMemo(savedMemo, existingMemos)
+        .then((links) => {
+          setMemos((current) => current.map((memo) => (
+            memo.id === savedMemo.id ? { ...memo, links } : memo
+          )));
+        })
+        .catch((error: unknown) => {
+          console.error("저장한 메모의 AI 연결을 만들지 못했습니다.", error);
+        });
     }
     closeEditor();
   };
