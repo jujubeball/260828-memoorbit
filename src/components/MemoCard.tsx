@@ -36,7 +36,7 @@ const ACTION_WIDTH = 148;
 // 사용자가 오른쪽으로 살짝 밀었을 때 고정 버튼 하나만 열린 채 기다리도록 맞춘 거리입니다.
 const PIN_ACTION_WIDTH = 74;
 const PIN_REVEAL_THRESHOLD = 60;
-const PIN_TOGGLE_THRESHOLD = 160;
+const PIN_FULL_SWIPE_RATIO = 0.8;
 
 const formatMemoDate = (iso: string): string => {
   // 저장된 ISO 날짜 문자열을 사용자가 목록에서 읽기 쉬운 연월일 값으로 바꿉니다.
@@ -131,10 +131,11 @@ export function MemoCard({
     if (swipeAxis.current !== "horizontal") return;
     event.preventDefault();
     suppressClick.current = true;
-    // 왼쪽 액션 너비부터 카드 너비 45%까지만 움직여 화면 밖으로 과도하게 이탈하지 않게 합니다.
+    // 왼쪽 액션 너비부터 카드의 오른쪽 끝까지만 움직이며, 고정된 숫자가 아닌 실제 카드 너비를 풀 스와이프 거리로 사용합니다.
+    const cardWidth = cardRef.current?.getBoundingClientRect().width ?? 0;
     const nextOffset = Math.max(
       -ACTION_WIDTH,
-      Math.min(PIN_TOGGLE_THRESHOLD, startOffset.current + deltaX),
+      Math.min(cardWidth, startOffset.current + deltaX),
     );
     currentOffset.current = nextOffset;
     setOffset(nextOffset);
@@ -142,10 +143,13 @@ export function MemoCard({
   };
 
   const handlePointerEnd = (event: PointerEvent<HTMLElement>): void => {
-    // 드래그 도중에는 메모 순서를 바꾸지 않고, 160px 끝까지 당긴 채 손을 뗀 순간에만 고정 상태를 전환합니다.
+    // 드래그 도중에는 메모 순서를 바꾸지 않고, 카드 너비의 80% 이상을 끝까지 당겨 손을 뗀 순간에만 고정 상태를 전환합니다.
     setIsDragging(false);
     if (swipeAxis.current === "horizontal") {
-      const shouldTogglePin = currentOffset.current >= PIN_TOGGLE_THRESHOLD;
+      const cardWidth = cardRef.current?.getBoundingClientRect().width ?? 0;
+      const fullSwipeThreshold = cardWidth * PIN_FULL_SWIPE_RATIO;
+      const shouldTogglePin =
+        cardWidth > 0 && currentOffset.current >= fullSwipeThreshold;
       if (shouldTogglePin) {
         onTogglePin(memo.id);
         window.navigator.vibrate?.(20);
