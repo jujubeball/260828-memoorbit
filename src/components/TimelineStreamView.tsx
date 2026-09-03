@@ -8,7 +8,6 @@ import {
   requestGeminiAnalysis,
 } from "@/src/lib/geminiClient";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
-import { groupMemosByDate } from "@/src/utils/groupMemosByDate";
 import type { Memo } from "@/types/memo";
 
 interface TimelineStreamViewProps {
@@ -131,12 +130,6 @@ export function TimelineStreamView({
       resurfacedIdeas,
     };
   }, [endDate, hasInvalidRange, memos, startDate]);
-
-  // 선택한 기간에 포함된 메모를 날짜 바구니로 나누며, 기간이나 메모가 바뀔 때만 다시 계산합니다.
-  const timelineGroups = useMemo(
-    () => groupMemosByDate(report.filtered),
-    [report.filtered],
-  );
 
   // 💡 [기간 메모 Gemini 분석]
   // 날짜 범위에 들어온 메모를 한 묶음의 글로 합쳐 서버에 보내고, 최신 요청이 실패한 경우에만 로컬 총평을 유지합니다.
@@ -272,60 +265,6 @@ export function TimelineStreamView({
         </article>
       </div>
 
-      <div className="mt-5 grid gap-4">
-        {timelineGroups.map((group) => (
-          <section
-            key={group.title}
-            className="glass-panel min-w-0 p-5"
-            aria-labelledby={`timeline-group-${group.title}`}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <h3
-                id={`timeline-group-${group.title}`}
-                className="text-lg font-bold"
-              >
-                {group.title}
-              </h3>
-              <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-[#9ca3af]">
-                {group.memos.length}개
-              </span>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {group.memos.map((memo) => (
-                <button
-                  key={memo.id}
-                  type="button"
-                  onClick={() => onOpenMemo(memo)}
-                  className="min-w-0 rounded-2xl border border-[#2a2e3d] bg-white/[0.035] p-4 text-left transition-colors hover:border-[#e5a93c]/60 hover:bg-[#e5a93c]/10"
-                >
-                  <time
-                    dateTime={memo.createdAt}
-                    className="text-xs text-[#9ca3af]"
-                  >
-                    {new Intl.DateTimeFormat("ko-KR", {
-                      month: "long",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }).format(new Date(memo.createdAt))}
-                  </time>
-                  <strong className="mt-2 block truncate text-sm">
-                    {memo.title}
-                  </strong>
-                  <span className="mt-1 block line-clamp-2 text-sm leading-6 text-[#9ca3af]">
-                    {plainText(memo.content)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        ))}
-        {timelineGroups.length === 0 && (
-          <p className="glass-panel p-8 text-center text-sm text-[#9ca3af]">
-            선택 기간에 시간 궤도로 표시할 메모가 없습니다.
-          </p>
-        )}
-      </div>
     </section>
   );
 }
