@@ -19,6 +19,10 @@ import { OrbitGraphView } from "@/src/components/OrbitGraphView";
 import { TimelineStreamView } from "@/src/components/TimelineStreamView";
 import { initialMemos } from "@/src/data/initialMemos";
 import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
+import {
+  hydrateMemoStorage,
+  persistMemos,
+} from "@/src/lib/memoStorage";
 import type { Memo } from "@/types/memo";
 
 interface MemoGroup {
@@ -29,7 +33,6 @@ interface MemoGroup {
 type NavigationSection = "memos" | "orbit" | "timeline";
 type MemoViewMode = "list" | "gallery";
 
-const MEMO_STORAGE_KEY = "memoorbit-memos";
 const MIN_PANEL_WIDTH = 280;
 const MAX_PANEL_WIDTH = 600;
 const DEFAULT_PANEL_WIDTH = 288;
@@ -154,52 +157,21 @@ export default function Home(): React.JSX.Element {
 
   usePageScrollLock(Boolean(deleteTarget) || isDrawerOpen);
 
-  // 💡 [브라우저 저장소 불러오기]
-  // 첫 화면이 열린 뒤 이전 방문에서 저장한 메모를 읽습니다.
-  // 저장된 메모 수가 최신 기본 데이터보다 적으면 구버전으로 판단해 200개 기본 데이터로 즉시 교체합니다.
+  // 💡 [IndexedDB 비동기 초기화]
+  // 첫 화면 뒤 IndexedDB를 먼저 읽고, 비어 있으면 예전 LocalStorage 메모를 한 번 옮긴 뒤 화면 State와 연결합니다.
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      try {
-        const storedMemos = window.localStorage.getItem(MEMO_STORAGE_KEY);
-
-        if (!storedMemos) {
-          window.localStorage.setItem(
-            MEMO_STORAGE_KEY,
-            JSON.stringify(initialMemos),
-          );
-          setMemos(initialMemos);
-          return;
-        }
-
-        const parsedMemos: unknown = JSON.parse(storedMemos);
-
-        // 💡 [구버전 LocalStorage 자동 동기화]
-        // 저장된 값이 배열이고 최신 기본 메모보다 적으면 예전 목업 데이터로 보고, 화면과 저장소를 함께 최신 데이터로 맞춥니다.
-        if (
-          Array.isArray(parsedMemos) &&
-          parsedMemos.length >= initialMemos.length
-        ) {
-          setMemos(parsedMemos as Memo[]);
-          return;
-        }
-
-        window.localStorage.setItem(
-          MEMO_STORAGE_KEY,
-          JSON.stringify(initialMemos),
-        );
-        setMemos(initialMemos);
-      } catch {
-        // JSON이 깨진 경우에도 잘못된 값을 남겨 두지 않고 최신 기본 데이터로 복구합니다.
-        window.localStorage.setItem(
-          MEMO_STORAGE_KEY,
-          JSON.stringify(initialMemos),
-        );
-        setMemos(initialMemos);
-      } finally {
+    let isActive = true;
+    const hydrate = async (): Promise<void> => {
+      const storedMemos = await hydrateMemoStorage(initialMemos);
+      if (isActive) {
+        setMemos(storedMemos);
         setHasHydratedStorage(true);
       }
-    }, 0);
-    return () => window.clearTimeout(timer);
+    };
+    void hydrate();
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   // 화면이 1px 이상 움직였는지 기억해 PC 메모 도구 헤더의 테두리와 그림자를 전환합니다.
@@ -252,10 +224,10 @@ export default function Home(): React.JSX.Element {
     );
   };
 
-  // memos 배열이 바뀔 때마다 브라우저 저장소에도 같은 배열을 기록해 새로고침 후에도 유지합니다.
+  // 메모 State가 바뀌면 IndexedDB 저장 작업을 순서대로 실행해 마지막 수정 내용이 새로고침 뒤에도 유지되게 합니다.
   useEffect(() => {
     if (!hasHydratedStorage) return;
-    window.localStorage.setItem(MEMO_STORAGE_KEY, JSON.stringify(memos));
+    void persistMemos(memos);
   }, [hasHydratedStorage, memos]);
 
   useEffect(() => {

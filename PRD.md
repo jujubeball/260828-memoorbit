@@ -93,6 +93,11 @@ MemoOrbit는 스쳐 지나가는 아이디어를 가장 빠르고 편안하게 �
 - **서버 오류 진단**: API 키 누락, 잘못된 요청, 모델 호출 실패 원인은 메모 본문과 API 키를 제외한 안전한 서버 로그로 기록하며, `error.cause`의 `code`, `errno`, `syscall`, `hostname`, `address`, `port`를 선별 직렬화한다.
 - **시간 궤도 Gemini 진단**: `gemini-2.5-flash` 호출 실패 시 서버는 안전한 오류 세부 정보를 반환하고, 시간 궤도 클라이언트는 해당 원인을 개발자 콘솔에 기록한 뒤 로컬 분석으로 대체한다.
 
+### 4.1 브라우저 데이터 영속화
+- 메모는 IndexedDB의 `memos` Object Store에 `id`를 키로 한 개별 레코드로 비동기 저장하며, 전체 갱신은 하나의 readwrite 트랜잭션에서 원자적으로 처리한다.
+- 앱 최초 로딩은 IndexedDB 데이터를 우선 사용하고, 저장된 레코드가 없을 때 기존 `memoorbit-memos` LocalStorage JSON을 한 번만 마이그레이션한다. IndexedDB 저장이 성공한 뒤에만 기존 LocalStorage 키를 제거한다.
+- 두 저장소가 모두 비어 있거나 기존 JSON이 손상되었으면 최신 기본 메모를 IndexedDB에 초기화한다. IndexedDB를 사용할 수 없는 환경에서는 LocalStorage를 장애 안전망으로 사용해 메모 유실과 앱 중단을 방지한다.
+
 ---
 
 ## 5. 구현 검수 체크리스트
@@ -126,6 +131,7 @@ MemoOrbit는 스쳐 지나가는 아이디어를 가장 빠르고 편안하게 �
 - [x] 시간 궤도 하단 중복 카드 제거 및 모바일 공통 헤더 Sticky 글래스 스타일 적용
 - [x] 모바일 공통 헤더 Fixed 완전 고정 및 본문 56px 상단 패딩 교정
 - [x] `groupMemosByTime` 5구간 순수 함수 및 시간 궤도 분석 파이프라인 연결
+- [x] LocalStorage 메모의 IndexedDB 비동기 마이그레이션 및 장애 Fallback
 - [ ] 회원 인증 시스템(NextAuth / Supabase) 연동
 - [ ] 서버 기반 데이터 영속화(Database) 구축
 
