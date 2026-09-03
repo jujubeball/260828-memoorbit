@@ -425,7 +425,7 @@ export default function Home(): React.JSX.Element {
         />
       </aside>
 
-      <header className="sticky top-0 z-50 flex h-14 w-full items-center justify-between border-b border-slate-800/50 bg-slate-900/80 px-4 backdrop-blur-md transition-all xl:hidden">
+      <header className="fixed inset-x-0 top-0 z-50 flex h-14 w-full items-center justify-between border-b border-slate-800/60 bg-slate-900/90 px-4 backdrop-blur-md xl:hidden">
         <div className="mx-auto grid w-full max-w-5xl grid-cols-[44px_minmax(0,1fr)_44px] items-center">
           <button
             type="button"
@@ -447,7 +447,7 @@ export default function Home(): React.JSX.Element {
         </div>
       </header>
       <main
-        className={`mx-auto w-full max-w-full overflow-x-hidden px-4 xl:max-w-5xl ${activeSection === "timeline" ? "pb-8" : "pb-28"} ${activeSection === "orbit" ? "xl:h-dvh xl:overflow-hidden xl:pb-0" : ""}`}
+        className={`mx-auto w-full max-w-full overflow-x-hidden px-4 pt-14 xl:max-w-5xl xl:pt-0 ${activeSection === "timeline" ? "pb-8" : "pb-28"} ${activeSection === "orbit" ? "xl:h-dvh xl:overflow-hidden xl:pb-0" : ""}`}
       >
         {activeSection === "memos" && (
           <>
