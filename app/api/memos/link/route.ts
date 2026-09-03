@@ -6,6 +6,7 @@ interface LinkCandidate {
   id?: unknown;
   title?: unknown;
   content?: unknown;
+  tags?: unknown;
 }
 
 interface LinkRequestBody {
@@ -14,6 +15,7 @@ interface LinkRequestBody {
 }
 
 const GEMINI_MODEL = "gemini-1.5-flash";
+const MINIMUM_LINK_WEIGHT = 0.75;
 export const runtime = "nodejs";
 
 const RESPONSE_SCHEMA = {
@@ -40,13 +42,15 @@ const normalizeLinks = (value: unknown, validIds: Set<string>): MemoLink[] => {
     if (
       typeof link.targetId !== "string"
       || typeof link.weight !== "number"
+      || link.weight < MINIMUM_LINK_WEIGHT
+      || link.weight > 1
       || !validIds.has(link.targetId)
       || seen.has(link.targetId)
     ) return [];
     seen.add(link.targetId);
     return [{
       targetId: link.targetId,
-      weight: Math.min(1, Math.max(0, link.weight)),
+      weight: link.weight,
       reason: typeof link.reason === "string"
         ? link.reason.trim().slice(0, 120)
         : undefined,
@@ -84,6 +88,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       id: candidate.id,
       title: typeof candidate.title === "string" ? candidate.title.slice(0, 160) : "",
       content: candidate.content.slice(0, 600),
+      tags: Array.isArray(candidate.tags)
+        ? candidate.tags.filter((tag): tag is string => typeof tag === "string").slice(0, 10)
+        : [],
     }];
   });
   if (candidates.length === 0) return NextResponse.json([]);
@@ -91,7 +98,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
-      contents: `신규 또는 수정 메모와 기존 메모의 맥락을 비교하세요. 의미적 유사도가 높은 순서로 최대 8개만 선택하고, 단순한 흔한 단어 일치는 제외하세요. 반드시 마크다운 없이 [{"targetId":"string","weight":0.0,"reason":"한국어 한 문장"}] 형태의 순수 JSON 배열만 반환하세요.\n\n분석 메모:\n${JSON.stringify(memo)}\n\n기존 메모:\n${JSON.stringify(candidates)}`,
+      contents: `신규 또는 수정 메모와 기존 메모의 제목, 본문, 태그 맥락을 비교하세요. 의미적 유사도가 ${MINIMUM_LINK_WEIGHT} 이상인 메모를 높은 순서로 최대 8개만 선택하고, 단순한 흔한 단어 일치는 제외하세요. 반드시 마크다운 없이 [{"targetId":"string","weight":0.0,"reason":"한국어 한 문장"}] 형태의 순수 JSON 배열만 반환하세요.\n\n분석 메모:\n${JSON.stringify(memo)}\n\n기존 메모:\n${JSON.stringify(candidates)}`,
       config: {
         responseMimeType: "application/json",
         responseJsonSchema: RESPONSE_SCHEMA,

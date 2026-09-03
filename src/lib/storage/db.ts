@@ -81,3 +81,20 @@ export const deleteMemo = async (id: string): Promise<void> => {
   const database = await openMemoDatabase();
   await database.delete(MEMO_STORE_NAME, id);
 };
+
+// 💡 [메모 목록 원자적 교체]
+// 화면의 최신 배열을 한 트랜잭션 안에서 저장하고 사라진 ID를 삭제해, 도중에 실패해도 반쪽짜리 목록이 남지 않게 합니다.
+export const replaceAllMemos = async (memos: Memo[]): Promise<void> => {
+  const database = await openMemoDatabase();
+  const transaction = database.transaction(MEMO_STORE_NAME, "readwrite");
+  const storedKeys = await transaction.store.getAllKeys();
+  const currentIds = new Set(memos.map((memo) => memo.id));
+
+  await Promise.all([
+    ...memos.map((memo) => transaction.store.put(memo)),
+    ...storedKeys
+      .filter((id) => !currentIds.has(id))
+      .map((id) => transaction.store.delete(id)),
+  ]);
+  await transaction.done;
+};

@@ -83,18 +83,31 @@ export const requestLinksForMemo = async (
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      memo: { id: memo.id, title: memo.title, content: memo.content.slice(0, 600) },
-      existingMemos: existingMemos.map(({ id, title, content }) => ({
+      memo: {
+        id: memo.id,
+        title: memo.title,
+        content: memo.content.slice(0, 600),
+        tags: memo.tags,
+      },
+      existingMemos: existingMemos.map(({ id, title, content, tags }) => ({
         id,
         title,
         content: content.slice(0, 600),
+        tags,
       })),
     }),
   });
   if (!response.ok) throw new Error("Gemini 메모 연관 분석에 실패했습니다.");
   const result: unknown = await response.json();
   if (!Array.isArray(result)) throw new Error("메모 연관 응답 형식이 올바르지 않습니다.");
-  return result as MemoLink[];
+  return result.filter((item): item is MemoLink => {
+    if (!item || typeof item !== "object") return false;
+    const link = item as Partial<MemoLink>;
+    return typeof link.targetId === "string"
+      && typeof link.weight === "number"
+      && link.weight >= 0.75
+      && link.weight <= 1;
+  });
 };
 
 // 💡 [Gemini 서버 요청 함수]

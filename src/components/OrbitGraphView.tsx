@@ -109,7 +109,7 @@ export function OrbitGraphView({
       memo.links?.forEach((link) => {
         const targetMemo = memoById.get(link.targetId);
         const target = targetMemo?.tags.find((tag) => visibleTags.has(tag));
-        if (!target || source === target || link.weight < 0.6) return;
+        if (!target || source === target || link.weight < 0.75) return;
         const [first, second] = [source, target].sort();
         const key = `${first}:${second}`;
         const existing = edges.get(key);

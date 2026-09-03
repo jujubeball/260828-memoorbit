@@ -157,8 +157,9 @@ MemoOrbit는 스쳐 지나가는 아이디어를 가장 빠르고 편안하게 �
 ### 고도화 명세: IndexedDB 및 AI 노드 링킹
 - 브라우저 메모 저장소는 `idb` 기반 `MemoOrbitDB` 버전 1의 `memos` Store를 사용하며, 최초 로드 시 기존 LocalStorage 데이터를 자동 마이그레이션한다.
 - 저장소 API는 `initAndMigrateStorage`, `getAllMemos`, `saveMemo`, `deleteMemo` 비동기 함수로 표준화한다.
-- 신규·수정 메모는 `/api/memos/link`에서 `gemini-1.5-flash`로 기존 메모와 비교하고, `targetId`, `weight`, `reason`을 가진 순수 JSON 배열을 반환한다.
-- 태그 궤도 캔버스는 `Memo.links`의 가중치에 따라 연결선 두께와 투명도를 바꾸고, 연결된 노드에 마우스를 올리면 Glow를 표시한다.
+- 신규·수정 메모는 `/api/memos/link`에서 `gemini-1.5-flash`로 기존 메모와 비교하고, 유사도 `0.75` 이상인 `targetId`, `weight`, `reason`을 가진 순수 JSON 배열만 반환한다.
+- 태그 궤도 캔버스는 검증된 `Memo.links`의 가중치에 따라 연결선 두께와 투명도를 바꾸고, 연결된 노드에 마우스를 올리면 Glow를 표시한다.
+- React의 최신 메모 배열을 IndexedDB에 반영할 때 저장과 삭제를 하나의 `readwrite` 트랜잭션으로 묶어 중간 상태가 남지 않게 한다.
 
 ### 1단계: 기록과 탐색 기반 (완료)
 - 단일 리치 텍스트 캔버스, 체크리스트, 표, 동적 태그, 최신 수정순 그룹 목록.

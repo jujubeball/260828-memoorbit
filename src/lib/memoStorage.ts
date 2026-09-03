@@ -4,12 +4,19 @@ import {
   getAllMemos,
   initAndMigrateStorage,
   LEGACY_MEMO_STORAGE_KEY,
+  replaceAllMemos,
   saveMemo,
 } from "@/src/lib/storage/db";
 
 let writeQueue: Promise<void> = Promise.resolve();
 
-export { deleteMemo, getAllMemos, initAndMigrateStorage, saveMemo };
+export {
+  deleteMemo,
+  getAllMemos,
+  initAndMigrateStorage,
+  replaceAllMemos,
+  saveMemo,
+};
 
 // 💡 [앱 시작 데이터 준비]
 // 새 IndexedDB와 예전 LocalStorage를 먼저 확인하고, 둘 다 비어 있을 때만 기본 메모를 새 창고에 채웁니다.
@@ -41,14 +48,7 @@ export const hydrateMemoStorage = async (
 export const persistMemos = (memos: Memo[]): Promise<void> => {
   writeQueue = writeQueue.then(async () => {
     try {
-      const storedMemos = await getAllMemos();
-      const currentIds = new Set(memos.map((memo) => memo.id));
-      await Promise.all([
-        ...memos.map(saveMemo),
-        ...storedMemos
-          .filter((memo) => !currentIds.has(memo.id))
-          .map((memo) => deleteMemo(memo.id)),
-      ]);
+      await replaceAllMemos(memos);
       window.localStorage.removeItem(LEGACY_MEMO_STORAGE_KEY);
     } catch (error) {
       console.error("IndexedDB 메모 저장 실패, LocalStorage에 저장합니다.", error);

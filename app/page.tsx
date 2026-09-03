@@ -329,24 +329,40 @@ export default function Home(): React.JSX.Element {
           createdAt: now,
           isPinned: false,
         };
-    if (editingMemo) {
-      setMemos((current) => [
-        savedMemo,
-        ...current.filter((memo) => memo.id !== editingMemo.id),
-      ]);
-    } else {
-      setMemos((current) => [
-        savedMemo,
-        ...current,
-      ]);
-    }
+    setMemos((current) => [
+      savedMemo,
+      ...current
+        .filter((memo) => memo.id !== savedMemo.id)
+        .map((memo) => ({
+          ...memo,
+          links: memo.links?.filter((link) => link.targetId !== savedMemo.id),
+        })),
+    ]);
     const existingMemos = memos.filter((memo) => memo.id !== savedMemo.id);
     if (existingMemos.length > 0) {
       void requestLinksForMemo(savedMemo, existingMemos)
         .then((links) => {
-          setMemos((current) => current.map((memo) => (
-            memo.id === savedMemo.id ? { ...memo, links } : memo
-          )));
+          const linksByTarget = new Map(
+            links.map((link) => [link.targetId, link]),
+          );
+          setMemos((current) => current.map((memo) => {
+            if (memo.id === savedMemo.id) return { ...memo, links };
+            const reverseLink = linksByTarget.get(memo.id);
+            if (!reverseLink) return memo;
+            return {
+              ...memo,
+              links: [
+                ...(memo.links ?? []).filter(
+                  (link) => link.targetId !== savedMemo.id,
+                ),
+                {
+                  targetId: savedMemo.id,
+                  weight: reverseLink.weight,
+                  reason: reverseLink.reason,
+                },
+              ],
+            };
+          }));
         })
         .catch((error: unknown) => {
           console.error("저장한 메모의 AI 연결을 만들지 못했습니다.", error);
