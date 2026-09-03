@@ -680,7 +680,7 @@ export function MemoModal({
             <input
               value={tags}
               onChange={(event) => setTags(event.target.value)}
-              className="mt-2 w-full rounded-lg border border-[#2a2e3d] bg-[#1a1d26] px-3 py-2 text-xs text-white outline-none focus:border-[#e5a93c]"
+              className="mt-2 w-full rounded-lg border border-[#2a2e3d] bg-[#1a1d26] px-3 py-2 text-base text-white outline-none focus:border-[#e5a93c] xl:text-xs"
               placeholder="태그 직접 추가: 쉼표로 구분"
               aria-label="태그 직접 추가"
             />
@@ -694,8 +694,12 @@ export function MemoModal({
               aria-expanded={isFormatOpen}
               aria-label="텍스트 서식"
             >
-              <span className="text-base font-semibold" aria-hidden="true">
-                가가
+              <span
+                className="flex items-baseline font-semibold"
+                aria-hidden="true"
+              >
+                <span className="text-lg">가</span>
+                <span className="text-xs">가</span>
               </span>
             </button>
             <button
@@ -755,6 +759,7 @@ export function MemoModal({
 
       <section
         className={`absolute inset-x-0 bottom-0 z-40 box-border w-full max-w-full overflow-x-hidden rounded-t-3xl bg-[#2c2c2e] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_35px_rgb(0_0_0/0.45)] transition-transform duration-300 ${isFormatOpen ? "translate-y-0" : "translate-y-full"}`}
+        style={{ bottom: toolbarBottom }}
         aria-label="서식 도구"
         aria-hidden={!isFormatOpen}
         inert={!isFormatOpen}
