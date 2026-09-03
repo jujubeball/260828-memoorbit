@@ -127,6 +127,7 @@ export const filterMemos = (
     .filter(Boolean);
   const tagMatchMode = options.tagMatchMode ?? "AND";
   const dateBounds = getDateBounds(options, new Date());
+  const hasSemanticScores = Object.keys(options.semanticScores ?? {}).length > 0;
 
   const filteredMemos = memos.filter((memo) => {
     const searchableText = normalizeText([
@@ -138,7 +139,9 @@ export const filterMemos = (
     const matchesKeyword = !keyword || searchableText.includes(keyword);
     const semanticScore = getSemanticScore(memo, options.semanticScores);
     const matchesHybridSearch = options.isSemanticSearch
-      ? (matchesKeyword && Boolean(keyword)) || semanticScore > 0
+      ? (!keyword && !hasSemanticScores)
+        || (matchesKeyword && Boolean(keyword))
+        || semanticScore > 0
       : matchesKeyword;
     const memoTags = new Set(memo.tags.map(normalizeText));
     const matchesTags = selectedTags.length === 0

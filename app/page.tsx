@@ -17,6 +17,7 @@ import {
 import { MemoModal, type MemoDraft } from "@/src/components/MemoModal";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
 import { OrbitGraphView } from "@/src/components/OrbitGraphView";
+import { SearchFilterBar } from "@/src/components/SearchFilterBar";
 import { TimelineStreamView } from "@/src/components/TimelineStreamView";
 import { initialMemos } from "@/src/data/initialMemos";
 import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
@@ -27,6 +28,10 @@ import {
 import type { Memo } from "@/types/memo";
 import type { GeminiMemoLink } from "@/src/types/gemini";
 import { requestLinksForMemo } from "@/src/lib/geminiClient";
+import {
+  filterMemos,
+  type MemoFilterOptions,
+} from "@/src/lib/filterMemos";
 
 interface MemoGroup {
   label: string;
@@ -136,6 +141,10 @@ export default function Home(): React.JSX.Element {
   const [activeSection, setActiveSection] =
     useState<NavigationSection>("memos");
   const [memoViewMode, setMemoViewMode] = useState<MemoViewMode>("list");
+  const [filterOptions, setFilterOptions] = useState<MemoFilterOptions>({
+    tagMatchMode: "AND",
+    timePreset: "all",
+  });
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMemoToolbarStuck, setIsMemoToolbarStuck] = useState(false);
   // 💡 [PC 왼쪽 패널 너비 State]
@@ -246,19 +255,19 @@ export default function Home(): React.JSX.Element {
     return () => window.removeEventListener("keydown", handleShortcut);
   }, []);
 
-  // 💡 [메모 목록 가공]
-  // 원본 배열은 건드리지 않고 복사한 뒤 고정 여부와 최신 수정 시각으로 정렬하고, 화면에 필요한 날짜 그룹을 만듭니다.
-  const sorted = useMemo(
-    () =>
-      [...memos].sort(
-        (a, b) =>
-          Number(b.isPinned) - Number(a.isPinned) ||
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      ),
+  // 💡 [검색 조건 실시간 바인딩]
+  // SearchFilterBar에서 올라온 filterOptions와 원본 memos가 바뀔 때만 필터 결과를 다시 만들고, 카드 목록과 태그 궤도가 같은 결과를 함께 사용합니다.
+  const filteredMemos = useMemo(
+    () => filterMemos(memos, filterOptions),
+    [filterOptions, memos],
+  );
+  const availableTags = useMemo(
+    () => [...new Set(memos.flatMap((memo) => memo.tags))]
+      .sort((left, right) => left.localeCompare(right, "ko")),
     [memos],
   );
-  const pinned = sorted.filter((memo) => memo.isPinned);
-  const groups = sorted
+  const pinned = filteredMemos.filter((memo) => memo.isPinned);
+  const groups = filteredMemos
     .filter((memo) => !memo.isPinned)
     .reduce<MemoGroup[]>((result, memo) => {
       const label = groupLabel(memo.updatedAt);
@@ -268,7 +277,10 @@ export default function Home(): React.JSX.Element {
         item.label === label ? { ...item, memos: [...item.memos, memo] } : item,
       );
     }, []);
-  const memoryCandidates = useMemo(() => findMemoryCandidates(memos), [memos]);
+  const memoryCandidates = useMemo(
+    () => findMemoryCandidates(filteredMemos),
+    [filteredMemos],
+  );
 
   // 💡 [AI 링크를 메모 State에 병합]
   // 서버가 준 메모 쌍을 양쪽 메모에서 모두 탐색할 수 있게 뒤집은 링크까지 만들고, 기존 메모 객체는 복사해 불변성을 지킵니다.
@@ -284,10 +296,12 @@ export default function Home(): React.JSX.Element {
         { targetId: sourceId, weight, reason },
       ]);
     });
-    setMemos((current) => current.map((memo) => ({
-      ...memo,
-      links: linksByMemo.get(memo.id) ?? [],
-    })));
+    setMemos((current) => current.map((memo) => {
+      const analyzedMemoLinks = linksByMemo.get(memo.id);
+      return analyzedMemoLinks
+        ? { ...memo, links: analyzedMemoLinks }
+        : memo;
+    }));
   }, []);
 
   // 편집기를 닫을 때 선택 메모도 비워 다음 새 메모가 이전 내용을 이어받지 않게 합니다.
@@ -496,7 +510,7 @@ export default function Home(): React.JSX.Element {
                 id="all-memos-title"
                 label="ALL MEMOS"
                 title="모든 메모"
-                badgeCount={memos.length}
+                badgeCount={filteredMemos.length}
                 description="수집된 생각과 기록을 한눈에 탐색하고 관리합니다."
                 onVisibilityChange={setIsContentHeaderVisible}
                 action={
@@ -524,6 +538,11 @@ export default function Home(): React.JSX.Element {
                 }
               />
             </div>
+            <SearchFilterBar
+              options={filterOptions}
+              availableTags={availableTags}
+              onOptionsChange={setFilterOptions}
+            />
             {memoViewMode === "gallery" && (
               <MemoryOrbitView
                 candidates={memoryCandidates}
@@ -589,11 +608,21 @@ export default function Home(): React.JSX.Element {
                 </div>
               </section>
             ))}
+            {filteredMemos.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-[#2a2e3d] bg-[#1a1d26]/50 px-6 py-14 text-center">
+                <p className="text-base font-semibold text-[#f3f4f6]">
+                  조건에 맞는 메모가 없습니다.
+                </p>
+                <p className="mt-2 text-sm text-[#9ca3af]">
+                  검색어나 필터 조건을 조금 넓혀 보세요.
+                </p>
+              </div>
+            )}
           </>
         )}
         {activeSection === "orbit" && (
           <OrbitGraphView
-            memos={memos}
+            memos={filteredMemos}
             onOpenMemo={openMemo}
             onLinksAnalyzed={applyAnalyzedLinks}
             onHeaderVisibilityChange={setIsContentHeaderVisible}
