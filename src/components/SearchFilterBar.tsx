@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ResponsiveDatePicker } from "@/src/components/ResponsiveDatePicker";
 import type { MemoFilterOptions } from "@/src/lib/filterMemos";
 
 interface SearchFilterBarProps {
@@ -17,6 +18,15 @@ const TIME_PRESETS: Array<{
   { value: "week", label: "이번 주" },
   { value: "month", label: "이번 달" },
   { value: "3months", label: "최근 3개월" },
+  { value: "custom", label: "직접 입력" },
+];
+
+const TAG_MATCH_MODES: Array<{
+  value: NonNullable<MemoFilterOptions["tagMatchMode"]>;
+  label: string;
+}> = [
+  { value: "AND", label: "모두 포함" },
+  { value: "OR", label: "하나라도 포함" },
 ];
 
 const chipClass = (isActive: boolean): string =>
@@ -32,7 +42,13 @@ export function SearchFilterBar({
   onOptionsChange,
 }: SearchFilterBarProps): React.JSX.Element {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isAiTooltipOpen, setIsAiTooltipOpen] = useState(false);
   const selectedTags = options.tags ?? [];
+  const areAllTagsSelected = availableTags.length > 0
+    && availableTags.every((tag) => selectedTags.includes(tag));
+  const areAllMediaFiltersSelected = options.hasImage === true
+    && options.hasTable === true
+    && options.isPinned === true;
 
   // 사용자가 입력하거나 칩을 누를 때 기존 조건을 복사하고 바뀐 값만 덮어써서 부모의 filterOptions State로 돌려보냅니다.
   const updateOptions = (changes: Partial<MemoFilterOptions>): void => {
@@ -46,10 +62,36 @@ export function SearchFilterBar({
     updateOptions({ tags: nextTags });
   };
 
+  const toggleAllTags = (): void => {
+    updateOptions({ tags: areAllTagsSelected ? [] : [...availableTags] });
+  };
+
   const toggleBooleanFilter = (
     key: "hasImage" | "hasTable" | "isPinned",
   ): void => {
     updateOptions({ [key]: options[key] === true ? undefined : true });
+  };
+
+  const toggleAllMediaFilters = (): void => {
+    const nextValue = areAllMediaFiltersSelected ? undefined : true;
+    updateOptions({
+      hasImage: nextValue,
+      hasTable: nextValue,
+      isPinned: nextValue,
+    });
+  };
+
+  const updateCustomDateRange = (
+    key: "start" | "end",
+    value: string,
+  ): void => {
+    updateOptions({
+      timePreset: "custom",
+      customDateRange: {
+        ...options.customDateRange,
+        [key]: value || undefined,
+      },
+    });
   };
 
   return (
@@ -75,24 +117,55 @@ export function SearchFilterBar({
           />
         </label>
 
-        <button
-          type="button"
-          role="switch"
-          aria-checked={Boolean(options.isSemanticSearch)}
-          onClick={() => updateOptions({
-            isSemanticSearch: !options.isSemanticSearch,
-          })}
-          className={`flex h-11 shrink-0 items-center gap-2 rounded-xl border px-3 text-xs font-bold transition-colors ${
-            options.isSemanticSearch
-              ? "border-[#e5a93c] bg-[#e5a93c]/15 text-[#ffc86b] shadow-[0_0_18px_rgb(229_169_60/0.16)]"
-              : "border-[#2a2e3d] bg-[#0f1117] text-[#9ca3af]"
-          }`}
-        >
-          {options.isSemanticSearch && (
-            <span aria-hidden="true">✨</span>
+        <div className="relative flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={Boolean(options.isSemanticSearch)}
+            onClick={() => updateOptions({
+              isSemanticSearch: !options.isSemanticSearch,
+            })}
+            className={`flex h-11 items-center gap-2 rounded-xl border px-3 text-xs font-bold transition-colors ${
+              options.isSemanticSearch
+                ? "border-[#e5a93c] bg-[#e5a93c]/15 text-[#ffc86b] shadow-[0_0_18px_rgb(229_169_60/0.16)]"
+                : "border-[#2a2e3d] bg-[#0f1117] text-[#9ca3af]"
+            }`}
+          >
+            {options.isSemanticSearch && (
+              <span aria-hidden="true">✨</span>
+            )}
+            AI 검색
+          </button>
+          <button
+            type="button"
+            onPointerEnter={(event) => {
+              if (event.pointerType === "mouse") setIsAiTooltipOpen(true);
+            }}
+            onPointerLeave={(event) => {
+              if (event.pointerType === "mouse") setIsAiTooltipOpen(false);
+            }}
+            onBlur={() => setIsAiTooltipOpen(false)}
+            onClick={() => setIsAiTooltipOpen((current) => !current)}
+            aria-label="AI 검색 설명"
+            aria-expanded={isAiTooltipOpen}
+            aria-controls="ai-search-tooltip"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#2a2e3d] bg-[#0f1117] text-xs font-bold text-[#9ca3af] hover:border-[#ffc86b] hover:text-[#ffc86b]"
+          >
+            ?
+          </button>
+          {isAiTooltipOpen && (
+            <div
+              id="ai-search-tooltip"
+              role="tooltip"
+              className="absolute right-0 top-full z-40 mt-2 w-64 rounded-xl border border-[#2a2e3d] bg-[#0f1117] p-3 text-xs font-normal leading-5 text-[#f3f4f6] shadow-2xl"
+            >
+              <strong className="mb-1 block text-[#ffc86b]">
+                AI 검색이란?
+              </strong>
+              입력한 검색어가 메모 본문에 그대로 없어도, 문맥과 의미가 비슷한 메모를 AI가 찾아주는 기능입니다.
+            </div>
           )}
-          AI 검색
-        </button>
+        </div>
 
         <button
           type="button"
@@ -112,32 +185,48 @@ export function SearchFilterBar({
           className="mt-4 grid gap-5 border-t border-[#2a2e3d] pt-4"
         >
           <fieldset>
+            <legend className="sr-only">
+              다중 태그
+            </legend>
             <div className="flex items-center justify-between gap-3">
-              <legend className="text-xs font-bold text-[#f3f4f6]">
+              <span className="text-xs font-bold text-[#f3f4f6]">
                 다중 태그
-              </legend>
+              </span>
               <div
                 className="inline-flex rounded-lg border border-[#2a2e3d] bg-[#0f1117] p-1"
                 aria-label="태그 일치 방식"
               >
-                {(["AND", "OR"] as const).map((mode) => (
+                {TAG_MATCH_MODES.map((mode) => (
                   <button
-                    key={mode}
+                    key={mode.value}
                     type="button"
-                    onClick={() => updateOptions({ tagMatchMode: mode })}
-                    aria-pressed={(options.tagMatchMode ?? "AND") === mode}
+                    onClick={() => updateOptions({
+                      tagMatchMode: mode.value,
+                    })}
+                    aria-pressed={
+                      (options.tagMatchMode ?? "AND") === mode.value
+                    }
                     className={`rounded-md px-3 py-1.5 text-[11px] font-bold ${
-                      (options.tagMatchMode ?? "AND") === mode
+                      (options.tagMatchMode ?? "AND") === mode.value
                         ? "bg-[#e5a93c] text-[#0f1117]"
                         : "text-[#9ca3af]"
                     }`}
                   >
-                    {mode}
+                    {mode.label}
                   </button>
                 ))}
               </div>
             </div>
             <div className="mt-3 flex max-h-28 flex-wrap gap-2 overflow-y-auto">
+              <button
+                type="button"
+                onClick={toggleAllTags}
+                aria-pressed={areAllTagsSelected}
+                disabled={availableTags.length === 0}
+                className={`${chipClass(areAllTagsSelected)} disabled:cursor-not-allowed disabled:opacity-40`}
+              >
+                전체
+              </button>
               {availableTags.map((tag) => (
                 <button
                   key={tag}
@@ -157,6 +246,14 @@ export function SearchFilterBar({
               미디어 및 상태
             </legend>
             <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={toggleAllMediaFilters}
+                aria-pressed={areAllMediaFiltersSelected}
+                className={chipClass(areAllMediaFiltersSelected)}
+              >
+                전체
+              </button>
               <button
                 type="button"
                 onClick={() => toggleBooleanFilter("hasImage")}
@@ -203,6 +300,22 @@ export function SearchFilterBar({
                 </button>
               ))}
             </div>
+            {options.timePreset === "custom" && (
+              <div className="filter-range-enter mt-4 grid gap-3 rounded-xl border border-[#2a2e3d] bg-[#0f1117]/70 p-3 sm:grid-cols-2">
+                <ResponsiveDatePicker
+                  id="search-filter-start-date"
+                  label="시작일"
+                  value={options.customDateRange?.start ?? ""}
+                  onChange={(value) => updateCustomDateRange("start", value)}
+                />
+                <ResponsiveDatePicker
+                  id="search-filter-end-date"
+                  label="종료일"
+                  value={options.customDateRange?.end ?? ""}
+                  onChange={(value) => updateCustomDateRange("end", value)}
+                />
+              </div>
+            )}
           </fieldset>
         </div>
       )}
