@@ -207,9 +207,23 @@ export function TimelineStreamView({
         description="지정한 기간 동안 쌓인 기록의 성찰과 실행 궤도를 분석합니다."
         onVisibilityChange={onHeaderVisibilityChange}
       />
-      <div className="glass-panel relative z-10 grid w-full gap-4 overflow-visible p-4 sm:grid-cols-2">
-        <ResponsiveDatePicker id="timeline-start" label="시작일" value={startDate} onChange={setStartDate} />
-        <ResponsiveDatePicker id="timeline-end" label="종료일" value={endDate} onChange={setEndDate} />
+      <div className="glass-panel relative z-10 grid w-full grid-cols-1 gap-4 overflow-visible p-4 md:grid-cols-2">
+        <div className="w-full md:max-w-80 md:justify-self-end">
+          <ResponsiveDatePicker
+            id="timeline-start"
+            label="시작일"
+            value={startDate}
+            onChange={setStartDate}
+          />
+        </div>
+        <div className="w-full md:max-w-80 md:justify-self-start">
+          <ResponsiveDatePicker
+            id="timeline-end"
+            label="종료일"
+            value={endDate}
+            onChange={setEndDate}
+          />
+        </div>
       </div>
       {hasInvalidRange && (
         <p role="alert" className="mt-2 text-sm text-[#ff6961]">
