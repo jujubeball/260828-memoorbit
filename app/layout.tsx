@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MemoOrbit",
-  description: "생각을 기록하고 연결하는 메모 서비스",
+  title: "MemoOrbit - 내 생각과 기록의 우주 궤도",
+  description:
+    "시간과 시기를 따라 생각과 메모들이 궤도를 그리며 연결되는 AI 지식 아카이브 웹 앱",
 };
 
 interface RootLayoutProps {
