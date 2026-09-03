@@ -7,6 +7,7 @@ import {
   GeminiApiError,
   requestGeminiAnalysis,
 } from "@/src/lib/geminiClient";
+import { groupMemosByTime } from "@/src/lib/groupMemosByTime";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
 import type { Memo } from "@/types/memo";
 
@@ -121,6 +122,25 @@ export function TimelineStreamView({
         : "반복해서 나타난 핵심 주제는 아직 없습니다.",
       `질문 ${questionCount}개와 완료를 기다리는 항목 ${incompleteCount}개를 찾았습니다.`,
     ];
+
+    // 선택 기간의 메모를 현재 날짜 기준 다섯 구간으로 나눠 로컬 분석에도 시간 분포가 드러나게 합니다.
+    const timeGroups = groupMemosByTime(filtered);
+    const timeDistributionEntries: Array<[string, number]> = [
+      ["오늘", timeGroups.today.length],
+      ["어제", timeGroups.yesterday.length],
+      ["지난 7일", timeGroups.last7Days.length],
+      ["이전 30일", timeGroups.last30Days.length],
+      ["이전 기록", timeGroups.older.length],
+    ];
+    const timeDistribution = timeDistributionEntries
+      .filter(([, count]) => count > 0)
+      .map(([label, count]) => `${label} ${count}개`)
+      .join(", ");
+    localSummaryItems.push(
+      timeDistribution
+        ? `시간 분포는 ${timeDistribution}입니다.`
+        : "시간 구간에 포함된 메모가 없습니다.",
+    );
 
     return {
       filtered,
