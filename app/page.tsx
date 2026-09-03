@@ -3,6 +3,7 @@
 import {
   useEffect,
   useLayoutEffect,
+  useCallback,
   useMemo,
   useState,
   type CSSProperties,
@@ -24,6 +25,7 @@ import {
   persistMemos,
 } from "@/src/lib/memoStorage";
 import type { Memo } from "@/types/memo";
+import type { GeminiMemoLink } from "@/src/types/gemini";
 
 interface MemoGroup {
   label: string;
@@ -266,6 +268,26 @@ export default function Home(): React.JSX.Element {
     }, []);
   const memoryCandidates = useMemo(() => findMemoryCandidates(memos), [memos]);
 
+  // 💡 [AI 링크를 메모 State에 병합]
+  // 서버가 준 메모 쌍을 양쪽 메모에서 모두 탐색할 수 있게 뒤집은 링크까지 만들고, 기존 메모 객체는 복사해 불변성을 지킵니다.
+  const applyAnalyzedLinks = useCallback((analyzedLinks: GeminiMemoLink[]): void => {
+    const linksByMemo = new Map<string, Memo["links"]>();
+    analyzedLinks.forEach(({ sourceId, targetId, weight, reason }) => {
+      linksByMemo.set(sourceId, [
+        ...(linksByMemo.get(sourceId) ?? []),
+        { targetId, weight, reason },
+      ]);
+      linksByMemo.set(targetId, [
+        ...(linksByMemo.get(targetId) ?? []),
+        { targetId: sourceId, weight, reason },
+      ]);
+    });
+    setMemos((current) => current.map((memo) => ({
+      ...memo,
+      links: linksByMemo.get(memo.id) ?? [],
+    })));
+  }, []);
+
   // 편집기를 닫을 때 선택 메모도 비워 다음 새 메모가 이전 내용을 이어받지 않게 합니다.
   const closeEditor = (): void => {
     setIsEditorOpen(false);
@@ -293,6 +315,8 @@ export default function Home(): React.JSX.Element {
       imageUrl: draft.imageUrl,
       images: draft.images,
       updatedAt: now,
+      // 본문이나 태그가 달라지면 예전 AI 연결 판단은 무효이므로 다음 궤도 진입에서 다시 분석하게 합니다.
+      links: undefined,
     };
     // map 대신 새 객체와 filter를 사용해 기존 State를 직접 변경하지 않고 새로운 배열을 만듭니다.
     if (editingMemo) {
@@ -529,6 +553,7 @@ export default function Home(): React.JSX.Element {
           <OrbitGraphView
             memos={memos}
             onOpenMemo={openMemo}
+            onLinksAnalyzed={applyAnalyzedLinks}
             onHeaderVisibilityChange={setIsContentHeaderVisible}
           />
         )}

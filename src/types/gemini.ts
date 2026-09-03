@@ -5,3 +5,10 @@ export interface GeminiAnalysis {
 }
 
 export type GeminiAnalysisPurpose = "tags" | "timeline";
+
+export interface GeminiMemoLink {
+  sourceId: string;
+  targetId: string;
+  weight: number;
+  reason?: string;
+}

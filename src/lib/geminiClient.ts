@@ -1,4 +1,6 @@
 import type { GeminiAnalysis, GeminiAnalysisPurpose } from "@/src/types/gemini";
+import type { GeminiMemoLink } from "@/src/types/gemini";
+import type { Memo } from "@/types/memo";
 
 // 💡 [Gemini 서버 오류 전달 상자]
 // 일반 Error에 서버가 보낸 details를 별도 칸으로 보존해, 시간 궤도 화면이 fetch failed의 실제 하위 원인을 그대로 읽을 수 있게 합니다.
@@ -43,6 +45,31 @@ export const requestRecommendedTags = async (
     .map((tag) => tag.trim())
     .filter(Boolean)
     .slice(0, 5);
+};
+
+// 💡 [메모 연관성 분석 요청]
+// 이미지 같은 큰 데이터는 제외하고 제목·본문·태그만 서버로 보내 의미적으로 가까운 메모 ID 쌍을 받습니다.
+export const requestMemoLinks = async (
+  memos: Memo[],
+  signal?: AbortSignal,
+): Promise<GeminiMemoLink[]> => {
+  const response = await fetch("/api/links/recommend", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      memos: memos.map(({ id, title, content, tags }) => ({
+        id,
+        title,
+        content: content.slice(0, 500),
+        tags,
+      })),
+    }),
+    signal,
+  });
+  if (!response.ok) throw new Error("Gemini 메모 연관 분석에 실패했습니다.");
+  const result = await response.json() as { links?: unknown };
+  if (!Array.isArray(result.links)) throw new Error("메모 연관 응답 형식이 올바르지 않습니다.");
+  return result.links as GeminiMemoLink[];
 };
 
 // 💡 [Gemini 서버 요청 함수]

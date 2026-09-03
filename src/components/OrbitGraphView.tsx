@@ -9,11 +9,14 @@ import {
 } from "react";
 import type { Memo } from "@/types/memo";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
+import { requestMemoLinks } from "@/src/lib/geminiClient";
+import type { GeminiMemoLink } from "@/src/types/gemini";
 
 interface OrbitGraphViewProps {
   memos: Memo[];
   onOpenMemo: (memo: Memo) => void;
   onHeaderVisibilityChange?: (isVisible: boolean) => void;
+  onLinksAnalyzed: (links: GeminiMemoLink[]) => void;
 }
 
 interface TagNode {
@@ -28,6 +31,12 @@ interface ViewTransform {
   x: number;
   y: number;
   scale: number;
+}
+
+interface AiTagEdge {
+  source: string;
+  target: string;
+  weight: number;
 }
 
 const MAX_PAN = 250;
@@ -77,19 +86,63 @@ export function OrbitGraphView({
   memos,
   onOpenMemo,
   onHeaderVisibilityChange,
+  onLinksAnalyzed,
 }: OrbitGraphViewProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const transformRef = useRef<ViewTransform>({ x: 0, y: 0, scale: 1 });
   const dragRef = useRef({ active: false, x: 0, y: 0 });
+  const requestedLinksSignatureRef = useRef("");
   // 💡 [선택한 태그 State]
   // 모바일과 PC에서 누른 태그 이름을 기억하며, 이 값이 바뀌면 아래 관련 메모 목록도 즉시 다시 계산됩니다.
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [hoveredTag, setHoveredTag] = useState<string | null>(null);
   const [renderVersion, setRenderVersion] = useState(0);
   const nodes = useMemo(() => createNodes(memos), [memos]);
+  // AI 메모 링크의 양 끝 메모에서 대표 태그를 찾아 기존 태그 행성 좌표에 그릴 연결선으로 변환합니다.
+  const aiTagEdges = useMemo(() => {
+    const memoById = new Map(memos.map((memo) => [memo.id, memo]));
+    const visibleTags = new Set(nodes.map((node) => node.name));
+    const edges = new Map<string, AiTagEdge>();
+    memos.forEach((memo) => {
+      const source = memo.tags.find((tag) => visibleTags.has(tag));
+      if (!source) return;
+      memo.links?.forEach((link) => {
+        const targetMemo = memoById.get(link.targetId);
+        const target = targetMemo?.tags.find((tag) => visibleTags.has(tag));
+        if (!target || source === target || link.weight < 0.6) return;
+        const [first, second] = [source, target].sort();
+        const key = `${first}:${second}`;
+        const existing = edges.get(key);
+        if (!existing || existing.weight < link.weight) {
+          edges.set(key, { source: first, target: second, weight: link.weight });
+        }
+      });
+    });
+    return [...edges.values()];
+  }, [memos, nodes]);
   const relatedMemos = selectedTag
     ? memos.filter((memo) => memo.tags.includes(selectedTag))
     : [];
+
+  // 💡 [AI 연관 링크 자동 생성]
+  // 저장된 링크가 전혀 없는 데이터 묶음은 궤도 화면에 처음 들어왔을 때 한 번만 Gemini에 보내고, 결과를 상위 memos State로 전달합니다.
+  useEffect(() => {
+    if (memos.length < 2 || memos.every((memo) => memo.links !== undefined)) return;
+    const signature = memos
+      .map((memo) => `${memo.id}:${memo.updatedAt}:${memo.links === undefined}`)
+      .join("|");
+    if (requestedLinksSignatureRef.current === signature) return;
+    requestedLinksSignatureRef.current = signature;
+    const controller = new AbortController();
+    void requestMemoLinks(memos, controller.signal)
+      .then(onLinksAnalyzed)
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          console.error("AI 메모 연결을 불러오지 못했습니다.", error);
+        }
+      });
+    return () => controller.abort();
+  }, [memos, onLinksAnalyzed]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -134,6 +187,22 @@ export function OrbitGraphView({
       context.scale(transform.scale, transform.scale);
       const focusTag = hoveredTag ?? selectedTag;
       const focusNode = nodes.find((node) => node.name === focusTag);
+      // AI가 찾은 의미 연결은 기존 태그 공통 연결선 아래에 황금빛 Glow로 먼저 그립니다.
+      aiTagEdges.forEach((edge) => {
+        const source = nodes.find((node) => node.name === edge.source);
+        const target = nodes.find((node) => node.name === edge.target);
+        if (!source || !target) return;
+        context.save();
+        context.beginPath();
+        context.moveTo(source.x, source.y);
+        context.lineTo(target.x, target.y);
+        context.strokeStyle = `rgba(229, 169, 60, ${0.3 + edge.weight * 0.55})`;
+        context.lineWidth = 1 + edge.weight * 2.5;
+        context.shadowColor = "#ffc86b";
+        context.shadowBlur = 6 + edge.weight * 12;
+        context.stroke();
+        context.restore();
+      });
       nodes.forEach((node) => {
         node.related.forEach((relatedName) => {
           const related = nodes.find((item) => item.name === relatedName);
@@ -172,7 +241,7 @@ export function OrbitGraphView({
     draw();
     window.addEventListener("resize", draw);
     return () => window.removeEventListener("resize", draw);
-  }, [hoveredTag, nodes, renderVersion, selectedTag]);
+  }, [aiTagEdges, hoveredTag, nodes, renderVersion, selectedTag]);
 
   const findNode = (clientX: number, clientY: number): TagNode | undefined => {
     const canvas = canvasRef.current;

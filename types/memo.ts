@@ -3,6 +3,12 @@ export interface MemoImageAttachment {
   name: string;
 }
 
+export interface MemoLink {
+  targetId: string;
+  weight: number;
+  reason?: string;
+}
+
 export interface Memo {
   id: string;
   title: string;
@@ -15,4 +21,5 @@ export interface Memo {
   tags: string[];
   imageUrl?: string;
   images?: MemoImageAttachment[];
+  links?: MemoLink[];
 }
