@@ -3,7 +3,7 @@
 import {
   type KeyboardEvent,
   type MouseEvent,
-  type TouchEvent,
+  type PointerEvent,
   useEffect,
   useRef,
   useState,
@@ -17,6 +17,8 @@ interface MemoCardProps {
   onEdit: (memo: Memo) => void;
   onDelete: (memo: Memo) => void;
   onTogglePin: (id: string) => void;
+  isSwipeOpen: boolean;
+  onSwipeOpenChange: (isOpen: boolean) => void;
 }
 
 interface MenuPosition {
@@ -33,6 +35,8 @@ const ACTION_WIDTH = 148;
 // 💡 [짧은 고정 스와이프 너비]
 // 사용자가 오른쪽으로 살짝 밀었을 때 고정 버튼 하나만 열린 채 기다리도록 맞춘 거리입니다.
 const PIN_ACTION_WIDTH = 74;
+const PIN_REVEAL_THRESHOLD = 60;
+const PIN_TOGGLE_THRESHOLD = 120;
 
 const formatMemoDate = (iso: string): string => {
   // 저장된 ISO 날짜 문자열을 사용자가 목록에서 읽기 쉬운 연월일 값으로 바꿉니다.
@@ -52,18 +56,21 @@ export function MemoCard({
   onEdit,
   onDelete,
   onTogglePin,
+  isSwipeOpen,
+  onSwipeOpenChange,
 }: MemoCardProps): React.JSX.Element {
-  // 💡 [터치 시작점 DOM 참조]
-  // 손가락을 처음 댄 좌표와 기존 카드 위치를 기억해 현재 이동 거리를 정확히 계산합니다.
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
+  // 💡 [포인터 시작점 DOM 참조]
+  // 손가락이나 마우스를 처음 댄 좌표와 기존 카드 위치를 기억해 현재 이동 거리를 정확히 계산합니다.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const pointerStartX = useRef(0);
+  const pointerStartY = useRef(0);
   const startOffset = useRef(0);
+  const currentOffset = useRef(0);
 
   // 💡 [스와이프 방향과 자동 실행 잠금]
   // 세로 스크롤과 가로 스와이프를 구분하고, 한 번의 긴 스와이프에서 고정 함수가 중복 실행되지 않게 막습니다.
   const swipeAxis = useRef<SwipeAxis>(null);
   const suppressClick = useRef(false);
-  const pinThreshold = useRef(0);
   const didAutoTogglePin = useRef(false);
 
   // 💡 [카드 상호작용 State]
@@ -71,6 +78,18 @@ export function MemoCard({
   const [offset, setOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
+
+  useEffect(() => {
+    if (!isSwipeOpen) return;
+    // 열린 카드 바깥에서 시작된 마우스·터치 입력은 부모의 openSwipeId를 비워 액션을 즉시 닫습니다.
+    const handleOutsidePointer = (event: globalThis.PointerEvent): void => {
+      if (!cardRef.current?.contains(event.target as Node)) {
+        onSwipeOpenChange(false);
+      }
+    };
+    document.addEventListener("pointerdown", handleOutsidePointer);
+    return () => document.removeEventListener("pointerdown", handleOutsidePointer);
+  }, [isSwipeOpen, onSwipeOpenChange]);
 
   useEffect(() => {
     if (!menuPosition) return;
@@ -84,23 +103,26 @@ export function MemoCard({
     };
   }, [menuPosition]);
 
-  const handleTouchStart = (event: TouchEvent<HTMLElement>): void => {
-    // 사용자가 카드를 누른 순간 좌표와 카드 너비의 40% 임계값을 한 번 계산합니다.
-    touchStartX.current = event.touches[0].clientX;
-    touchStartY.current = event.touches[0].clientY;
-    startOffset.current = offset;
+  const handlePointerDown = (event: PointerEvent<HTMLElement>): void => {
+    // 사용자가 카드를 누른 순간 포인터 좌표와 이미 열린 카드 위치를 함께 기억합니다.
+    pointerStartX.current = event.clientX;
+    pointerStartY.current = event.clientY;
+    const visibleOffset = isSwipeOpen ? offset : 0;
+    startOffset.current = visibleOffset;
+    currentOffset.current = visibleOffset;
+    setOffset(visibleOffset);
     swipeAxis.current = null;
     suppressClick.current = false;
-    pinThreshold.current =
-      event.currentTarget.getBoundingClientRect().width * 0.4;
     didAutoTogglePin.current = false;
     setIsDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const handleTouchMove = (event: TouchEvent<HTMLElement>): void => {
-    // 현재 손가락 위치에서 시작점을 빼 가로·세로 이동량을 구합니다.
-    const deltaX = event.touches[0].clientX - touchStartX.current;
-    const deltaY = event.touches[0].clientY - touchStartY.current;
+  const handlePointerMove = (event: PointerEvent<HTMLElement>): void => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    // 현재 포인터 위치에서 시작점을 빼 가로·세로 이동량을 구합니다.
+    const deltaX = event.clientX - pointerStartX.current;
+    const deltaY = event.clientY - pointerStartY.current;
     if (
       !swipeAxis.current &&
       Math.max(Math.abs(deltaX), Math.abs(deltaY)) > 8
@@ -114,34 +136,42 @@ export function MemoCard({
     // 왼쪽 액션 너비부터 카드 너비 45%까지만 움직여 화면 밖으로 과도하게 이탈하지 않게 합니다.
     const nextOffset = Math.max(
       -ACTION_WIDTH,
-      Math.min(pinThreshold.current * 1.125, startOffset.current + deltaX),
+      Math.min(PIN_TOGGLE_THRESHOLD, startOffset.current + deltaX),
     );
+    currentOffset.current = nextOffset;
     setOffset(nextOffset);
 
-    // 카드 너비의 40%를 넘는 순간 손을 떼기 전이라도 고정 상태를 한 번만 즉시 전환합니다.
-    if (nextOffset >= pinThreshold.current && !didAutoTogglePin.current) {
+    // 2단계인 120px에 닿으면 손을 떼기 전이라도 고정 상태를 한 번만 전환하고 카드를 닫습니다.
+    if (nextOffset >= PIN_TOGGLE_THRESHOLD && !didAutoTogglePin.current) {
       didAutoTogglePin.current = true;
       onTogglePin(memo.id);
+      onSwipeOpenChange(false);
+      currentOffset.current = 0;
+      setOffset(0);
       window.navigator.vibrate?.(20);
     }
   };
 
-  const handleTouchEnd = (): void => {
-    // 긴 스와이프가 이미 자동 실행됐다면 카드를 닫고, 아니면 짧은 액션 또는 왼쪽 액션 위치에 맞춥니다.
+  const handlePointerEnd = (event: PointerEvent<HTMLElement>): void => {
+    // 60px 미만은 원위치, 1단계는 74px 버튼 위치, 2단계는 토글 후 원위치로 정렬합니다.
     setIsDragging(false);
     if (swipeAxis.current === "horizontal") {
-      setOffset(
-        didAutoTogglePin.current
-          ? 0
-          : offset >= 38
-            ? PIN_ACTION_WIDTH
-            : offset <= -50
-              ? -ACTION_WIDTH
-              : 0,
-      );
+      const finalOffset = didAutoTogglePin.current
+        ? 0
+        : currentOffset.current >= PIN_REVEAL_THRESHOLD
+          ? PIN_ACTION_WIDTH
+          : currentOffset.current <= -50
+            ? -ACTION_WIDTH
+            : 0;
+      currentOffset.current = finalOffset;
+      setOffset(finalOffset);
+      onSwipeOpenChange(finalOffset !== 0);
       window.setTimeout(() => {
         suppressClick.current = false;
       }, 0);
+    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
     }
     swipeAxis.current = null;
   };
@@ -149,8 +179,10 @@ export function MemoCard({
   const openMemo = (): void => {
     // 스와이프 직후의 가짜 클릭은 무시하고, 열린 액션이 없을 때만 편집기를 엽니다.
     if (suppressClick.current) return;
-    if (offset !== 0) {
+    if (isSwipeOpen && offset !== 0) {
+      currentOffset.current = 0;
       setOffset(0);
+      onSwipeOpenChange(false);
       return;
     }
     onEdit(memo);
@@ -168,7 +200,9 @@ export function MemoCard({
   const togglePin = (): void => {
     // 짧은 스와이프로 드러난 버튼이나 PC 메뉴를 누르면 부모의 메모 고정 State를 변경하고 모든 액션을 닫습니다.
     onTogglePin(memo.id);
+    currentOffset.current = 0;
     setOffset(0);
+    onSwipeOpenChange(false);
     setMenuPosition(null);
   };
 
@@ -177,6 +211,7 @@ export function MemoCard({
 
   return (
     <div
+      ref={cardRef}
       className={`group relative overflow-hidden bg-[#2a2e3d] text-[#f3f4f6] last:[&_.memo-row]:border-b-0 ${viewMode === "gallery" ? "rounded-2xl border border-[#2a2e3d] shadow-lg" : ""}`}
     >
       <button
@@ -197,7 +232,11 @@ export function MemoCard({
       <div className="absolute inset-y-0 right-0 flex w-[148px] xl:hidden">
         <button
           type="button"
-          onClick={() => setOffset(0)}
+          onClick={() => {
+            currentOffset.current = 0;
+            setOffset(0);
+            onSwipeOpenChange(false);
+          }}
           className="w-[74px] bg-[#8e8e93] text-xl text-white"
           aria-label="더 보기"
         >
@@ -205,7 +244,12 @@ export function MemoCard({
         </button>
         <button
           type="button"
-          onClick={() => onDelete(memo)}
+          onClick={() => {
+            currentOffset.current = 0;
+            setOffset(0);
+            onSwipeOpenChange(false);
+            onDelete(memo);
+          }}
           className="flex w-[74px] flex-col items-center justify-center bg-[#ff3b30] text-white"
           aria-label={`${memo.title} 삭제`}
         >
@@ -224,12 +268,12 @@ export function MemoCard({
         onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
           if (event.key === "Enter" || event.key === " ") openMemo();
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
         className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 pb-3 pl-3 pr-3 pt-0" : "border-b border-[#2a2e3d] py-3.5 pl-4 pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
-        style={{ transform: `translateX(${offset}px)` }}
+        style={{ transform: `translateX(${isSwipeOpen || isDragging ? offset : 0}px)` }}
       >
         {viewMode === "gallery" && (
           // 갤러리의 두 열이 작은 화면에도 나란히 들어가도록 썸네일 비율과 안쪽 여백을 작게 유지합니다.

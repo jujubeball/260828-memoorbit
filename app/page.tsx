@@ -131,6 +131,7 @@ export default function Home(): React.JSX.Element {
   const [editingMemo, setEditingMemo] = useState<Memo | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Memo | null>(null);
+  const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
   const [isPinnedOpen, setIsPinnedOpen] = useState(true);
   const [activeSection, setActiveSection] =
     useState<NavigationSection>("memos");
@@ -361,6 +362,10 @@ export default function Home(): React.JSX.Element {
       viewMode={memoViewMode}
       onEdit={openMemo}
       onDelete={setDeleteTarget}
+      isSwipeOpen={openSwipeId === memo.id}
+      onSwipeOpenChange={(isOpen) => {
+        setOpenSwipeId(isOpen ? memo.id : null);
+      }}
       onTogglePin={(id) =>
         setMemos((current) =>
           current.map((item) =>
