@@ -4,13 +4,15 @@ import {
   type FormEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type TouchEvent as ReactTouchEvent,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import type { Memo } from "@/types/memo";
-import { requestGeminiAnalysis } from "@/src/lib/geminiClient";
+import { requestRecommendedTags } from "@/src/lib/geminiClient";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
 import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
 import {
@@ -119,10 +121,32 @@ export function MemoModal({
   const [isAnalyzingTags, setIsAnalyzingTags] = useState(false);
   const [isFormatOpen, setIsFormatOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [toolbarBottom, setToolbarBottom] = useState(0);
   const [tableMenuPosition, setTableMenuPosition] =
     useState<TableMenuPosition | null>(null);
 
   usePageScrollLock(isOpen);
+
+  // 💡 [모바일 가상 키보드 위치 추적]
+  // Visual Viewport가 줄어든 만큼을 키보드 높이로 계산해 하단 도구가 키보드 바로 위로 이동하게 합니다.
+  useEffect(() => {
+    const handleResize = (): void => {
+      if (!window.visualViewport) return;
+      const offsetBottom =
+        window.innerHeight
+        - window.visualViewport.height
+        - window.visualViewport.offsetTop;
+      setToolbarBottom(Math.max(0, offsetBottom));
+    };
+
+    handleResize();
+    window.visualViewport?.addEventListener("resize", handleResize);
+    window.visualViewport?.addEventListener("scroll", handleResize);
+    return () => {
+      window.visualViewport?.removeEventListener("resize", handleResize);
+      window.visualViewport?.removeEventListener("scroll", handleResize);
+    };
+  }, []);
 
   // 💡 [300ms Gemini 실시간 분석]
   // 사용자가 입력을 잠깐 멈추면 서버 Route에 최신 본문을 보내고, 실패할 때만 브라우저의 로컬 핵심어 분석기를 사용합니다.
@@ -139,12 +163,8 @@ export function MemoModal({
 
       setIsAnalyzingTags(true);
       try {
-        const analysis = await requestGeminiAnalysis(
-          text,
-          "tags",
-          controller.signal,
-        );
-        setRecommendedTags(analysis.tags);
+        const nextTags = await requestRecommendedTags(text, controller.signal);
+        setRecommendedTags(nextTags);
         setIsUsingLocalAnalysis(false);
       } catch {
         if (controller.signal.aborted) return;
@@ -202,6 +222,74 @@ export function MemoModal({
   };
   // 체크리스트나 표처럼 DOM이 직접 바뀐 뒤 현재 글자를 plainText State와 다시 맞춥니다.
   const syncText = (): void => setPlainText(editorRef.current?.innerText ?? "");
+
+  // 에디터의 여백을 눌렀을 때 마지막 글자 뒤에 새 커서를 만들어 바로 이어 쓸 수 있게 합니다.
+  const focusEditorEnd = (): void => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus({ preventScroll: true });
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    savedRange.current = range.cloneRange();
+  };
+
+  // 바깥 스크롤 영역의 패딩 자체가 눌린 경우에만 기존 본문 선택을 건드리지 않고 맨 끝으로 이동합니다.
+  const handleEditorAreaClick = (event: ReactMouseEvent<HTMLDivElement>): void => {
+    if (event.target === event.currentTarget) focusEditorEnd();
+  };
+
+  const handleEditorAreaTouch = (event: ReactTouchEvent<HTMLDivElement>): void => {
+    if (event.target === event.currentTarget) focusEditorEnd();
+  };
+
+  // 💡 [이미지·표 블록 삭제]
+  // 선택 범위 안의 블록 또는 접힌 커서 바로 앞·뒤의 블록을 찾아 키보드 삭제 한 번으로 통째로 제거합니다.
+  const handleEditorKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (event.key !== "Backspace" && event.key !== "Delete") return;
+    const selection = window.getSelection();
+    if (!selection?.rangeCount || !selection.isCollapsed) {
+      const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+      const fragment = range?.cloneContents();
+      if (!fragment?.querySelector("img, table")) return;
+      event.preventDefault();
+      range?.deleteContents();
+      syncText();
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    let candidate: Node | null = null;
+    if (range.startContainer instanceof Text) {
+      if (event.key === "Backspace" && range.startOffset === 0) {
+        candidate = range.startContainer.parentElement?.previousSibling ?? null;
+      }
+      if (
+        event.key === "Delete"
+        && range.startOffset === range.startContainer.length
+      ) {
+        candidate = range.startContainer.parentElement?.nextSibling ?? null;
+      }
+    } else {
+      const container = range.startContainer;
+      candidate = event.key === "Backspace"
+        ? container.childNodes.item(range.startOffset - 1)
+        : container.childNodes.item(range.startOffset);
+    }
+
+    const block = candidate instanceof Element
+      ? candidate.matches("img, table")
+        ? candidate
+        : candidate.querySelector("img, table")
+      : null;
+    if (!block || !event.currentTarget.contains(block)) return;
+    event.preventDefault();
+    block.remove();
+    syncText();
+  };
 
   // 선택 범위가 있을 때만 브라우저 서식 명령을 실행하고 최신 글자 상태를 저장합니다.
   const applyFormat = (command: string, value?: string): void => {
@@ -472,7 +560,11 @@ export function MemoModal({
           </div>
         </header>
 
-        <div className="box-border min-h-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-5 pb-6">
+        <div
+          className="box-border min-h-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-5 pb-6"
+          onClick={handleEditorAreaClick}
+          onTouchStart={handleEditorAreaTouch}
+        >
           <p className="pb-4 text-center text-xs text-[#8e8e93]">
             {formatDate(editingMemo?.updatedAt)}
           </p>
@@ -529,6 +621,7 @@ export function MemoModal({
             }}
             onSelect={rememberSelection}
             onKeyUp={rememberSelection}
+            onKeyDown={handleEditorKeyDown}
             className="rich-editor box-border min-h-[60%] w-full max-w-full select-text overflow-x-hidden break-words text-[17px] leading-7 text-white outline-none"
             data-placeholder="메모를 입력하세요"
             dangerouslySetInnerHTML={{ __html: createInitialHtml(editingMemo) }}
@@ -536,7 +629,10 @@ export function MemoModal({
         </div>
 
         {/* AI 추천 태그와 빠른 도구는 flex-none 하단 패널에 함께 있어 본문을 스크롤해도 화면 아래에 계속 남습니다. */}
-        <div className="box-border flex-none w-full max-w-full overflow-x-hidden border-t border-[#2a2e3d] bg-[#0f1117] pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+        <div
+          className="box-border flex-none w-full max-w-full overflow-x-hidden border-t border-[#2a2e3d] bg-[#0f1117] pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-xl transition-transform duration-150"
+          style={{ transform: `translateY(-${toolbarBottom}px)` }}
+        >
           <section
             className={`box-border w-full max-w-full overflow-x-hidden px-4 pb-2 pt-3 transition-colors duration-200 ${isAnalyzingTags ? "bg-[#e5a93c]/5" : ""}`}
             aria-labelledby="recommended-tags-title"
@@ -559,7 +655,7 @@ export function MemoModal({
                     : "선택하지 않아도 저장됩니다"}
               </span>
             </div>
-            <div className="scrollbar-hidden mt-2 flex min-h-8 gap-2 overflow-x-auto">
+            <div className="no-scrollbar scrollbar-hidden mt-2 flex min-h-8 w-full flex-nowrap gap-2 overflow-x-auto py-1">
               {recommendedTags.length > 0 ? (
                 recommendedTags.map((tag) => {
                   const isSelected = selectedTags.includes(tag);

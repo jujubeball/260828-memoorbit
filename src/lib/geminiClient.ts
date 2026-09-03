@@ -12,6 +12,39 @@ export class GeminiApiError extends Error {
   }
 }
 
+interface RecommendedTagsResponse {
+  tags: string[];
+}
+
+// 💡 [태그 전용 Gemini 요청]
+// 에디터 본문만 태그 전용 서버 Route로 보내고, 화면에는 검증을 통과한 최대 다섯 개의 문자열만 돌려줍니다.
+export const requestRecommendedTags = async (
+  text: string,
+  signal?: AbortSignal,
+): Promise<string[]> => {
+  const response = await fetch("/api/tags/recommend", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error("Gemini 태그 추천 요청에 실패했습니다.");
+  }
+
+  const result = await response.json() as RecommendedTagsResponse;
+  if (!Array.isArray(result.tags)) {
+    throw new Error("Gemini 태그 추천 응답 형식이 올바르지 않습니다.");
+  }
+
+  return result.tags
+    .filter((tag): tag is string => typeof tag === "string")
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+};
+
 // 💡 [Gemini 서버 요청 함수]
 // 브라우저는 API 키를 알지 못한 채 본문만 우리 서버에 전달하고, 서버가 돌려준 태그와 한 줄 분석을 받습니다.
 export const requestGeminiAnalysis = async (
