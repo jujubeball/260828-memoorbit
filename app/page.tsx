@@ -607,7 +607,7 @@ export default function Home(): React.JSX.Element {
             {groups.map((group) => (
               <section
                 key={group.label}
-                className="mb-2 sm:mb-7"
+                className="mb-2 pt-3 first:pt-0 sm:mb-7 sm:pt-0"
                 aria-labelledby={`group-${group.label}`}
               >
                 <h2
