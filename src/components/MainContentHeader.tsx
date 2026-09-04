@@ -38,7 +38,7 @@ export function MainContentHeader({
   }, [onVisibilityChange]);
 
   return (
-    <header ref={headerRef} className="py-2.5 sm:pb-0 sm:pt-5 xl:pt-6">
+    <header ref={headerRef} className="py-2 sm:pb-0 sm:pt-5 xl:pt-6">
       <p className="mb-1 hidden text-xs font-semibold uppercase tracking-wider text-[#e5a93c] sm:block">
         {label}
       </p>
