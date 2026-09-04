@@ -532,7 +532,7 @@ export default function Home(): React.JSX.Element {
                       type="button"
                       onClick={() => setMemoViewMode("list")}
                       aria-pressed={memoViewMode === "list"}
-                      className={`rounded-md p-1 text-xs font-bold transition-colors sm:p-1.5 ${memoViewMode === "list" ? "bg-[#e5a93c] text-white shadow-sm" : "text-[#9ca3af] hover:text-[#f3f4f6]"}`}
+                      className={`rounded-md p-1 text-sm font-bold transition-colors sm:p-1.5 sm:text-xs ${memoViewMode === "list" ? "bg-[#e5a93c] text-white shadow-sm" : "text-[#9ca3af] hover:text-[#f3f4f6]"}`}
                     >
                       📋 <span className="hidden sm:inline">텍스트 리스트</span>
                     </button>
@@ -540,7 +540,7 @@ export default function Home(): React.JSX.Element {
                       type="button"
                       onClick={() => setMemoViewMode("gallery")}
                       aria-pressed={memoViewMode === "gallery"}
-                      className={`rounded-md p-1 text-xs font-bold transition-colors sm:p-1.5 ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-white shadow-sm" : "text-[#9ca3af] hover:text-[#f3f4f6]"}`}
+                      className={`rounded-md p-1 text-sm font-bold transition-colors sm:p-1.5 sm:text-xs ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-white shadow-sm" : "text-[#9ca3af] hover:text-[#f3f4f6]"}`}
                     >
                       🖼️ <span className="hidden sm:inline">사진 카드</span>
                     </button>
