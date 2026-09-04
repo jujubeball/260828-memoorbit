@@ -22,14 +22,6 @@ const TIME_PRESETS: Array<{
   { value: "custom", label: "직접 입력" },
 ];
 
-const TAG_MATCH_MODES: Array<{
-  value: NonNullable<MemoFilterOptions["tagMatchMode"]>;
-  label: string;
-}> = [
-  { value: "AND", label: "모두 포함" },
-  { value: "OR", label: "하나라도 포함" },
-];
-
 const chipClass = (isActive: boolean): string =>
   `rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
     isActive
@@ -45,8 +37,7 @@ export function SearchFilterBar({
 }: SearchFilterBarProps): React.JSX.Element {
   const [isExpanded, setIsExpanded] = useState(false);
   const selectedTags = options.tags ?? [];
-  const areAllTagsSelected = availableTags.length > 0
-    && availableTags.every((tag) => selectedTags.includes(tag));
+  const areAllTagsSelected = selectedTags.length === 0;
   const areAllMediaFiltersSelected = options.hasImage === true
     && options.hasTable === true
     && options.isPinned === true;
@@ -68,8 +59,8 @@ export function SearchFilterBar({
     updateOptions({ tags: nextTags });
   };
 
-  const toggleAllTags = (): void => {
-    updateOptions({ tags: areAllTagsSelected ? [] : [...availableTags] });
+  const clearSelectedTags = (): void => {
+    updateOptions({ tags: [] });
   };
 
   const toggleBooleanFilter = (
@@ -173,42 +164,15 @@ export function SearchFilterBar({
             <legend className="sr-only">
               다중 태그
             </legend>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-bold text-[#f3f4f6]">
-                다중 태그
-              </span>
-              <div
-                className="inline-flex rounded-lg border border-[#2a2e3d] bg-[#0f1117] p-1"
-                aria-label="태그 일치 방식"
-              >
-                {TAG_MATCH_MODES.map((mode) => (
-                  <button
-                    key={mode.value}
-                    type="button"
-                    onClick={() => updateOptions({
-                      tagMatchMode: mode.value,
-                    })}
-                    aria-pressed={
-                      (options.tagMatchMode ?? "AND") === mode.value
-                    }
-                    className={`rounded-md px-3 py-1.5 text-[11px] font-bold ${
-                      (options.tagMatchMode ?? "AND") === mode.value
-                        ? "bg-[#e5a93c] text-[#0f1117]"
-                        : "text-[#9ca3af]"
-                    }`}
-                  >
-                    {mode.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <span className="block text-xs font-bold text-[#f3f4f6]">
+              태그 선택
+            </span>
             <div className="mt-3 flex max-h-28 flex-wrap gap-2 overflow-y-auto">
               <button
                 type="button"
-                onClick={toggleAllTags}
+                onClick={clearSelectedTags}
                 aria-pressed={areAllTagsSelected}
-                disabled={availableTags.length === 0}
-                className={`${chipClass(areAllTagsSelected)} disabled:cursor-not-allowed disabled:opacity-40`}
+                className={chipClass(areAllTagsSelected)}
               >
                 전체
               </button>

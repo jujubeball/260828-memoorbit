@@ -3,7 +3,6 @@ import type { Memo } from "@/types/memo";
 export interface MemoFilterOptions {
   keyword?: string;
   tags?: string[];
-  tagMatchMode?: "AND" | "OR";
   hasImage?: boolean;
   hasTable?: boolean;
   isPinned?: boolean;
@@ -125,7 +124,6 @@ export const filterMemos = (
   const selectedTags = (options.tags ?? [])
     .map(normalizeText)
     .filter(Boolean);
-  const tagMatchMode = options.tagMatchMode ?? "AND";
   const dateBounds = getDateBounds(options, new Date());
   const hasSemanticScores = Object.keys(options.semanticScores ?? {}).length > 0;
 
@@ -145,9 +143,7 @@ export const filterMemos = (
       : matchesKeyword;
     const memoTags = new Set(memo.tags.map(normalizeText));
     const matchesTags = selectedTags.length === 0
-      || (tagMatchMode === "OR"
-        ? selectedTags.some((tag) => memoTags.has(tag))
-        : selectedTags.every((tag) => memoTags.has(tag)));
+      || selectedTags.some((tag) => memoTags.has(tag));
     const matchesImage = options.hasImage === undefined
       || hasMemoImage(memo) === options.hasImage;
     const matchesTable = options.hasTable === undefined

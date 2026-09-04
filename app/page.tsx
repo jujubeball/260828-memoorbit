@@ -142,7 +142,6 @@ export default function Home(): React.JSX.Element {
     useState<NavigationSection>("memos");
   const [memoViewMode, setMemoViewMode] = useState<MemoViewMode>("list");
   const [filterOptions, setFilterOptions] = useState<MemoFilterOptions>({
-    tagMatchMode: "AND",
     timePreset: "all",
   });
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
