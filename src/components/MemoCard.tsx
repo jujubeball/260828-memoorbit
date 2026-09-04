@@ -284,7 +284,7 @@ export function MemoCard({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerCancel}
-        className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 pb-3 pl-3 pr-3 pt-0" : "border-b border-[#2a2e3d] px-3 py-1.5 sm:py-3.5 sm:pl-4 sm:pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
+        className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 pb-3 pl-3 pr-3 pt-0" : "border-b border-[#2a2e3d] px-3 py-2 sm:py-3.5 sm:pl-4 sm:pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
         style={{ transform: `translateX(${isSwipeOpen || isDragging ? offset : 0}px)` }}
       >
         {viewMode === "gallery" && (
@@ -334,10 +334,10 @@ export function MemoCard({
           </h3>
         </div>
         <p
-          className={`min-w-0 ${viewMode === "gallery" ? "mt-1 grid gap-0.5 text-xs leading-4" : "mt-0.5 flex gap-2 text-[13px] leading-4 text-[#d1d5db] sm:leading-5 xl:text-[15px]"}`}
+          className={`min-w-0 ${viewMode === "gallery" ? "mt-1 grid gap-0.5 text-xs leading-4" : "mt-0.5 flex gap-2 text-sm leading-4 text-[#d1d5db] sm:leading-5 xl:text-[15px]"}`}
         >
           <time
-            className={`shrink-0 text-[#9ca3af] ${viewMode === "gallery" ? "text-xs" : "text-[13px] xl:text-[15px]"}`}
+            className={`shrink-0 text-[#9ca3af] ${viewMode === "gallery" ? "text-xs" : "text-sm xl:text-[15px]"}`}
           >
             {formatMemoDate(memo.updatedAt)}
           </time>
