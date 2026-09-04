@@ -522,6 +522,7 @@ export default function Home(): React.JSX.Element {
                 badgeCount={filteredMemos.length}
                 description="수집된 생각과 기록을 한눈에 탐색하고 관리합니다."
                 onVisibilityChange={setIsContentHeaderVisible}
+                flushBelowMobileHeader
                 action={
                   <div
                     className="inline-flex w-fit gap-1 rounded-lg border border-[#2a2e3d] bg-[#1a1d26] p-1 backdrop-blur-md"

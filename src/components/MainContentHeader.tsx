@@ -10,6 +10,7 @@ interface MainContentHeaderProps {
   badgeCount?: number;
   action?: ReactNode;
   onVisibilityChange?: (isVisible: boolean) => void;
+  flushBelowMobileHeader?: boolean;
 }
 
 // 세 주요 화면이 같은 간격과 정보 순서를 사용하도록 영문 라벨·제목·설명을 한곳에서 그립니다.
@@ -21,6 +22,7 @@ export function MainContentHeader({
   badgeCount,
   action,
   onVisibilityChange,
+  flushBelowMobileHeader = false,
 }: MainContentHeaderProps): React.JSX.Element {
   const headerRef = useRef<HTMLElement>(null);
 
@@ -38,7 +40,12 @@ export function MainContentHeader({
   }, [onVisibilityChange]);
 
   return (
-    <header ref={headerRef} className="py-2 sm:pb-0 sm:pt-5 xl:pt-6">
+    <header
+      ref={headerRef}
+      className={flushBelowMobileHeader
+        ? "pb-2 pt-0 sm:pb-0 sm:pt-0 xl:pt-6"
+        : "py-2 sm:pb-0 sm:pt-5 xl:pt-6"}
+    >
       <p className="mb-1 hidden text-xs font-semibold uppercase tracking-wider text-[#e5a93c] sm:block">
         {label}
       </p>
