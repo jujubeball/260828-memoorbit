@@ -503,7 +503,7 @@ export default function Home(): React.JSX.Element {
         {activeSection === "memos" && (
           <>
             <div
-              className={`sticky top-14 z-30 -mx-4 border-b border-[#2a2e3d]/60 bg-[#0f1117]/90 px-3.5 backdrop-blur-md transition-all duration-200 sm:mx-0 sm:border-transparent sm:bg-[#0f1117] sm:px-0 xl:top-0 xl:z-20 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
+              className={`sticky top-14 z-30 -mx-4 border-b border-[#2a2e3d]/80 bg-[#0f1117]/95 px-4 backdrop-blur-md transition-all duration-200 sm:mx-0 sm:border-transparent sm:bg-[#0f1117] sm:px-0 xl:top-0 xl:z-20 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
             >
               <MainContentHeader
                 id="all-memos-title"
@@ -639,19 +639,6 @@ export default function Home(): React.JSX.Element {
           />
         )}
       </main>
-      {activeSection === "memos" && (
-        <button
-          type="button"
-          onClick={() => {
-            setEditingMemo(null);
-            setIsEditorOpen(true);
-          }}
-          className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-5 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-[#e5a93c] text-4xl font-light text-[#0f1117] shadow-[0_14px_35px_rgb(0_0_0/0.5)] active:scale-95 xl:hidden"
-          aria-label="새 메모 작성"
-        >
-          +
-        </button>
-      )}
       {isDrawerOpen && (
         <div role="dialog" aria-modal="true" aria-label="메뉴">
           <button

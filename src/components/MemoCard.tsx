@@ -284,7 +284,7 @@ export function MemoCard({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerCancel}
-        className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 pb-3 pl-3 pr-3 pt-0" : "border-b border-[#2a2e3d] px-3 py-1.5 sm:py-3.5 sm:pl-4 sm:pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
+        className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 pb-3 pl-3 pr-3 pt-0" : "border-b border-[#2a2e3d] px-3 py-2 sm:py-3.5 sm:pl-4 sm:pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
         style={{ transform: `translateX(${isSwipeOpen || isDragging ? offset : 0}px)` }}
       >
         {viewMode === "gallery" && (
@@ -328,21 +328,21 @@ export function MemoCard({
             </span>
           )}
           <h3
-            className={`truncate font-semibold ${viewMode === "gallery" ? "text-sm leading-5" : "text-xs leading-4 sm:text-sm sm:leading-5 xl:text-[17px]"}`}
+            className={`truncate font-bold ${viewMode === "gallery" ? "text-sm leading-5" : "text-sm leading-5 sm:text-base xl:text-[17px]"}`}
           >
             {memo.title}
           </h3>
         </div>
         <p
-          className={`min-w-0 ${viewMode === "gallery" ? "mt-1 grid gap-0.5 text-xs leading-4" : "mt-0.5 flex gap-2 text-[11px] leading-tight sm:text-xs sm:leading-5 xl:text-[15px]"}`}
+          className={`min-w-0 ${viewMode === "gallery" ? "mt-1 grid gap-0.5 text-xs leading-4" : "mt-0.5 flex gap-2 text-xs leading-4 text-[#d1d5db] sm:leading-5 xl:text-[15px]"}`}
         >
-          <time className="shrink-0 text-[10px] text-[#8e8e93] sm:text-xs xl:text-[15px] xl:text-[#f3f4f6]">
+          <time className="shrink-0 text-xs text-[#ffc86b]/90 xl:text-[15px] xl:text-[#f3f4f6]">
             {formatMemoDate(memo.updatedAt)}
           </time>
           <span className="truncate text-[#9ca3af]">{preview}</span>
         </p>
         {memo.tags.length > 0 && (
-          <p className="truncate text-[10px] leading-tight text-[#8e8e93] sm:mt-0.5 sm:text-[13px] sm:text-[#9ca3af]">
+          <p className="truncate text-xs leading-4 text-[#ffc86b]/90 sm:mt-0.5 sm:text-[13px] sm:text-[#9ca3af]">
             {memo.tags.map((tag) => `#${tag}`).join("  ")}
           </p>
         )}
