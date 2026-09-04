@@ -8,6 +8,7 @@ interface SearchFilterBarProps {
   options: MemoFilterOptions;
   availableTags: string[];
   onOptionsChange: (options: MemoFilterOptions) => void;
+  onCreateMemo: () => void;
 }
 
 const TIME_PRESETS: Array<{
@@ -40,6 +41,7 @@ export function SearchFilterBar({
   options,
   availableTags,
   onOptionsChange,
+  onCreateMemo,
 }: SearchFilterBarProps): React.JSX.Element {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAiTooltipOpen, setIsAiTooltipOpen] = useState(false);
@@ -96,7 +98,7 @@ export function SearchFilterBar({
 
   return (
     <section
-      className="mb-6 rounded-2xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-3 shadow-[0_14px_34px_rgb(0_0_0/0.16)] backdrop-blur-md sm:p-4"
+      className="fixed bottom-4 left-1/2 z-40 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 rounded-full border border-[#2a2e3d] bg-[#1a1d26]/95 p-1.5 shadow-2xl backdrop-blur-md sm:static sm:mb-6 sm:w-auto sm:max-w-none sm:translate-x-0 sm:rounded-2xl sm:p-4"
       aria-label="메모 검색 필터"
     >
       <div className="flex items-center gap-2">
@@ -113,7 +115,7 @@ export function SearchFilterBar({
             value={options.keyword ?? ""}
             onChange={(event) => updateOptions({ keyword: event.target.value })}
             placeholder="제목, 내용, 태그 검색"
-            className="h-11 w-full rounded-xl border border-[#2a2e3d] bg-[#0f1117] pl-10 pr-3 text-base text-[#f3f4f6] outline-none placeholder:text-[#6b7280] focus:border-[#e5a93c] sm:text-sm"
+            className="h-9 w-full rounded-full border-0 bg-transparent pl-9 pr-2 text-base text-[#f3f4f6] outline-none placeholder:text-[#6b7280] focus:ring-1 focus:ring-[#e5a93c] sm:h-11 sm:rounded-xl sm:border sm:border-[#2a2e3d] sm:bg-[#0f1117] sm:pl-10 sm:pr-3 sm:text-sm"
           />
         </label>
 
@@ -125,7 +127,7 @@ export function SearchFilterBar({
             onClick={() => updateOptions({
               isSemanticSearch: !options.isSemanticSearch,
             })}
-            className={`flex h-11 items-center gap-2 rounded-xl border px-3 text-xs font-bold transition-colors ${
+            className={`flex h-9 items-center gap-1 rounded-full border px-2 text-[11px] font-bold transition-colors sm:h-11 sm:gap-2 sm:rounded-xl sm:px-3 sm:text-xs ${
               options.isSemanticSearch
                 ? "border-[#e5a93c] bg-[#e5a93c]/15 text-[#ffc86b] shadow-[0_0_18px_rgb(229_169_60/0.16)]"
                 : "border-[#2a2e3d] bg-[#0f1117] text-[#9ca3af]"
@@ -149,7 +151,7 @@ export function SearchFilterBar({
             aria-label="AI 검색 설명"
             aria-expanded={isAiTooltipOpen}
             aria-controls="ai-search-tooltip"
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#2a2e3d] bg-[#0f1117] text-xs font-bold text-[#9ca3af] hover:border-[#ffc86b] hover:text-[#ffc86b]"
+            className="hidden h-8 w-8 items-center justify-center rounded-full border border-[#2a2e3d] bg-[#0f1117] text-xs font-bold text-[#9ca3af] hover:border-[#ffc86b] hover:text-[#ffc86b] sm:flex"
           >
             ?
           </button>
@@ -172,10 +174,18 @@ export function SearchFilterBar({
           onClick={() => setIsExpanded((current) => !current)}
           aria-expanded={isExpanded}
           aria-controls="advanced-search-filters"
-          className="flex h-11 shrink-0 items-center gap-1 rounded-xl border border-[#2a2e3d] bg-[#0f1117] px-3 text-xs font-bold text-[#f3f4f6] hover:border-[#ffc86b]"
+          className="hidden h-11 shrink-0 items-center gap-1 rounded-xl border border-[#2a2e3d] bg-[#0f1117] px-3 text-xs font-bold text-[#f3f4f6] hover:border-[#ffc86b] sm:flex"
         >
           필터
           <span aria-hidden="true">{isExpanded ? "⌃" : "⌄"}</span>
+        </button>
+        <button
+          type="button"
+          onClick={onCreateMemo}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e5a93c] text-xl font-bold leading-none text-white shadow-lg transition-colors hover:bg-[#ffc86b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffc86b] sm:hidden"
+          aria-label="새 메모 작성"
+        >
+          +
         </button>
       </div>
 

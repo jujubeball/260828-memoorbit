@@ -38,12 +38,12 @@ export function MainContentHeader({
   }, [onVisibilityChange]);
 
   return (
-    <header ref={headerRef} className="pt-5 xl:pt-6">
-      <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#e5a93c]">
+    <header ref={headerRef} className="pt-3 sm:pt-5 xl:pt-6">
+      <p className="mb-1 hidden text-xs font-semibold uppercase tracking-wider text-[#e5a93c] sm:block">
         {label}
       </p>
-      <div className="mb-1 flex items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-2 text-2xl font-bold text-[#f3f4f6]">
+      <div className="flex items-center justify-between gap-3 sm:mb-1 sm:gap-4">
+        <div className="flex min-w-0 items-center gap-2 text-xl font-bold text-[#f3f4f6] sm:text-2xl">
           <h2 id={id} className="truncate">
             {title}
           </h2>
@@ -54,19 +54,13 @@ export function MainContentHeader({
             </span>
           )}
         </div>
-        {action && <div className="hidden shrink-0 xl:block">{action}</div>}
+        {action && <div className="shrink-0">{action}</div>}
       </div>
       <p
-        className={`${action ? "mb-4 xl:mb-6" : "mb-6"} text-sm text-[#9ca3af]`}
+        className={`${action ? "mb-4 xl:mb-6" : "mb-6"} hidden text-sm text-[#9ca3af] sm:block`}
       >
         {description}
       </p>
-      {/* 모바일에서는 전체 폭을 정렬 기준으로만 사용하고, 실제 토글은 내용 너비만 차지한 채 오른쪽에 붙습니다. */}
-      {action && (
-        <div className="mb-6 flex w-full justify-end xl:hidden">
-          {action}
-        </div>
-      )}
     </header>
   );
 }

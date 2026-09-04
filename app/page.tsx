@@ -542,6 +542,10 @@ export default function Home(): React.JSX.Element {
               options={filterOptions}
               availableTags={availableTags}
               onOptionsChange={setFilterOptions}
+              onCreateMemo={() => {
+                setEditingMemo(null);
+                setIsEditorOpen(true);
+              }}
             />
             {memoViewMode === "gallery" && (
               <MemoryOrbitView
@@ -550,7 +554,7 @@ export default function Home(): React.JSX.Element {
               />
             )}
             {pinned.length > 0 && (
-              <section className="mb-7" aria-labelledby="pinned-heading">
+              <section className="mb-3 sm:mb-7" aria-labelledby="pinned-heading">
                 <button
                   type="button"
                   onClick={() => setIsPinnedOpen((current) => !current)}
@@ -588,12 +592,12 @@ export default function Home(): React.JSX.Element {
             {groups.map((group) => (
               <section
                 key={group.label}
-                className="mb-7"
+                className="mb-3 sm:mb-7"
                 aria-labelledby={`group-${group.label}`}
               >
                 <h2
                   id={`group-${group.label}`}
-                  className="px-1 pb-2 text-[22px] font-bold"
+                  className="px-1 pb-1.5 text-lg font-bold sm:pb-2 sm:text-[22px]"
                 >
                   {group.label}
                 </h2>
