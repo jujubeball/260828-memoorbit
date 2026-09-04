@@ -42,7 +42,7 @@ export function DateInputBox({
 
   return (
     <div
-      className={`relative inline-flex h-9 w-[8.5rem] min-w-0 shrink items-center overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#0f1117] text-xs transition-colors sm:w-36 ${disabled ? "pointer-events-none cursor-not-allowed opacity-40" : "cursor-pointer hover:border-[#3f4557]"}`}
+      className={`relative inline-flex h-9 w-[8.5rem] min-w-0 shrink items-center overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#161922] text-xs transition-colors sm:w-36 ${disabled ? "pointer-events-none cursor-not-allowed opacity-40" : "cursor-pointer hover:border-[#3b4054]"}`}
     >
       <label htmlFor={id} className="sr-only">
         {label}
@@ -68,7 +68,7 @@ export function DateInputBox({
           {value || placeholder}
         </span>
       </button>
-      <div className="z-10 flex h-full shrink-0 items-center border-l border-[#2a2e3d]/80 bg-[#1a1d26]/50 px-1">
+      <div className="z-10 flex h-full shrink-0 items-center border-l border-[#2a2e3d] bg-[#121318] px-1">
         {value && !disabled && (
           <button
             type="button"

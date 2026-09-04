@@ -208,21 +208,13 @@ export function SearchFilterBar({
 
       {isExpanded && (
         <>
-          <button
-            type="button"
-            onClick={() => setIsExpanded(false)}
-            className="fixed inset-0 z-40 bg-black/80 sm:hidden"
-            aria-label="필터 닫기"
-          />
           <div
             id="advanced-search-filters"
             role="dialog"
             aria-modal="true"
             aria-label="상세 필터"
-            onClick={(event) => {
-              if (event.target === event.currentTarget) setIsExpanded(false);
-            }}
-            className="fixed inset-x-0 bottom-0 top-14 z-50 grid content-start gap-4 overflow-y-auto bg-[#0f1117] p-4 shadow-2xl sm:static sm:mt-4 sm:max-h-none sm:gap-5 sm:overflow-visible sm:rounded-none sm:border-x-0 sm:border-b-0 sm:bg-transparent sm:p-0 sm:pt-4 sm:shadow-none"
+            onClick={(event) => event.stopPropagation()}
+            className="fixed inset-0 z-50 grid content-start gap-4 overflow-y-auto bg-[#121318] p-4 shadow-2xl sm:static sm:mt-4 sm:max-h-none sm:gap-5 sm:overflow-visible sm:rounded-none sm:border-x-0 sm:border-b-0 sm:bg-transparent sm:p-0 sm:pt-4 sm:shadow-none"
           >
             <div className="flex items-center justify-between border-b border-[#2a2e3d] pb-3 sm:hidden">
               <span className="text-sm font-bold text-[#e5a93c]">상세 필터</span>

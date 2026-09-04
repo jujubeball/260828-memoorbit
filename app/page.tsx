@@ -557,7 +557,10 @@ export default function Home(): React.JSX.Element {
                 setIsEditorOpen(true);
               }}
             />
-            <div id="memos-container" className="pt-2">
+            <div
+              id="memos-container"
+              className="relative -mt-[6.5rem] pt-28"
+            >
             {memoViewMode === "gallery" && (
               <MemoryOrbitView
                 candidates={memoryCandidates}
