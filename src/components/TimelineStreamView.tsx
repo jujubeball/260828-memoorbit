@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
-import { TimeOrbitDateRangePicker } from "@/src/components/TimeOrbitDateRangePicker";
+import { TimeOrbitDateSelector } from "@/src/components/TimeOrbitDateSelector";
 import {
   GeminiApiError,
   requestGeminiAnalysis,
@@ -216,7 +216,7 @@ export function TimelineStreamView({
         description="지정한 기간 동안 쌓인 기록의 성찰과 실행 궤도를 분석합니다."
         onVisibilityChange={onHeaderVisibilityChange}
       />
-      <TimeOrbitDateRangePicker
+      <TimeOrbitDateSelector
         startDate={startDate}
         endDate={endDate}
         onRangeChange={updateDateRange}

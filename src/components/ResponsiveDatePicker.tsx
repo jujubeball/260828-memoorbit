@@ -9,6 +9,7 @@ interface ResponsiveDatePickerProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
 }
 
 // 달력 머리글을 일요일부터 토요일까지 같은 순서로 반복 표시하기 위한 요일 목록입니다.
@@ -40,6 +41,7 @@ export function ResponsiveDatePicker({
   label,
   value,
   onChange,
+  disabled = false,
 }: ResponsiveDatePickerProps): React.JSX.Element {
   // 💡 [달력 DOM 위치 참조]
   // 입력 영역, PC 팝오버, 모바일 팝업, 포커스 복원 대상을 각각 기억해 외부 클릭과 위치 계산에 사용합니다.
@@ -223,14 +225,19 @@ export function ResponsiveDatePicker({
   );
 
   return (
-    <div ref={pickerRef} className="relative z-0 grid gap-2">
-      <label htmlFor={id} className="text-sm font-semibold text-[#f3f4f6]">
+    <div
+      ref={pickerRef}
+      className={`relative z-0 grid gap-2 ${disabled ? "cursor-not-allowed" : ""}`}
+      aria-disabled={disabled}
+    >
+      <label htmlFor={id} className="text-xs font-semibold text-[#f3f4f6] sm:text-sm">
         {label}
       </label>
       <div className="flex items-center rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 focus-within:border-[#e5a93c]">
         <input
           ref={triggerRef}
           id={id}
+          disabled={disabled}
           value={inputValue}
           onChange={(event) => setInputValue(event.target.value)}
           onBlur={commitInput}
@@ -241,11 +248,12 @@ export function ResponsiveDatePicker({
           inputMode="numeric"
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
-          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-[#f3f4f6] outline-none"
+          className="min-w-0 flex-1 bg-transparent px-2 py-3 text-sm text-[#f3f4f6] outline-none disabled:cursor-not-allowed sm:px-4 sm:text-base"
         />
         {inputValue && (
           <button
             type="button"
+            disabled={disabled}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
               setInputValue("");
@@ -260,9 +268,10 @@ export function ResponsiveDatePicker({
         )}
         <button
           type="button"
+          disabled={disabled}
           onMouseDown={(event) => event.preventDefault()}
           onClick={togglePicker}
-          className="flex h-full items-center justify-center border-l border-[#2a2e3d] px-3 text-[#ffc86b]"
+          className="flex h-full items-center justify-center border-l border-[#2a2e3d] px-2 text-[#ffc86b] disabled:cursor-not-allowed sm:px-3"
           aria-label={`${label} 달력 열기`}
           aria-expanded={isOpen}
         >

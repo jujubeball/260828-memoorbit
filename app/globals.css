@@ -181,18 +181,6 @@ button:disabled {
   display: none;
 }
 
-/* 시간 궤도 통합 날짜 바는 입력 전체로 네이티브 피커를 열고 브라우저가 덧붙이는 아이콘은 숨깁니다. */
-.native-date-input {
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-.native-date-input::-webkit-calendar-picker-indicator,
-.native-date-input::-webkit-clear-button,
-.native-date-input::-webkit-inner-spin-button {
-  opacity: 0;
-  display: none;
-}
 
 @media (max-width: 1279px) {
   * {
