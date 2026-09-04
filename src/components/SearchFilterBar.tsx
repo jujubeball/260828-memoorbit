@@ -159,6 +159,27 @@ export function SearchFilterBar({
       className="sm:relative sm:z-40 sm:mb-6 sm:rounded-2xl sm:border sm:border-[#2a2e3d] sm:bg-[#1a1d26]/80 sm:p-4 sm:shadow-[0_14px_34px_rgb(0_0_0/0.16)] sm:backdrop-blur-md"
       aria-label="메모 검색 필터"
     >
+      {selectedTags.length > 0 && (
+        <div
+          className="scrollbar-hidden flex w-full items-center gap-2 overflow-x-auto py-2 sm:hidden"
+          aria-label="선택한 태그 필터"
+        >
+          <span className="shrink-0 text-xs font-semibold text-[#9ca3af]">
+            선택 태그
+          </span>
+          {selectedTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => toggleTag(tag)}
+              className="shrink-0 rounded-full border border-[#e5a93c] bg-[#e5a93c]/15 px-3 py-1.5 text-sm font-semibold text-[#ffc86b]"
+              aria-label={`${tag} 태그 필터 해제`}
+            >
+              #{tag} ✕
+            </button>
+          ))}
+        </div>
+      )}
       <div className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-1.5 rounded-full border border-[#2a2e3d] bg-[#1a1d26]/95 p-1.5 shadow-2xl backdrop-blur-lg sm:static sm:w-auto sm:max-w-none sm:translate-x-0 sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">메모 검색어</span>
