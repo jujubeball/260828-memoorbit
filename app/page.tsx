@@ -504,7 +504,7 @@ export default function Home(): React.JSX.Element {
         {activeSection === "memos" && (
           <>
             <div
-              className={`border-b border-transparent bg-[#0f1117] transition-all duration-200 xl:sticky xl:top-0 xl:z-20 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
+              className={`sticky top-14 z-30 -mx-4 border-b border-[#2a2e3d]/60 bg-[#0f1117]/90 px-3.5 backdrop-blur-md transition-all duration-200 sm:mx-0 sm:border-transparent sm:bg-[#0f1117] sm:px-0 xl:top-0 xl:z-20 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
             >
               <MainContentHeader
                 id="all-memos-title"
@@ -522,7 +522,7 @@ export default function Home(): React.JSX.Element {
                       type="button"
                       onClick={() => setMemoViewMode("list")}
                       aria-pressed={memoViewMode === "list"}
-                      className={`rounded-md p-1.5 text-xs font-bold transition-colors ${memoViewMode === "list" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af] hover:text-[#f3f4f6]"}`}
+                      className={`rounded-md p-1 text-xs font-bold transition-colors sm:p-1.5 ${memoViewMode === "list" ? "bg-[#e5a93c] text-white shadow-sm" : "text-[#9ca3af] hover:text-[#f3f4f6]"}`}
                     >
                       📋 <span className="hidden sm:inline">텍스트 리스트</span>
                     </button>
@@ -530,7 +530,7 @@ export default function Home(): React.JSX.Element {
                       type="button"
                       onClick={() => setMemoViewMode("gallery")}
                       aria-pressed={memoViewMode === "gallery"}
-                      className={`rounded-md p-1.5 text-xs font-bold transition-colors ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-[#0f1117] shadow-sm" : "text-[#9ca3af] hover:text-[#f3f4f6]"}`}
+                      className={`rounded-md p-1 text-xs font-bold transition-colors sm:p-1.5 ${memoViewMode === "gallery" ? "bg-[#e5a93c] text-white shadow-sm" : "text-[#9ca3af] hover:text-[#f3f4f6]"}`}
                     >
                       🖼️ <span className="hidden sm:inline">사진 카드</span>
                     </button>
@@ -581,7 +581,7 @@ export default function Home(): React.JSX.Element {
                     className={
                       memoViewMode === "gallery"
                         ? "grid grid-cols-2 gap-3 lg:grid-cols-3"
-                        : "overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 backdrop-blur-md"
+                        : "grid gap-1.5 bg-[#1a1d26]/80 backdrop-blur-md sm:block sm:overflow-hidden sm:rounded-xl sm:border sm:border-[#2a2e3d]"
                     }
                   >
                     {pinned.map(renderMemo)}
@@ -605,7 +605,7 @@ export default function Home(): React.JSX.Element {
                   className={
                     memoViewMode === "gallery"
                       ? "grid grid-cols-2 gap-3 lg:grid-cols-3"
-                      : "overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 backdrop-blur-md"
+                      : "grid gap-1.5 bg-[#1a1d26]/80 backdrop-blur-md sm:block sm:overflow-hidden sm:rounded-xl sm:border sm:border-[#2a2e3d]"
                   }
                 >
                   {group.memos.map(renderMemo)}

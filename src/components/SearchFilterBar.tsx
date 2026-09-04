@@ -44,13 +44,17 @@ export function SearchFilterBar({
   onCreateMemo,
 }: SearchFilterBarProps): React.JSX.Element {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isAiTooltipOpen, setIsAiTooltipOpen] = useState(false);
   const selectedTags = options.tags ?? [];
   const areAllTagsSelected = availableTags.length > 0
     && availableTags.every((tag) => selectedTags.includes(tag));
   const areAllMediaFiltersSelected = options.hasImage === true
     && options.hasTable === true
     && options.isPinned === true;
+  const activeFilterCount = selectedTags.length
+    + ((options.timePreset ?? "all") !== "all" ? 1 : 0)
+    + (options.hasImage === true ? 1 : 0)
+    + (options.hasTable === true ? 1 : 0)
+    + (options.isPinned === true ? 1 : 0);
 
   // 사용자가 입력하거나 칩을 누를 때 기존 조건을 복사하고 바뀐 값만 덮어써서 부모의 filterOptions State로 돌려보냅니다.
   const updateOptions = (changes: Partial<MemoFilterOptions>): void => {
@@ -98,10 +102,10 @@ export function SearchFilterBar({
 
   return (
     <section
-      className="fixed bottom-4 left-1/2 z-40 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 rounded-full border border-[#2a2e3d] bg-[#1a1d26]/95 p-1.5 shadow-2xl backdrop-blur-md sm:static sm:mb-6 sm:w-auto sm:max-w-none sm:translate-x-0 sm:rounded-2xl sm:p-4"
+      className="sm:mb-6 sm:rounded-2xl sm:border sm:border-[#2a2e3d] sm:bg-[#1a1d26]/80 sm:p-4 sm:shadow-[0_14px_34px_rgb(0_0_0/0.16)] sm:backdrop-blur-md"
       aria-label="메모 검색 필터"
     >
-      <div className="flex items-center gap-2">
+      <div className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-1.5 rounded-full border border-[#2a2e3d] bg-[#1a1d26]/95 p-1.5 shadow-2xl backdrop-blur-lg sm:static sm:w-auto sm:max-w-none sm:translate-x-0 sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">메모 검색어</span>
           <span
@@ -113,71 +117,29 @@ export function SearchFilterBar({
           <input
             type="search"
             value={options.keyword ?? ""}
-            onChange={(event) => updateOptions({ keyword: event.target.value })}
-            placeholder="제목, 내용, 태그 검색"
+            onChange={(event) => updateOptions({
+              keyword: event.target.value,
+              isSemanticSearch: true,
+            })}
+            placeholder="제목, 내용, 태그 또는 의미 검색..."
             className="h-9 w-full rounded-full border-0 bg-transparent pl-9 pr-2 text-base text-[#f3f4f6] outline-none placeholder:text-[#6b7280] focus:ring-1 focus:ring-[#e5a93c] sm:h-11 sm:rounded-xl sm:border sm:border-[#2a2e3d] sm:bg-[#0f1117] sm:pl-10 sm:pr-3 sm:text-sm"
           />
         </label>
-
-        <div className="relative flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={Boolean(options.isSemanticSearch)}
-            onClick={() => updateOptions({
-              isSemanticSearch: !options.isSemanticSearch,
-            })}
-            className={`flex h-9 items-center gap-1 rounded-full border px-2 text-[11px] font-bold transition-colors sm:h-11 sm:gap-2 sm:rounded-xl sm:px-3 sm:text-xs ${
-              options.isSemanticSearch
-                ? "border-[#e5a93c] bg-[#e5a93c]/15 text-[#ffc86b] shadow-[0_0_18px_rgb(229_169_60/0.16)]"
-                : "border-[#2a2e3d] bg-[#0f1117] text-[#9ca3af]"
-            }`}
-          >
-            {options.isSemanticSearch && (
-              <span aria-hidden="true">✨</span>
-            )}
-            AI 검색
-          </button>
-          <button
-            type="button"
-            onPointerEnter={(event) => {
-              if (event.pointerType === "mouse") setIsAiTooltipOpen(true);
-            }}
-            onPointerLeave={(event) => {
-              if (event.pointerType === "mouse") setIsAiTooltipOpen(false);
-            }}
-            onBlur={() => setIsAiTooltipOpen(false)}
-            onClick={() => setIsAiTooltipOpen((current) => !current)}
-            aria-label="AI 검색 설명"
-            aria-expanded={isAiTooltipOpen}
-            aria-controls="ai-search-tooltip"
-            className="hidden h-8 w-8 items-center justify-center rounded-full border border-[#2a2e3d] bg-[#0f1117] text-xs font-bold text-[#9ca3af] hover:border-[#ffc86b] hover:text-[#ffc86b] sm:flex"
-          >
-            ?
-          </button>
-          {isAiTooltipOpen && (
-            <div
-              id="ai-search-tooltip"
-              role="tooltip"
-              className="absolute right-0 top-full z-40 mt-2 w-64 rounded-xl border border-[#2a2e3d] bg-[#0f1117] p-3 text-xs font-normal leading-5 text-[#f3f4f6] shadow-2xl"
-            >
-              <strong className="mb-1 block text-[#ffc86b]">
-                AI 검색이란?
-              </strong>
-              입력한 검색어가 메모 본문에 그대로 없어도, 문맥과 의미가 비슷한 메모를 AI가 찾아주는 기능입니다.
-            </div>
-          )}
-        </div>
 
         <button
           type="button"
           onClick={() => setIsExpanded((current) => !current)}
           aria-expanded={isExpanded}
           aria-controls="advanced-search-filters"
-          className="hidden h-11 shrink-0 items-center gap-1 rounded-xl border border-[#2a2e3d] bg-[#0f1117] px-3 text-xs font-bold text-[#f3f4f6] hover:border-[#ffc86b] sm:flex"
+          className={`flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold transition-colors sm:h-11 sm:rounded-xl sm:px-3 ${isExpanded || activeFilterCount > 0 ? "border-[#ffc86b] bg-[#e5a93c] text-white" : "border-[#2a2e3d] bg-[#0f1117] text-[#d1d5db]"}`}
         >
+          <span aria-hidden="true">⚙️</span>
           필터
-          <span aria-hidden="true">{isExpanded ? "⌃" : "⌄"}</span>
+          {activeFilterCount > 0 && (
+            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-[9px] font-bold text-[#b77912]">
+              {activeFilterCount}
+            </span>
+          )}
         </button>
         <button
           type="button"
@@ -192,8 +154,21 @@ export function SearchFilterBar({
       {isExpanded && (
         <div
           id="advanced-search-filters"
-          className="mt-4 grid gap-5 border-t border-[#2a2e3d] pt-4"
+          className="fixed inset-x-4 bottom-20 z-40 mx-auto grid max-h-[65dvh] max-w-md gap-3 overflow-y-auto rounded-2xl border border-[#2a2e3d] bg-[#1a1d26] p-3.5 shadow-2xl sm:static sm:mt-4 sm:max-h-none sm:max-w-none sm:gap-5 sm:overflow-visible sm:rounded-none sm:border-x-0 sm:border-b-0 sm:bg-transparent sm:p-0 sm:pt-4 sm:shadow-none"
         >
+          <div className="flex items-center justify-between border-b border-[#2a2e3d] pb-2 sm:hidden">
+            <span className="text-xs font-bold text-[#e5a93c]">상세 필터</span>
+            <button
+              type="button"
+              onClick={() => setIsExpanded(false)}
+              className="text-xs text-[#9ca3af] hover:text-white"
+            >
+              닫기 ✕
+            </button>
+          </div>
+          <p className="rounded-lg border border-[#2a2e3d] bg-[#0f1117]/50 p-2 text-[11px] leading-relaxed text-[#9ca3af]">
+            ✨ 단어가 정확히 일치하지 않아도 문맥과 의미를 분석하여 메모를 찾습니다.
+          </p>
           <fieldset>
             <legend className="sr-only">
               다중 태그

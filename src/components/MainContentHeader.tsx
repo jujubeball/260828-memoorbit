@@ -38,18 +38,18 @@ export function MainContentHeader({
   }, [onVisibilityChange]);
 
   return (
-    <header ref={headerRef} className="pt-3 sm:pt-5 xl:pt-6">
+    <header ref={headerRef} className="py-2 sm:pb-0 sm:pt-5 xl:pt-6">
       <p className="mb-1 hidden text-xs font-semibold uppercase tracking-wider text-[#e5a93c] sm:block">
         {label}
       </p>
       <div className="flex items-center justify-between gap-3 sm:mb-1 sm:gap-4">
-        <div className="flex min-w-0 items-center gap-2 text-xl font-bold text-[#f3f4f6] sm:text-2xl">
+        <div className="flex min-w-0 items-center gap-2 text-base font-bold text-[#f3f4f6] sm:text-xl xl:text-2xl">
           <h2 id={id} className="truncate">
             {title}
           </h2>
           {/* 메모 배열의 실제 길이를 숫자로 받아, 화면에 표시할 문구를 헤더 내부에서 일관되게 만듭니다. */}
           {badgeCount !== undefined && (
-            <span className="shrink-0 rounded-full border border-[#2a2e3d] bg-[#1a1d26]/80 px-2.5 py-1 text-xs font-semibold text-[#ffc86b]">
+            <span className="shrink-0 rounded-full border border-[#2a2e3d] bg-[#1a1d26]/80 px-1.5 py-0.5 text-[10px] font-semibold text-[#ffc86b] sm:px-2.5 sm:py-1 sm:text-xs">
               전체 {badgeCount}개
             </span>
           )}
