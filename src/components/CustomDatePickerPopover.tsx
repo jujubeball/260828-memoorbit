@@ -50,7 +50,7 @@ export function CustomDatePickerPopover({
 
   return (
     <div
-      className={`absolute top-full z-50 mt-2 w-[min(356px,calc(100vw-2rem))] rounded-2xl border border-[#2a2e3d] bg-[#1a1d26] p-5 text-[#f3f4f6] shadow-2xl ${align === "right" ? "right-0" : "left-0"}`}
+      className={`fixed left-4 right-4 top-1/2 z-50 w-auto -translate-y-1/2 rounded-2xl border border-[#2a2e3d] bg-[#1a1d26] p-4 text-[#f3f4f6] shadow-2xl sm:absolute sm:left-auto sm:right-auto sm:top-full sm:mt-2 sm:w-[min(356px,calc(100vw-2rem))] sm:translate-y-0 sm:p-5 ${align === "right" ? "sm:right-0" : "sm:left-0"}`}
       role="dialog"
       aria-label="날짜 선택 달력"
       onClick={(event) => event.stopPropagation()}
