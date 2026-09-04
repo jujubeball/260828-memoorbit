@@ -35,7 +35,7 @@ export function DateInputBox({
 
   return (
     <div
-      className={`inline-flex h-9 min-w-[8.5rem] items-center rounded-lg border border-[#2a2e3d] bg-[#0f1117] pl-2 text-xs ${disabled ? "cursor-not-allowed" : "cursor-pointer focus-within:border-[#e5a93c]"}`}
+      className={`inline-flex h-9 w-[8.5rem] min-w-0 shrink items-center rounded-lg border border-[#2a2e3d] bg-[#0f1117] pl-2 text-xs sm:w-36 ${disabled ? "cursor-not-allowed" : "cursor-pointer focus-within:border-[#e5a93c]"}`}
     >
       <label htmlFor={id} className="sr-only">
         {label}

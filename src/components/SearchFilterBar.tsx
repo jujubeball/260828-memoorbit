@@ -361,7 +361,7 @@ export function SearchFilterBar({
                   </button>
                 ))}
                 {options.timePreset === "custom" && (
-                  <div className="filter-range-enter ml-2 inline-flex items-center gap-1.5">
+                  <div className="filter-range-enter inline-flex w-full min-w-0 items-center gap-1.5 border-t border-[#2a2e3d]/60 pt-2 sm:ml-2 sm:w-auto sm:border-t-0 sm:pt-0">
                     <DateInputBox
                       id="search-filter-start-date"
                       label="시작일"
