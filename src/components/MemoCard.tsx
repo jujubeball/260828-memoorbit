@@ -284,7 +284,7 @@ export function MemoCard({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerCancel}
-        className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 pb-3 pl-3 pr-3 pt-0" : "border-b border-[#2a2e3d] px-3 py-2 sm:py-3.5 sm:pl-4 sm:pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
+        className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 pb-3 pl-3 pr-3 pt-0" : "border-b border-[#2a2e3d] px-3 py-1.5 sm:py-3.5 sm:pl-4 sm:pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
         style={{ transform: `translateX(${isSwipeOpen || isDragging ? offset : 0}px)` }}
       >
         {viewMode === "gallery" && (
@@ -342,7 +342,7 @@ export function MemoCard({
           <span className="truncate text-[#9ca3af]">{preview}</span>
         </p>
         {memo.tags.length > 0 && (
-          <p className="truncate text-xs leading-4 text-[#9ca3af] sm:mt-0.5 sm:text-[13px]">
+          <p className="hidden truncate text-xs leading-4 text-[#9ca3af] sm:mt-0.5 sm:block sm:text-[13px]">
             {memo.tags.map((tag) => `#${tag}`).join("  ")}
           </p>
         )}

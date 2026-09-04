@@ -513,7 +513,7 @@ export default function Home(): React.JSX.Element {
         {activeSection === "memos" && (
           <>
             <div
-              className={`sticky top-14 z-30 -mx-4 border-b border-[#2a2e3d]/80 bg-[#0f1117]/95 px-4 backdrop-blur-md transition-all duration-200 sm:mx-0 sm:border-transparent sm:bg-[#0f1117] sm:px-0 xl:top-0 xl:z-20 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
+              className={`sticky top-14 z-30 -mx-4 -mt-14 border-b border-[#2a2e3d]/80 bg-[#0f1117]/95 px-4 backdrop-blur-md transition-all duration-200 sm:mx-0 sm:border-transparent sm:bg-[#0f1117] sm:px-0 xl:top-0 xl:z-20 xl:mt-0 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
             >
               <MainContentHeader
                 id="all-memos-title"
@@ -569,17 +569,17 @@ export default function Home(): React.JSX.Element {
               />
             )}
             {pinned.length > 0 && (
-              <section className="mb-3 sm:mb-7" aria-labelledby="pinned-heading">
+              <section className="mb-2 sm:mb-7" aria-labelledby="pinned-heading">
                 <button
                   type="button"
                   onClick={() => setIsPinnedOpen((current) => !current)}
-                  className="ios-tap flex h-11 w-full items-center justify-between px-1 text-left"
+                  className="ios-tap flex h-9 w-full items-center justify-between px-1 text-left sm:h-11"
                   aria-expanded={isPinnedOpen}
                   aria-controls="pinned-list"
                 >
                   <h2
                     id="pinned-heading"
-                    className="text-[22px] font-bold leading-7"
+                    className="text-lg font-bold leading-6 sm:text-[22px] sm:leading-7"
                   >
                     고정됨
                   </h2>
@@ -596,7 +596,7 @@ export default function Home(): React.JSX.Element {
                     className={
                       memoViewMode === "gallery"
                         ? "grid grid-cols-2 gap-3 lg:grid-cols-3"
-                        : "grid gap-1.5 bg-[#1a1d26]/80 backdrop-blur-md sm:block sm:overflow-hidden sm:rounded-xl sm:border sm:border-[#2a2e3d]"
+                        : "grid gap-1 bg-[#1a1d26]/80 backdrop-blur-md sm:block sm:overflow-hidden sm:rounded-xl sm:border sm:border-[#2a2e3d]"
                     }
                   >
                     {pinned.map(renderMemo)}
@@ -607,12 +607,12 @@ export default function Home(): React.JSX.Element {
             {groups.map((group) => (
               <section
                 key={group.label}
-                className="mb-3 sm:mb-7"
+                className="mb-2 sm:mb-7"
                 aria-labelledby={`group-${group.label}`}
               >
                 <h2
                   id={`group-${group.label}`}
-                  className="px-1 pb-1.5 text-lg font-bold sm:pb-2 sm:text-[22px]"
+                  className="px-1 pb-1 text-base font-bold sm:pb-2 sm:text-[22px]"
                 >
                   {group.label}
                 </h2>
@@ -620,7 +620,7 @@ export default function Home(): React.JSX.Element {
                   className={
                     memoViewMode === "gallery"
                       ? "grid grid-cols-2 gap-3 lg:grid-cols-3"
-                      : "grid gap-1.5 bg-[#1a1d26]/80 backdrop-blur-md sm:block sm:overflow-hidden sm:rounded-xl sm:border sm:border-[#2a2e3d]"
+                      : "grid gap-1 bg-[#1a1d26]/80 backdrop-blur-md sm:block sm:overflow-hidden sm:rounded-xl sm:border sm:border-[#2a2e3d]"
                   }
                 >
                   {group.memos.map(renderMemo)}
