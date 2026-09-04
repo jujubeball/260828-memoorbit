@@ -144,6 +144,7 @@ export default function Home(): React.JSX.Element {
   const [filterOptions, setFilterOptions] = useState<MemoFilterOptions>({
     timePreset: "all",
   });
+  const [filterResetKey, setFilterResetKey] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMemoToolbarStuck, setIsMemoToolbarStuck] = useState(false);
   // 💡 [PC 왼쪽 패널 너비 State]
@@ -318,6 +319,15 @@ export default function Home(): React.JSX.Element {
     setIsDrawerOpen(false);
     window.scrollTo({ top: 0, behavior: "auto" });
   };
+  // MemoOrbit 로고는 어느 화면에서 눌러도 검색 조건과 열린 필터 UI를 비우고 전체 메모 목록의 맨 위로 돌아갑니다.
+  const resetFiltersAndOpenMemos = (): void => {
+    setFilterOptions({ timePreset: "all" });
+    setFilterResetKey((current) => current + 1);
+    setActiveSection("memos");
+    setIsContentHeaderVisible(true);
+    setIsDrawerOpen(false);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  };
   // 💡 [메모 저장과 자동 저장의 공통 입구]
   // 완료 버튼과 뒤로가기 자동 저장이 모두 이 함수를 사용하며, 기존 메모는 교체하고 새 메모는 목록 맨 앞에 추가합니다.
   const submitMemo = (draft: MemoDraft): void => {
@@ -413,7 +423,7 @@ export default function Home(): React.JSX.Element {
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-[var(--panel-width)] min-w-[280px] max-w-[600px] border-r border-[#2a2e3d] bg-[#1a1d26]/80 p-5 backdrop-blur-md xl:flex xl:flex-col">
         <button
           type="button"
-          onClick={() => selectNavigation("memos")}
+          onClick={resetFiltersAndOpenMemos}
           className="rounded-xl px-3 py-4 text-left text-2xl font-bold transition-colors hover:text-[#ffc86b]"
           aria-label="MemoOrbit 메모 목록 홈"
         >
@@ -488,7 +498,7 @@ export default function Home(): React.JSX.Element {
           </button>
           <button
             type="button"
-            onClick={() => selectNavigation("memos")}
+            onClick={resetFiltersAndOpenMemos}
             className="min-w-0 truncate px-2 text-center text-[17px] font-semibold"
             aria-label="MemoOrbit 메모 목록 홈"
           >
@@ -538,6 +548,7 @@ export default function Home(): React.JSX.Element {
               />
             </div>
             <SearchFilterBar
+              key={filterResetKey}
               options={filterOptions}
               availableTags={availableTags}
               onOptionsChange={setFilterOptions}

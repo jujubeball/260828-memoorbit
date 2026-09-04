@@ -8,6 +8,7 @@ interface DateInputBoxProps {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  placeholder?: string;
 }
 
 export function DateInputBox({
@@ -16,6 +17,7 @@ export function DateInputBox({
   value,
   onChange,
   disabled = false,
+  placeholder = "년-월-일",
 }: DateInputBoxProps): React.JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -24,8 +26,13 @@ export function DateInputBox({
     if (disabled) return;
     const input = inputRef.current;
     if (!input) return;
-    if (typeof input.showPicker === "function") input.showPicker();
-    else input.focus();
+    if (typeof input.showPicker === "function") {
+      try {
+        input.showPicker();
+      } catch {
+        input.focus();
+      }
+    } else input.focus();
   };
 
   const clearDate = (event: MouseEvent<HTMLButtonElement>): void => {
@@ -35,7 +42,7 @@ export function DateInputBox({
 
   return (
     <div
-      className={`inline-flex h-9 w-[8.5rem] min-w-0 shrink items-center rounded-lg border border-[#2a2e3d] bg-[#0f1117] pl-2 text-xs sm:w-36 ${disabled ? "cursor-not-allowed" : "cursor-pointer focus-within:border-[#e5a93c]"}`}
+      className={`relative inline-flex h-9 w-[8.5rem] min-w-0 shrink items-center overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#0f1117] text-xs transition-colors sm:w-36 ${disabled ? "pointer-events-none cursor-not-allowed opacity-40" : "cursor-pointer hover:border-[#3f4557]"}`}
     >
       <label htmlFor={id} className="sr-only">
         {label}
@@ -47,28 +54,42 @@ export function DateInputBox({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
-        className="native-date-input min-w-0 flex-1 cursor-inherit bg-transparent text-xs text-[#f3f4f6] outline-none disabled:cursor-not-allowed"
+        tabIndex={-1}
+        className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
       />
-      {value && (
-        <button
-          type="button"
-          onClick={clearDate}
-          disabled={disabled}
-          className="flex h-full w-7 shrink-0 items-center justify-center text-[#9ca3af] hover:text-white disabled:cursor-not-allowed"
-          aria-label={`${label} 지우기`}
-        >
-          ✕
-        </button>
-      )}
       <button
         type="button"
         onClick={openCalendar}
         disabled={disabled}
-        className="flex h-full w-8 shrink-0 items-center justify-center border-l border-[#2a2e3d] text-sm text-[#ffc86b] disabled:cursor-not-allowed"
+        className="min-w-0 flex-1 truncate px-2 text-left disabled:cursor-not-allowed sm:px-3"
         aria-label={`${label} 달력 열기`}
       >
-        📅
+        <span className={value ? "font-medium text-white" : "text-[#6b7280]"}>
+          {value || placeholder}
+        </span>
       </button>
+      <div className="z-10 flex h-full shrink-0 items-center border-l border-[#2a2e3d]/80 bg-[#1a1d26]/50 px-1">
+        {value && !disabled && (
+          <button
+            type="button"
+            onClick={clearDate}
+            className="flex h-full w-6 items-center justify-center text-xs text-[#9ca3af] hover:text-white"
+            aria-label={`${label} 지우기`}
+            title="날짜 초기화"
+          >
+            ✕
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={openCalendar}
+          disabled={disabled}
+          className="flex h-full w-7 items-center justify-center text-sm text-[#e5a93c] disabled:cursor-not-allowed"
+          aria-label={`${label} 달력 열기`}
+        >
+          📅
+        </button>
+      </div>
     </div>
   );
 }

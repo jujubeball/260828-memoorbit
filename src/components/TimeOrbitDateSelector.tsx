@@ -102,7 +102,7 @@ export function TimeOrbitDateSelector({
       </div>
 
       <div
-        className={`inline-flex w-full min-w-0 items-center gap-1.5 border-t border-[#2a2e3d]/60 pt-1 transition-opacity sm:ml-1 sm:w-auto sm:border-t-0 sm:pt-0 ${isCustomMode ? "cursor-pointer opacity-100" : "pointer-events-none cursor-not-allowed select-none opacity-40"}`}
+        className={`inline-flex w-full min-w-0 items-center gap-1.5 border-t border-[#2a2e3d]/60 pt-1 sm:ml-1 sm:w-auto sm:border-t-0 sm:pt-0 ${isCustomMode ? "cursor-pointer" : "cursor-not-allowed select-none"}`}
       >
         <DateInputBox
           id="timeline-start"
