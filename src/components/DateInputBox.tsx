@@ -56,7 +56,7 @@ export function DateInputBox({
   return (
     <div
       ref={containerRef}
-      className={`relative inline-flex h-9 w-[8.5rem] min-w-0 shrink items-center overflow-visible rounded-xl border border-[#2a2e3d] bg-[#161922] text-xs transition-colors sm:w-36 ${disabled ? "pointer-events-none cursor-not-allowed opacity-40" : "cursor-pointer hover:border-[#3b4054]"}`}
+      className={`relative inline-flex h-9 w-[8.5rem] min-w-0 shrink items-center overflow-visible rounded-xl border border-[#2a2e3d] bg-[#161922] text-sm transition-colors sm:w-36 sm:text-xs ${disabled ? "pointer-events-none cursor-not-allowed opacity-40" : "cursor-pointer hover:border-[#3b4054]"}`}
     >
       <label htmlFor={id} className="sr-only">
         {label}

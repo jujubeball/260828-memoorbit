@@ -612,7 +612,7 @@ export default function Home(): React.JSX.Element {
               >
                 <h2
                   id={`group-${group.label}`}
-                  className="px-1 pb-1 text-base font-bold sm:pb-2 sm:text-[22px]"
+                  className="px-1 pb-1 text-lg font-bold sm:pb-2 sm:text-[22px]"
                 >
                   {group.label}
                 </h2>

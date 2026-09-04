@@ -94,7 +94,7 @@ export function TimeOrbitDateSelector({
             type="button"
             onClick={() => selectPreset(preset.id)}
             aria-pressed={activePreset === preset.id}
-            className={`min-w-0 rounded-lg px-1 py-1.5 text-center text-[10px] font-medium whitespace-nowrap transition-colors sm:text-xs lg:px-3 ${activePreset === preset.id ? "bg-[#e5a93c] font-bold text-white shadow-sm" : "bg-[#0f1117] text-[#9ca3af] hover:bg-white/10 hover:text-white"}`}
+            className={`min-w-0 rounded-lg px-1 py-1.5 text-center text-xs font-medium whitespace-nowrap transition-colors lg:px-3 ${activePreset === preset.id ? "bg-[#e5a93c] font-bold text-white shadow-sm" : "bg-[#0f1117] text-[#9ca3af] hover:bg-white/10 hover:text-white"}`}
           >
             {preset.label}
           </button>

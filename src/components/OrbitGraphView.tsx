@@ -393,13 +393,13 @@ export function OrbitGraphView({
                 className={`orbit-node flex shrink-0 snap-center flex-col items-center justify-center rounded-full border transition-all duration-300 ${getTagPlanetSize(node.count)} ${selectedTag === node.name ? "z-20 scale-110 ring-2 ring-[#ffc86b] ring-offset-2 ring-offset-[#0f1117]" : "opacity-85"}`}
               >
                 <strong className="max-w-[90%] truncate">#{node.name}</strong>
-                <span className="mt-1 text-[9px] font-normal opacity-75">
+                <span className="mt-1 text-[10px] font-normal opacity-75">
                   {node.count}개
                 </span>
               </button>
             ))}
           </div>
-          <p className="pb-3 text-center text-[11px] text-[#9ca3af]">
+          <p className="pb-3 text-center text-xs text-[#9ca3af]">
             기록이 많이 쌓일수록 궤도 안의 행성이 커집니다
           </p>
         </div>
@@ -415,7 +415,7 @@ export function OrbitGraphView({
               <div>
                 <h3
                   id="mobile-related-memos-title"
-                  className="truncate text-sm font-bold"
+                  className="truncate text-lg font-bold"
                 >
                   #{selectedTag} 관련 메모 ({relatedMemos.length}개)
                 </h3>
@@ -429,10 +429,10 @@ export function OrbitGraphView({
                     onClick={() => onOpenMemo(memo)}
                     className="rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 p-3 text-left shadow-sm"
                   >
-                    <strong className="block truncate text-sm">
+                    <strong className="block truncate text-[15px]">
                       {memo.title}
                     </strong>
-                    <p className="mt-1 line-clamp-2 text-xs text-[#9ca3af]">
+                    <p className="mt-1 line-clamp-2 text-sm text-[#9ca3af]">
                       {memo.content}
                     </p>
                   </button>
