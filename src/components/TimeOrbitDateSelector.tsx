@@ -102,22 +102,31 @@ export function TimeOrbitDateSelector({
       </div>
 
       <div
-        className={`grid w-full grid-cols-2 gap-2 transition-opacity lg:w-[34rem] lg:gap-3 ${isCustomMode ? "cursor-pointer opacity-100" : "pointer-events-none cursor-not-allowed select-none opacity-40"}`}
+        className={`flex w-full items-center gap-1.5 transition-opacity lg:w-[34rem] lg:gap-2 ${isCustomMode ? "cursor-pointer opacity-100" : "pointer-events-none cursor-not-allowed select-none opacity-40"}`}
       >
-        <ResponsiveDatePicker
-          id="timeline-start"
-          label="시작일"
-          value={startDate}
-          onChange={(value) => onRangeChange(value, endDate, "custom")}
-          disabled={!isCustomMode}
-        />
-        <ResponsiveDatePicker
-          id="timeline-end"
-          label="종료일"
-          value={endDate}
-          onChange={(value) => onRangeChange(startDate, value, "custom")}
-          disabled={!isCustomMode}
-        />
+        <div className="min-w-0 flex-1">
+          <ResponsiveDatePicker
+            id="timeline-start"
+            label="시작일"
+            value={startDate}
+            onChange={(value) => onRangeChange(value, endDate, "custom")}
+            disabled={!isCustomMode}
+            hideLabel
+          />
+        </div>
+        <span className="shrink-0 text-xs font-semibold text-[#6b7280]" aria-hidden="true">
+          ~
+        </span>
+        <div className="min-w-0 flex-1">
+          <ResponsiveDatePicker
+            id="timeline-end"
+            label="종료일"
+            value={endDate}
+            onChange={(value) => onRangeChange(startDate, value, "custom")}
+            disabled={!isCustomMode}
+            hideLabel
+          />
+        </div>
       </div>
     </section>
   );

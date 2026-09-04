@@ -10,6 +10,7 @@ interface ResponsiveDatePickerProps {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  hideLabel?: boolean;
 }
 
 // 달력 머리글을 일요일부터 토요일까지 같은 순서로 반복 표시하기 위한 요일 목록입니다.
@@ -42,6 +43,7 @@ export function ResponsiveDatePicker({
   value,
   onChange,
   disabled = false,
+  hideLabel = false,
 }: ResponsiveDatePickerProps): React.JSX.Element {
   // 💡 [달력 DOM 위치 참조]
   // 입력 영역, PC 팝오버, 모바일 팝업, 포커스 복원 대상을 각각 기억해 외부 클릭과 위치 계산에 사용합니다.
@@ -230,7 +232,12 @@ export function ResponsiveDatePicker({
       className={`relative z-0 grid gap-2 ${disabled ? "cursor-not-allowed" : ""}`}
       aria-disabled={disabled}
     >
-      <label htmlFor={id} className="text-xs font-semibold text-[#f3f4f6] sm:text-sm">
+      <label
+        htmlFor={id}
+        className={hideLabel
+          ? "sr-only"
+          : "text-xs font-semibold text-[#f3f4f6] sm:text-sm"}
+      >
         {label}
       </label>
       <div className="flex items-center rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/80 focus-within:border-[#e5a93c]">
