@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
-import { ResponsiveDatePicker } from "@/src/components/ResponsiveDatePicker";
+import { TimeOrbitDateRangePicker } from "@/src/components/TimeOrbitDateRangePicker";
 import {
   GeminiApiError,
   requestGeminiAnalysis,
@@ -56,6 +56,15 @@ export function TimelineStreamView({
   const [isGeminiAnalyzing, setIsGeminiAnalyzing] = useState(false);
   const [isUsingLocalComment, setIsUsingLocalComment] = useState(false);
   const hasInvalidRange = Boolean(startDate && endDate && startDate > endDate);
+
+  // 기간 선택기가 계산한 시작일과 종료일을 함께 반영해 분석 결과가 중간 날짜 상태로 두 번 계산되지 않게 합니다.
+  const updateDateRange = (
+    nextStartDate: string,
+    nextEndDate: string,
+  ): void => {
+    setStartDate(nextStartDate);
+    setEndDate(nextEndDate);
+  };
 
   // 💡 [선택 기간 AI 분석 리포트]
   // 날짜나 메모가 바뀔 때만 본문 핵심어, 태그 비중, 질문과 미완료 항목을 다시 계산합니다.
@@ -207,24 +216,11 @@ export function TimelineStreamView({
         description="지정한 기간 동안 쌓인 기록의 성찰과 실행 궤도를 분석합니다."
         onVisibilityChange={onHeaderVisibilityChange}
       />
-      <div className="glass-panel relative z-10 grid w-full grid-cols-1 gap-4 overflow-visible p-4 md:grid-cols-2">
-        <div className="w-full md:max-w-80 md:justify-self-end">
-          <ResponsiveDatePicker
-            id="timeline-start"
-            label="시작일"
-            value={startDate}
-            onChange={setStartDate}
-          />
-        </div>
-        <div className="w-full md:max-w-80 md:justify-self-start">
-          <ResponsiveDatePicker
-            id="timeline-end"
-            label="종료일"
-            value={endDate}
-            onChange={setEndDate}
-          />
-        </div>
-      </div>
+      <TimeOrbitDateRangePicker
+        startDate={startDate}
+        endDate={endDate}
+        onRangeChange={updateDateRange}
+      />
       {hasInvalidRange && (
         <p role="alert" className="mt-2 text-sm text-[#ff6961]">
           시작일은 종료일보다 늦을 수 없습니다.
