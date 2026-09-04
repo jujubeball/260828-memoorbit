@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ResponsiveDatePicker } from "@/src/components/ResponsiveDatePicker";
+import { DateInputBox } from "@/src/components/DateInputBox";
 
 export type DatePreset =
   | "week"
@@ -84,10 +84,10 @@ export function TimeOrbitDateSelector({
 
   return (
     <section
-      className="flex w-full flex-col gap-3 rounded-2xl border border-[#2a2e3d] bg-[#1a1d26]/90 p-3 shadow-lg lg:flex-row lg:items-center lg:justify-between lg:p-4"
+      className="scrollbar-hidden flex w-full items-center gap-2 overflow-x-auto rounded-2xl border border-[#2a2e3d] bg-[#1a1d26]/90 p-3 shadow-lg lg:p-4"
       aria-label="분석 기간 선택"
     >
-      <div className="grid w-full grid-cols-6 gap-1 lg:flex lg:w-auto lg:items-center">
+      <div className="grid w-[17rem] shrink-0 grid-cols-6 gap-1 sm:w-auto sm:flex sm:items-center">
         {PRESETS.map((preset) => (
           <button
             key={preset.id}
@@ -102,31 +102,25 @@ export function TimeOrbitDateSelector({
       </div>
 
       <div
-        className={`flex w-full items-center gap-1.5 transition-opacity lg:w-[34rem] lg:gap-2 ${isCustomMode ? "cursor-pointer opacity-100" : "pointer-events-none cursor-not-allowed select-none opacity-40"}`}
+        className={`ml-2 inline-flex shrink-0 items-center gap-1.5 transition-opacity ${isCustomMode ? "cursor-pointer opacity-100" : "pointer-events-none cursor-not-allowed select-none opacity-40"}`}
       >
-        <div className="min-w-0 flex-1">
-          <ResponsiveDatePicker
-            id="timeline-start"
-            label="시작일"
-            value={startDate}
-            onChange={(value) => onRangeChange(value, endDate, "custom")}
-            disabled={!isCustomMode}
-            hideLabel
-          />
-        </div>
+        <DateInputBox
+          id="timeline-start"
+          label="시작일"
+          value={startDate}
+          onChange={(value) => onRangeChange(value, endDate, "custom")}
+          disabled={!isCustomMode}
+        />
         <span className="shrink-0 text-xs font-semibold text-[#6b7280]" aria-hidden="true">
           ~
         </span>
-        <div className="min-w-0 flex-1">
-          <ResponsiveDatePicker
-            id="timeline-end"
-            label="종료일"
-            value={endDate}
-            onChange={(value) => onRangeChange(startDate, value, "custom")}
-            disabled={!isCustomMode}
-            hideLabel
-          />
-        </div>
+        <DateInputBox
+          id="timeline-end"
+          label="종료일"
+          value={endDate}
+          onChange={(value) => onRangeChange(startDate, value, "custom")}
+          disabled={!isCustomMode}
+        />
       </div>
     </section>
   );

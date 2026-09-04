@@ -181,6 +181,19 @@ button:disabled {
   display: none;
 }
 
+/* 공통 인라인 날짜 박스는 자체 달력 버튼을 사용하므로 브라우저가 입력 안에 겹쳐 그리는 아이콘을 숨깁니다. */
+.native-date-input {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.native-date-input::-webkit-calendar-picker-indicator,
+.native-date-input::-webkit-clear-button,
+.native-date-input::-webkit-inner-spin-button {
+  opacity: 0;
+  display: none;
+}
+
 
 @media (max-width: 1279px) {
   * {

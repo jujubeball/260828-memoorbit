@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ResponsiveDatePicker } from "@/src/components/ResponsiveDatePicker";
+import { DateInputBox } from "@/src/components/DateInputBox";
 import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
 import type { MemoFilterOptions } from "@/src/lib/filterMemos";
 
@@ -306,7 +306,7 @@ export function SearchFilterBar({
             <legend className="text-xs font-bold text-[#f3f4f6]">
               미디어 및 상태
             </legend>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={toggleAllMediaFilters}
@@ -343,40 +343,46 @@ export function SearchFilterBar({
             </fieldset>
 
             <fieldset>
-            <legend className="text-xs font-bold text-[#f3f4f6]">
-              시간 범위
-            </legend>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {TIME_PRESETS.map((preset) => (
-                <button
-                  key={preset.value}
-                  type="button"
-                  onClick={() => updateOptions({ timePreset: preset.value })}
-                  aria-pressed={(options.timePreset ?? "all") === preset.value}
-                  className={chipClass(
-                    (options.timePreset ?? "all") === preset.value,
-                  )}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-            {options.timePreset === "custom" && (
-              <div className="filter-range-enter mt-4 grid gap-3 rounded-xl border border-[#2a2e3d] bg-[#0f1117]/70 p-3 sm:grid-cols-2">
-                <ResponsiveDatePicker
-                  id="search-filter-start-date"
-                  label="시작일"
-                  value={options.customDateRange?.start ?? ""}
-                  onChange={(value) => updateCustomDateRange("start", value)}
-                />
-                <ResponsiveDatePicker
-                  id="search-filter-end-date"
-                  label="종료일"
-                  value={options.customDateRange?.end ?? ""}
-                  onChange={(value) => updateCustomDateRange("end", value)}
-                />
+              <legend className="text-xs font-bold text-[#f3f4f6]">
+                시간 범위
+              </legend>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {TIME_PRESETS.map((preset) => (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    onClick={() => updateOptions({ timePreset: preset.value })}
+                    aria-pressed={(options.timePreset ?? "all") === preset.value}
+                    className={chipClass(
+                      (options.timePreset ?? "all") === preset.value,
+                    )}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+                {options.timePreset === "custom" && (
+                  <div className="filter-range-enter ml-2 inline-flex items-center gap-1.5">
+                    <DateInputBox
+                      id="search-filter-start-date"
+                      label="시작일"
+                      value={options.customDateRange?.start ?? ""}
+                      onChange={(value) => updateCustomDateRange("start", value)}
+                    />
+                    <span
+                      className="text-xs font-semibold text-[#6b7280]"
+                      aria-hidden="true"
+                    >
+                      ~
+                    </span>
+                    <DateInputBox
+                      id="search-filter-end-date"
+                      label="종료일"
+                      value={options.customDateRange?.end ?? ""}
+                      onChange={(value) => updateCustomDateRange("end", value)}
+                    />
+                  </div>
+                )}
               </div>
-            )}
             </fieldset>
           </div>
         </>
