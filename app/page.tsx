@@ -660,10 +660,10 @@ export default function Home(): React.JSX.Element {
           <button
             type="button"
             onClick={() => setIsDrawerOpen(false)}
-            className="fixed inset-0 z-40 bg-black/40 xl:hidden"
+            className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-sm xl:hidden"
             aria-label="메뉴 닫기"
           />
-          <aside className="fixed inset-y-0 left-0 z-40 flex w-[min(84vw,320px)] flex-col border-r border-[#2a2e3d] bg-[#1a1d26]/95 p-5 text-[#f3f4f6] shadow-2xl backdrop-blur-md xl:hidden">
+          <aside className="fixed inset-y-0 left-0 z-[100] flex w-[280px] flex-col border-r border-[#2a2e3d] bg-[#161922] p-5 text-[#f3f4f6] shadow-2xl animate-in slide-in-from-left duration-200 xl:hidden">
             <div className="flex items-center justify-between">
               <strong className="text-2xl">MemoOrbit</strong>
               <button

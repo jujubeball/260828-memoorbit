@@ -359,6 +359,7 @@ export function SearchFilterBar({
                       label="시작일"
                       value={options.customDateRange?.start ?? ""}
                       onChange={(value) => updateCustomDateRange("start", value)}
+                      popoverAlign="left"
                     />
                     <span
                       className="text-xs font-semibold text-[#6b7280]"
@@ -371,6 +372,7 @@ export function SearchFilterBar({
                       label="종료일"
                       value={options.customDateRange?.end ?? ""}
                       onChange={(value) => updateCustomDateRange("end", value)}
+                      popoverAlign="right"
                     />
                   </div>
                 )}

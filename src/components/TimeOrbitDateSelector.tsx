@@ -84,7 +84,7 @@ export function TimeOrbitDateSelector({
 
   return (
     <section
-      className="flex w-full flex-col items-start gap-3 overflow-x-hidden rounded-2xl border border-[#2a2e3d] bg-[#1a1d26]/90 p-3 shadow-lg sm:flex-row sm:items-center sm:overflow-visible lg:p-4"
+      className="flex w-full flex-col items-start gap-3 overflow-visible rounded-2xl border border-[#2a2e3d] bg-[#1a1d26]/90 p-3 shadow-lg sm:flex-row sm:items-center lg:p-4"
       aria-label="분석 기간 선택"
     >
       <div className="grid w-full shrink-0 grid-cols-6 gap-1 sm:w-auto sm:flex sm:items-center">
@@ -110,6 +110,7 @@ export function TimeOrbitDateSelector({
           value={startDate}
           onChange={(value) => onRangeChange(value, endDate, "custom")}
           disabled={!isCustomMode}
+          popoverAlign="left"
         />
         <span className="shrink-0 text-xs font-semibold text-[#6b7280]" aria-hidden="true">
           ~
@@ -120,6 +121,7 @@ export function TimeOrbitDateSelector({
           value={endDate}
           onChange={(value) => onRangeChange(startDate, value, "custom")}
           disabled={!isCustomMode}
+          popoverAlign="right"
         />
       </div>
     </section>
