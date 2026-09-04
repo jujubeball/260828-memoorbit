@@ -328,15 +328,17 @@ export function MemoCard({
             </span>
           )}
           <h3
-            className={`truncate font-bold ${viewMode === "gallery" ? "text-sm leading-5" : "text-sm leading-5 sm:text-base xl:text-[17px]"}`}
+            className={`truncate font-bold ${viewMode === "gallery" ? "text-sm leading-5" : "text-[15px] leading-5 sm:text-base xl:text-[17px]"}`}
           >
             {memo.title}
           </h3>
         </div>
         <p
-          className={`min-w-0 ${viewMode === "gallery" ? "mt-1 grid gap-0.5 text-xs leading-4" : "mt-0.5 flex gap-2 text-xs leading-4 text-[#d1d5db] sm:leading-5 xl:text-[15px]"}`}
+          className={`min-w-0 ${viewMode === "gallery" ? "mt-1 grid gap-0.5 text-xs leading-4" : "mt-0.5 flex gap-2 text-[13px] leading-4 text-[#d1d5db] sm:leading-5 xl:text-[15px]"}`}
         >
-          <time className="shrink-0 text-xs text-[#9ca3af] xl:text-[15px]">
+          <time
+            className={`shrink-0 text-[#9ca3af] ${viewMode === "gallery" ? "text-xs" : "text-[13px] xl:text-[15px]"}`}
+          >
             {formatMemoDate(memo.updatedAt)}
           </time>
           <span className="truncate text-[#9ca3af]">{preview}</span>
