@@ -47,7 +47,7 @@ const formatMemoDate = (iso: string): string => {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   // 한 자리 일 앞에도 0을 붙여 모든 카드의 날짜 폭을 일정하게 만듭니다.
   const day = String(date.getDate()).padStart(2, "0");
-  return `${year}.${month}.${day}`;
+  return `${year}.${month}.${day}.`;
 };
 
 export function MemoCard({
@@ -336,13 +336,13 @@ export function MemoCard({
         <p
           className={`min-w-0 ${viewMode === "gallery" ? "mt-1 grid gap-0.5 text-xs leading-4" : "mt-0.5 flex gap-2 text-xs leading-4 text-[#d1d5db] sm:leading-5 xl:text-[15px]"}`}
         >
-          <time className="shrink-0 text-xs text-[#ffc86b]/90 xl:text-[15px] xl:text-[#f3f4f6]">
+          <time className="shrink-0 text-xs text-[#9ca3af] xl:text-[15px]">
             {formatMemoDate(memo.updatedAt)}
           </time>
           <span className="truncate text-[#9ca3af]">{preview}</span>
         </p>
         {memo.tags.length > 0 && (
-          <p className="truncate text-xs leading-4 text-[#ffc86b]/90 sm:mt-0.5 sm:text-[13px] sm:text-[#9ca3af]">
+          <p className="truncate text-xs leading-4 text-[#9ca3af] sm:mt-0.5 sm:text-[13px]">
             {memo.tags.map((tag) => `#${tag}`).join("  ")}
           </p>
         )}

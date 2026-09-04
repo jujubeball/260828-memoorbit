@@ -36,6 +36,11 @@ interface ActiveFilter {
   clear: Partial<MemoFilterOptions>;
 }
 
+const formatFilterDate = (value: string | undefined): string => {
+  if (!value) return "날짜 미지정";
+  return `${value.replaceAll("-", ".")}.`;
+};
+
 export function SearchFilterBar({
   options,
   availableTags,
@@ -76,7 +81,9 @@ export function SearchFilterBar({
     ...((options.timePreset ?? "all") !== "all"
       ? [{
           id: "time",
-          label: `기간: ${TIME_PRESETS.find((preset) => preset.value === options.timePreset)?.label ?? "사용자 지정"}`,
+          label: options.timePreset === "custom"
+            ? `기간: ${formatFilterDate(options.customDateRange?.start)} ~ ${formatFilterDate(options.customDateRange?.end)}`
+            : `기간: ${TIME_PRESETS.find((preset) => preset.value === options.timePreset)?.label ?? "전체"}`,
           clear: { timePreset: "all" as const, customDateRange: undefined },
         }]
       : []),
@@ -135,9 +142,21 @@ export function SearchFilterBar({
     });
   };
 
+  // 검색어는 그대로 두고 상세 필터에서 선택한 태그·기간·미디어·상태 조건만 처음 상태로 되돌립니다.
+  const resetDetailedFilters = (): void => {
+    updateOptions({
+      tags: [],
+      timePreset: "all",
+      customDateRange: undefined,
+      hasImage: undefined,
+      hasTable: undefined,
+      isPinned: undefined,
+    });
+  };
+
   return (
     <section
-      className="h-2 sm:mb-6 sm:h-auto sm:rounded-2xl sm:border sm:border-[#2a2e3d] sm:bg-[#1a1d26]/80 sm:p-4 sm:shadow-[0_14px_34px_rgb(0_0_0/0.16)] sm:backdrop-blur-md"
+      className="sm:mb-6 sm:rounded-2xl sm:border sm:border-[#2a2e3d] sm:bg-[#1a1d26]/80 sm:p-4 sm:shadow-[0_14px_34px_rgb(0_0_0/0.16)] sm:backdrop-blur-md"
       aria-label="메모 검색 필터"
     >
       <div className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-1.5 rounded-full border border-[#2a2e3d] bg-[#1a1d26]/95 p-1.5 shadow-2xl backdrop-blur-lg sm:static sm:w-auto sm:max-w-none sm:translate-x-0 sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
@@ -207,13 +226,23 @@ export function SearchFilterBar({
           >
             <div className="flex items-center justify-between border-b border-[#2a2e3d] pb-3 sm:hidden">
               <span className="text-sm font-bold text-[#e5a93c]">상세 필터</span>
-              <button
-                type="button"
-                onClick={() => setIsExpanded(false)}
-                className="text-xs text-[#9ca3af] hover:text-white"
-              >
-                닫기 ✕
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={resetDetailedFilters}
+                  disabled={activeFilters.length === 0}
+                  className="text-xs font-semibold text-[#ffc86b] disabled:cursor-not-allowed disabled:text-[#6b7280]"
+                >
+                  초기화
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(false)}
+                  className="text-xs text-[#9ca3af] hover:text-white"
+                >
+                  닫기 ✕
+                </button>
+              </div>
             </div>
             <section aria-label="선택한 필터">
               <div className="flex items-center gap-2">
