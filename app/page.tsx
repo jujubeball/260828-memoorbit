@@ -513,7 +513,7 @@ export default function Home(): React.JSX.Element {
         {activeSection === "memos" && (
           <>
             <div
-              className={`sticky top-14 z-30 -mx-4 -mt-14 border-b border-[#2a2e3d]/80 bg-[#0f1117]/95 px-4 backdrop-blur-md transition-all duration-200 sm:mx-0 sm:border-transparent sm:bg-[#0f1117] sm:px-0 xl:top-0 xl:z-20 xl:mt-0 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
+              className={`sticky top-14 z-30 -mx-4 border-b border-[#2a2e3d]/80 bg-[#0f1117]/95 px-4 backdrop-blur-md transition-all duration-200 sm:mx-0 sm:border-transparent sm:bg-[#0f1117] sm:px-0 xl:top-0 xl:z-20 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
             >
               <MainContentHeader
                 id="all-memos-title"
