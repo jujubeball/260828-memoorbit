@@ -618,7 +618,7 @@ export function MemoModal({
         {/* 💡 [키보드 도킹 툴바]
             기본 상태에는 다섯 도구만 한 줄로 두고, AI 추천이나 직접 입력은 사용자가 요청할 때만 바로 위에 펼쳐 본문 높이를 지킵니다. */}
         <div
-          className="sticky bottom-0 z-20 box-border w-full max-w-full flex-none overflow-x-hidden border-t border-[#2a2e3d] bg-[#161922] pb-[env(safe-area-inset-bottom)]"
+          className="sticky bottom-0 z-20 box-border w-full max-w-full flex-none touch-pan-x overscroll-none overflow-x-hidden border-t border-[#2a2e3d] bg-[#161922] pb-[env(safe-area-inset-bottom)]"
         >
           {isAiTagsOpen && (
             <section
@@ -626,7 +626,7 @@ export function MemoModal({
               aria-label="AI 추천 태그"
               aria-live="polite"
             >
-              <div className="scrollbar-hidden flex min-h-8 w-full items-center gap-2 overflow-x-auto">
+              <div className="scrollbar-hidden flex min-h-8 w-full items-center gap-2 overflow-x-auto overscroll-x-contain">
                 <span
                   className={`shrink-0 text-xs text-[#8e8e93] ${isAnalyzingTags ? "animate-pulse text-[#ffc86b] motion-reduce:animate-none" : ""}`}
                 >

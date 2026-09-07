@@ -7,6 +7,12 @@ interface OriginalScrollStyles {
   htmlOverscrollBehavior: string;
   bodyOverflow: string;
   bodyOverscrollBehavior: string;
+  bodyPosition: string;
+  bodyTop: string;
+  bodyLeft: string;
+  bodyWidth: string;
+  scrollX: number;
+  scrollY: number;
 }
 
 let activeLockCount = 0;
@@ -27,11 +33,23 @@ export function usePageScrollLock(isLocked: boolean): void {
         htmlOverscrollBehavior: html.style.overscrollBehavior,
         bodyOverflow: body.style.overflow,
         bodyOverscrollBehavior: body.style.overscrollBehavior,
+        bodyPosition: body.style.position,
+        bodyTop: body.style.top,
+        bodyLeft: body.style.left,
+        bodyWidth: body.style.width,
+        scrollX: window.scrollX,
+        scrollY: window.scrollY,
       };
       html.style.overflow = "hidden";
       html.style.overscrollBehavior = "none";
       body.style.overflow = "hidden";
       body.style.overscrollBehavior = "none";
+      // 💡 [모바일 키보드 배경 고정]
+      // 키보드가 열리면 숨김 설정만으로 문서가 움직일 수 있어, 현재 목록 위치 그대로 본문 전체를 고정합니다.
+      body.style.position = "fixed";
+      body.style.top = `-${originalStyles.scrollY}px`;
+      body.style.left = `-${originalStyles.scrollX}px`;
+      body.style.width = "100%";
     }
 
     activeLockCount += 1;
@@ -44,6 +62,12 @@ export function usePageScrollLock(isLocked: boolean): void {
       html.style.overscrollBehavior = originalStyles.htmlOverscrollBehavior;
       body.style.overflow = originalStyles.bodyOverflow;
       body.style.overscrollBehavior = originalStyles.bodyOverscrollBehavior;
+      body.style.position = originalStyles.bodyPosition;
+      body.style.top = originalStyles.bodyTop;
+      body.style.left = originalStyles.bodyLeft;
+      body.style.width = originalStyles.bodyWidth;
+      // 마지막 팝업을 닫을 때 고정을 해제하고 사용자가 보던 메모 위치로 즉시 돌아갑니다.
+      window.scrollTo({ left: originalStyles.scrollX, top: originalStyles.scrollY, behavior: "instant" });
       originalStyles = null;
     };
   }, [isLocked]);
