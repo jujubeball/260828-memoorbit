@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type CSSProperties,
   type FormEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -11,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useVisualViewport } from "@/src/hooks/useVisualViewport";
 import type { Memo } from "@/types/memo";
 import { requestRecommendedTags } from "@/src/lib/geminiClient";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
@@ -124,32 +126,11 @@ export function MemoModal({
   const [isTagInputOpen, setIsTagInputOpen] = useState(false);
   const [isFormatOpen, setIsFormatOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
-  const [toolbarBottom, setToolbarBottom] = useState(0);
+  const viewport = useVisualViewport(isOpen);
   const [tableMenuPosition, setTableMenuPosition] =
     useState<TableMenuPosition | null>(null);
 
   usePageScrollLock(isOpen);
-
-  // 💡 [모바일 가상 키보드 위치 추적]
-  // Visual Viewport가 줄어든 만큼을 키보드 높이로 계산해 하단 도구가 키보드 바로 위로 이동하게 합니다.
-  useEffect(() => {
-    const handleResize = (): void => {
-      if (!window.visualViewport) return;
-      const offsetBottom =
-        window.innerHeight
-        - window.visualViewport.height
-        - window.visualViewport.offsetTop;
-      setToolbarBottom(Math.max(0, offsetBottom));
-    };
-
-    handleResize();
-    window.visualViewport?.addEventListener("resize", handleResize);
-    window.visualViewport?.addEventListener("scroll", handleResize);
-    return () => {
-      window.visualViewport?.removeEventListener("resize", handleResize);
-      window.visualViewport?.removeEventListener("scroll", handleResize);
-    };
-  }, []);
 
   // 태그 입력 도구를 열면 새로 나타난 입력창으로 포커스를 옮겨 모바일 키보드가 자연스럽게 이어지게 합니다.
   useEffect(() => {
@@ -526,7 +507,11 @@ export function MemoModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] box-border flex h-[100dvh] w-full max-w-full flex-col overflow-hidden bg-[#121318] text-[#f3f4f6] xl:items-center xl:justify-center xl:bg-black/70 xl:p-6"
+      className="fixed inset-x-0 top-[var(--viewport-top)] z-[100] box-border flex h-[var(--viewport-height)] xl:inset-0 xl:h-[100dvh] w-full max-w-full flex-col overflow-hidden bg-[#121318] text-[#f3f4f6] xl:items-center xl:justify-center xl:bg-black/70 xl:p-6"
+      style={{
+        "--viewport-height": viewport.height === null ? "100dvh" : `${viewport.height}px`,
+        "--viewport-top": `${viewport.offsetTop}px`,
+      } as CSSProperties}
       role="dialog"
       aria-modal="true"
       aria-labelledby="memo-modal-title"
@@ -536,7 +521,7 @@ export function MemoModal({
         id="memo-form"
         onSubmit={submit}
         onClick={(event) => event.stopPropagation()}
-        className="box-border flex h-[100dvh] min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#121318] xl:mx-auto xl:h-[75vh] xl:max-h-[80vh] xl:max-w-2xl xl:flex-none xl:rounded-3xl xl:border xl:border-[#2a2e3d] xl:shadow-2xl"
+        className="box-border flex h-full min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#121318] xl:mx-auto xl:h-[75vh] xl:max-h-[80vh] xl:max-w-2xl xl:flex-none xl:rounded-3xl xl:border xl:border-[#2a2e3d] xl:shadow-2xl"
       >
         <header className="sticky top-0 z-20 grid h-14 w-full flex-none grid-cols-[1fr_auto_1fr] items-center border-b border-[#2a2e3d] bg-[#121318] px-4">
           <button
@@ -633,12 +618,11 @@ export function MemoModal({
         {/* 💡 [키보드 도킹 툴바]
             기본 상태에는 다섯 도구만 한 줄로 두고, AI 추천이나 직접 입력은 사용자가 요청할 때만 바로 위에 펼쳐 본문 높이를 지킵니다. */}
         <div
-          className="sticky bottom-0 z-20 box-border w-full max-w-full flex-none overflow-x-hidden border-t border-[#2a2e3d] bg-[#161922] pb-[env(safe-area-inset-bottom)] transition-transform duration-150"
-          style={{ transform: `translateY(-${toolbarBottom}px)` }}
+          className="sticky bottom-0 z-20 box-border w-full max-w-full flex-none overflow-x-hidden border-t border-[#2a2e3d] bg-[#161922] pb-[env(safe-area-inset-bottom)]"
         >
           {isAiTagsOpen && (
             <section
-              className={`border-b border-[#2a2e3d] px-3 py-2 ${isAnalyzingTags ? "bg-[#e5a93c]/5" : ""}`}
+              className={`animate-[fade-in_180ms_ease-out] motion-reduce:animate-none border-b border-[#2a2e3d] px-3 py-2 ${isAnalyzingTags ? "bg-[#e5a93c]/5" : ""}`}
               aria-label="AI 추천 태그"
               aria-live="polite"
             >
@@ -659,6 +643,7 @@ export function MemoModal({
                       <button
                         key={tag}
                         type="button"
+                        onPointerDown={keepSelection}
                         onClick={() => toggleTag(tag)}
                         aria-pressed={isSelected}
                         className={`ios-tap shrink-0 animate-[fade-in_180ms_ease-out] rounded-full border px-3 py-1.5 text-xs font-semibold motion-reduce:animate-none ${isSelected ? "border-[#e5a93c] bg-[#e5a93c] text-black" : "border-[#636366] text-white"}`}
@@ -767,7 +752,6 @@ export function MemoModal({
 
       <section
         className={`absolute inset-x-0 bottom-0 z-40 box-border w-full max-w-full overflow-x-hidden rounded-t-3xl bg-[#2c2c2e] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_35px_rgb(0_0_0/0.45)] transition-transform duration-300 ${isFormatOpen ? "translate-y-0" : "translate-y-full"}`}
-        style={{ bottom: toolbarBottom }}
         aria-label="서식 도구"
         aria-hidden={!isFormatOpen}
         inert={!isFormatOpen}

@@ -27,7 +27,7 @@ import {
 } from "@/src/lib/memoStorage";
 import type { Memo } from "@/types/memo";
 import type { GeminiMemoLink } from "@/src/types/gemini";
-import { requestLinksForMemo } from "@/src/lib/geminiClient";
+import { requestLinksForMemo, requestRecommendedTags } from "@/src/lib/geminiClient";
 import {
   filterMemos,
   type MemoFilterOptions,
@@ -257,6 +257,31 @@ export default function Home(): React.JSX.Element {
 
   // 💡 [검색 조건 실시간 바인딩]
   // SearchFilterBar에서 올라온 filterOptions와 원본 memos가 바뀔 때만 필터 결과를 다시 만들고, 카드 목록과 태그 궤도가 같은 결과를 함께 사용합니다.
+  // 💡 [확정 검색어의 AI 의미 확장]
+  // 검색창에서 300ms 후 전달한 검색어만 분석합니다. 검색어가 바뀌거나 화면이 닫히면 이전 응답을 버립니다.
+  useEffect(() => {
+    const keyword = filterOptions.keyword?.trim();
+    if (!keyword || !filterOptions.isSemanticSearch) return;
+    const controller = new AbortController();
+    const analyze = async (): Promise<void> => {
+      try {
+        const terms = await requestRecommendedTags(keyword, controller.signal);
+        if (controller.signal.aborted) return;
+        // AI가 확장한 주제어를 각 메모의 제목·본문·태그와 비교해 하이브리드 정렬 점수를 만듭니다.
+        const semanticScores = Object.fromEntries(memos.map((memo) => {
+          const text = [memo.title, memo.content, ...memo.tags].join(" ").toLocaleLowerCase();
+          const matches = terms.filter((term) => term.trim() && text.includes(term.trim().toLocaleLowerCase())).length;
+          return [memo.id, terms.length ? matches / terms.length : 0];
+        }));
+        setFilterOptions((current) => ({ ...current, semanticScores }));
+      } catch {
+        // 요청 실패 시 이미 표시 중인 일반 문자열 검색 결과를 유지합니다.
+      }
+    };
+    void analyze();
+    return () => controller.abort();
+  }, [filterOptions.keyword, filterOptions.isSemanticSearch, memos]);
+
   const filteredMemos = useMemo(
     () => filterMemos(memos, filterOptions),
     [filterOptions, memos],

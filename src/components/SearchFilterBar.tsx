@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { DateInputBox } from "@/src/components/DateInputBox";
 import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
 import type { MemoFilterOptions } from "@/src/lib/filterMemos";
@@ -47,6 +47,8 @@ export function SearchFilterBar({
   onOptionsChange,
   onCreateMemo,
 }: SearchFilterBarProps): React.JSX.Element {
+  // 검색 입력은 로컬 상태에서 즉시 표시하고 부모에는 타이핑이 멈춘 뒤 전달합니다.
+  const [keyword, setKeyword] = useState(options.keyword ?? "");
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobileFilter, setIsMobileFilter] = useState(false);
   const selectedTags = options.tags ?? [];
@@ -69,6 +71,19 @@ export function SearchFilterBar({
     mediaQuery.addEventListener("change", syncMobileFilter);
     return () => mediaQuery.removeEventListener("change", syncMobileFilter);
   }, []);
+
+  // 💡 [검색 입력 디바운스]
+  // 새 글자가 들어오면 이전 예약을 취소하며, 로고 초기화로 컴포넌트가 교체될 때도 예약을 정리합니다.
+  const commitKeyword = useEffectEvent(() => {
+    if (keyword === (options.keyword ?? "")) return;
+    onOptionsChange({ ...options, keyword, isSemanticSearch: true, semanticScores: undefined });
+  });
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      commitKeyword();
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [keyword]);
 
   usePageScrollLock(isExpanded && isMobileFilter);
 
@@ -191,11 +206,8 @@ export function SearchFilterBar({
           </span>
           <input
             type="search"
-            value={options.keyword ?? ""}
-            onChange={(event) => updateOptions({
-              keyword: event.target.value,
-              isSemanticSearch: true,
-            })}
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
             placeholder="제목, 내용, 태그 또는 의미 검색..."
             className="h-9 w-full rounded-full border-0 bg-transparent pl-9 pr-2 text-base text-[#f3f4f6] outline-none placeholder:text-[#6b7280] focus:ring-1 focus:ring-[#e5a93c] sm:h-11 sm:rounded-xl sm:border sm:border-[#2a2e3d] sm:bg-[#0f1117] sm:pl-10 sm:pr-3 sm:text-sm"
           />
