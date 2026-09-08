@@ -145,6 +145,19 @@ button:disabled {
   min-height: 1.75rem;
 }
 
+/* 본문에 저장된 기존 이미지도 화면 너비를 넘지 않도록 첨부 프리뷰와 같은 경계를 적용합니다. */
+.rich-editor img,
+.rich-content img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: cover;
+  border: 1px solid #2a2e3d;
+  border-radius: 0.75rem;
+}
+
 @media (min-width: 1280px) {
   /* 💡 [PC 전역 스크롤바 시인성]
      어두운 화면에서도 현재 위치를 쉽게 찾도록 손잡이에 밝은 골드 테두리를 주고, 마우스를 올리면 전체를 골드로 바꿉니다. */
@@ -223,6 +236,9 @@ button:disabled {
 }
 
 .memo-check-text {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
   min-width: 0;
   flex: 1;
   cursor: text;

@@ -12,8 +12,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { enterEditorChecklist, insertEditorChecklist } from "@/src/lib/editorChecklist";
 import { useVisualViewport } from "@/src/hooks/useVisualViewport";
-import { CARET_PLACEHOLDER, formatEditorRange, readEditorRange, restoreEditorRange } from "@/src/lib/editorSelection";
+import { CARET_PLACEHOLDER, EMPTY_EDITOR_FORMAT, formatEditorRange, readEditorRange, readEditorFormat, restoreEditorRange } from "@/src/lib/editorSelection";
 import type { Memo } from "@/types/memo";
 import { requestRecommendedTags } from "@/src/lib/geminiClient";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
@@ -135,6 +136,14 @@ export function MemoModal({
   const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [isFormatOpen, setIsFormatOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [activeFormat, setActiveFormat] = useState(EMPTY_EDITOR_FORMAT);
+  // 선택 위치의 서식이 달라진 경우에만 버튼 상태를 갱신해 드래그 중 불필요한 렌더링을 줄입니다.
+  const updateFormatState = useCallback((range: Range | null): void => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const next = readEditorFormat(editor, range);
+    setActiveFormat((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next);
+  }, []);
   const viewport = useVisualViewport(isOpen);
   const [tableMenuPosition, setTableMenuPosition] =
     useState<TableMenuPosition | null>(null);
@@ -149,11 +158,34 @@ export function MemoModal({
       const editor = editorRef.current;
       if (!editor || !editor.contains(document.activeElement)) return;
       const range = readEditorRange(editor);
-      if (range) savedRange.current = range;
+      if (range) {
+        savedRange.current = range;
+        updateFormatState(range);
+      }
     };
     document.addEventListener("selectionchange", trackSelection);
     return () => document.removeEventListener("selectionchange", trackSelection);
-  }, [isOpen]);
+  }, [isOpen, updateFormatState]);
+
+  // 💡 [모바일 키보드의 문단 삽입]
+  // keydown 없이 전달되는 모바일 Enter도 처리하며 한글 조합 확정은 브라우저에 맡깁니다.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || !isOpen || isSaving) return;
+    const beforeInput = (event: InputEvent): void => {
+      if (event.inputType !== "insertParagraph" || event.isComposing || !event.cancelable) return;
+      const range = readEditorRange(editor);
+      if (!range) return;
+      const next = enterEditorChecklist(editor, range);
+      if (!next) return;
+      event.preventDefault();
+      savedRange.current = next;
+      updateFormatState(next);
+      setPlainText(editor.innerText.replaceAll(CARET_PLACEHOLDER, ""));
+    };
+    editor.addEventListener("beforeinput", beforeInput);
+    return () => editor.removeEventListener("beforeinput", beforeInput);
+  }, [isOpen, isSaving, updateFormatState]);
 
   // 태그 입력 도구를 열면 새로 나타난 입력창으로 포커스를 옮겨 모바일 키보드가 자연스럽게 이어지게 합니다.
   useEffect(() => {
@@ -216,7 +248,10 @@ export function MemoModal({
   const rememberSelection = (): void => {
     if (!editorRef.current) return;
     const range = readEditorRange(editorRef.current);
-    if (range) savedRange.current = range;
+    if (range) {
+      savedRange.current = range;
+      updateFormatState(range);
+    }
   };
   // 저장해 둔 선택 범위를 본문에 다시 올리고 적용 가능한 Range를 서식 함수에 돌려줍니다.
   const restoreSelection = (): Range | null => editorRef.current
@@ -248,6 +283,18 @@ export function MemoModal({
   // 💡 [이미지·표 블록 삭제]
   // 선택 범위 안의 블록 또는 접힌 커서 바로 앞·뒤의 블록을 찾아 키보드 삭제 한 번으로 통째로 제거합니다.
   const handleEditorKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (event.nativeEvent.isComposing || isSaving) return;
+    if (event.key === "Enter" && !event.shiftKey) {
+      const range = readEditorRange(event.currentTarget);
+      const next = range ? enterEditorChecklist(event.currentTarget, range) : null;
+      if (next) {
+        event.preventDefault();
+        savedRange.current = next;
+        updateFormatState(next);
+        syncText();
+        return;
+      }
+    }
     if (event.key !== "Backspace" && event.key !== "Delete") return;
     const selection = window.getSelection();
     if (!selection?.rangeCount || !selection.isCollapsed) {
@@ -297,7 +344,10 @@ export function MemoModal({
     const range = restoreSelection();
     if (!range) return;
     const formatted = formatEditorRange(editor, range, command, value);
-    if (formatted) savedRange.current = formatted;
+    if (formatted) {
+      savedRange.current = formatted;
+      updateFormatState(formatted);
+    }
     else if (["insertUnorderedList", "insertOrderedList", "indent", "outdent"].includes(command)) {
       document.execCommand(command, false, value);
       rememberSelection();
@@ -323,22 +373,12 @@ export function MemoModal({
   // 💡 [체크리스트 삽입]
   // 체크 원과 글자 영역을 나눠 만든 뒤 커서를 새 항목의 글자 시작 위치로 옮깁니다.
   const insertChecklist = (): void => {
-    insertAtCaret(
-      '<div class="memo-check-item" data-new-check="true"><input type="checkbox" contenteditable="false" aria-label="체크리스트 완료"><span class="memo-check-text"><br></span></div><div><br></div>',
-    );
-    const item = editorRef.current?.querySelector<HTMLElement>(
-      '[data-new-check="true"]',
-    );
-    const text = item?.querySelector<HTMLElement>(".memo-check-text");
-    item?.removeAttribute("data-new-check");
-    if (!text) return;
-    const range = document.createRange();
-    range.selectNodeContents(text);
-    range.collapse(true);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    savedRange.current = range.cloneRange();
+    const editor = editorRef.current;
+    const range = restoreSelection();
+    if (!editor || !range || isSaving) return;
+    savedRange.current = insertEditorChecklist(editor, range);
+    rememberSelection();
+    syncText();
   };
   // 사용자가 표 버튼을 누르면 더미 글자가 없는 빈 2×2 표를 현재 커서 위치에 넣습니다.
   const insertTable = (): void =>
@@ -509,6 +549,13 @@ export function MemoModal({
   // 여러 서식 버튼이 동일한 터치 크기와 글자 모양을 공유하도록 모은 Tailwind 클래스입니다.
   const formatButton =
     "ios-tap flex h-11 min-w-11 items-center justify-center rounded-lg px-3 text-[15px] font-semibold text-white";
+  const isFormatActive = (command: string, value?: string): boolean => {
+    if (command === "formatBlock") return activeFormat.block === value;
+    if (command === "foreColor") return activeFormat.color === value;
+    return activeFormat[command as "bold" | "italic" | "underline" | "strikeThrough"] === true;
+  };
+  const formatButtonClass = (command: string, value?: string): string =>
+    `${formatButton} ${isFormatActive(command, value) ? "bg-[#e5a93c] !text-[#121318]" : "hover:bg-white/10"}`;
 
   // 편집기 맨 아래의 네 가지 빠른 실행 버튼이 같은 너비와 색상을 사용하도록 모은 클래스입니다.
   const bottomButton =
@@ -570,18 +617,18 @@ export function MemoModal({
             </p>
             {/* 사용자가 직접 첨부한 이미지가 있을 때만 미리보기 영역을 만들며, 이미지가 없으면 곧바로 작성 캔버스를 보여 줍니다. */}
             {images.length > 0 && (
-              <div className="mb-4 grid grid-cols-2 gap-2">
+              <div className="mb-4 flex w-full max-w-full flex-col gap-3">
                 {images.map((image, index) => (
                   <figure
                     key={`${image.name}-${index}`}
-                    className={`relative overflow-hidden rounded-xl bg-[#1c1c1e] ${image.url === imageUrl ? "ring-2 ring-[#e5a93c]" : ""}`}
+                    className={`relative w-full max-w-full overflow-hidden rounded-xl bg-[#1c1c1e] ${image.url === imageUrl ? "ring-2 ring-[#e5a93c]" : ""}`}
                   >
                     {/* 브라우저가 읽은 로컬 사진을 첨부 순서대로 미리 보여 줍니다. */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={image.url}
                       alt={`${image.name} 첨부 이미지`}
-                      className="aspect-video w-full object-cover"
+                      className="w-full max-w-full h-auto max-h-[300px] object-cover rounded-xl border border-[#2a2e3d]"
                     />
                     <button
                       type="button"
@@ -770,9 +817,9 @@ export function MemoModal({
               <div className="mb-2 flex items-center justify-between">
                 <span className="h-1 w-9 rounded-full bg-[#636366]" />
                 <button
-                type="button"
-                onPointerDown={keepSelection}
-                onClick={closeFormatLayer}
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={closeFormatLayer}
                   className="ios-tap h-9 w-9 rounded-full bg-[#48484a] text-lg"
                   aria-label="서식 도구 닫기"
                 >
@@ -795,7 +842,8 @@ export function MemoModal({
                     type="button"
                     onPointerDown={keepSelection}
                     onClick={() => applyFormat("formatBlock", value)}
-                    className={formatButton}
+                    className={formatButtonClass("formatBlock", value)}
+                    aria-pressed={isFormatActive("formatBlock", value)}
                   >
                     {label}
                   </button>
@@ -816,7 +864,8 @@ export function MemoModal({
                     type="button"
                     onPointerDown={keepSelection}
                     onClick={() => applyFormat(command)}
-                    className={formatButton}
+                    className={formatButtonClass(command)}
+                    aria-pressed={isFormatActive(command)}
                     aria-label={ariaLabel}
                   >
                     {label}
@@ -842,7 +891,8 @@ export function MemoModal({
                         type="button"
                         onPointerDown={keepSelection}
                         onClick={() => applyFormat("foreColor", color)}
-                        className="format-color-button h-7 w-7 rounded-full border-2 border-white/50"
+                        className={`format-color-button h-7 w-7 rounded-full border-2 border-white/50 ${isFormatActive("foreColor", color) ? "ring-2 ring-[#e5a93c] ring-offset-2" : ""}`}
+                        aria-pressed={isFormatActive("foreColor", color)}
                         data-color={color}
                         aria-label={`${color} 글자 색상`}
                       />

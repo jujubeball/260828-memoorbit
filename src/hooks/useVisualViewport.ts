@@ -18,8 +18,9 @@ export function useVisualViewport(active = true): VisualViewportState {
     const visualViewport = window.visualViewport;
     let frame = 0;
     const measure = (): void => {
-      const height = visualViewport?.height ?? window.innerHeight;
-      const offsetTop = visualViewport?.offsetTop ?? 0;
+      // 키보드 경계의 소수점 흔들림은 정수 픽셀로 정규화하고 실제 크기 변화만 전달합니다.
+      const height = Math.round(visualViewport?.height ?? window.innerHeight);
+      const offsetTop = Math.max(0, Math.round(visualViewport?.offsetTop ?? 0));
       setViewport((current) => current.height === height && current.offsetTop === offsetTop
         ? current
         : { height, offsetTop });

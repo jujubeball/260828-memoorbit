@@ -8,7 +8,7 @@ const compiled = { exports: {} };
 new Function("exports", ts.transpileModule(readFileSync("src/lib/editorSelection.ts", "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText)(compiled.exports);
-const { formatEditorRange, readEditorRange, restoreEditorRange, CARET_PLACEHOLDER } = compiled.exports;
+const { formatEditorRange, readEditorRange, readEditorFormat, restoreEditorRange, CARET_PLACEHOLDER } = compiled.exports;
 
 function setup(html = "안녕 테스트") {
   const dom = new JSDOM('<div contenteditable="true" tabindex="0"></div><input>');
@@ -96,6 +96,65 @@ test("편집기 밖의 선택에는 서식을 적용하지 않으며 오래된 R
   const restored = restoreEditorRange(editor, range);
   assert(restored.collapsed);
   assert.equal(restored.startContainer, editor);
+  assert.equal(editor.textContent, "안녕 테스트");
+  dom.window.close();
+});
+
+for (const command of ["bold", "italic", "underline", "strikeThrough"]) {
+  test(`${command}를 다시 누르면 선택 부분만 해제하고 버튼 상태도 꺼진다`, () => {
+    const { editor, range, dom } = setup();
+    range.setStart(editor.firstChild, 0);
+    range.setEnd(editor.firstChild, 2);
+    const on = formatEditorRange(editor, range, command);
+    assert.equal(readEditorFormat(editor, on)[command], true);
+    const off = formatEditorRange(editor, on, command);
+    assert.equal(readEditorFormat(editor, off)[command], false);
+    assert.equal(editor.textContent, "안녕 테스트");
+    assert.equal(off.toString(), "안녕");
+    const again = formatEditorRange(editor, off, command);
+    assert.equal(readEditorFormat(editor, again)[command], true);
+    dom.window.close();
+  });
+}
+
+test("전체 굵게 안의 일부만 해제해도 나머지 굵게와 중첩 기울임이 남는다", () => {
+  const { editor, range, dom } = setup("<strong>앞 <em>안녕</em> 뒤</strong>");
+  const text = editor.querySelector("em").firstChild;
+  range.setStart(text, 0);
+  range.setEnd(text, 2);
+  const off = formatEditorRange(editor, range, "bold");
+  assert.equal(readEditorFormat(editor, off).bold, false);
+  assert.equal(readEditorFormat(editor, off).italic, true);
+  assert.equal([...editor.querySelectorAll("strong")].map((node) => node.textContent).join(""), "앞  뒤");
+  assert.equal(editor.textContent, "앞 안녕 뒤");
+  dom.window.close();
+});
+
+test("선택 없는 커서에서도 굵게 켜기와 끄기를 반복할 수 있다", () => {
+  const { editor, range, dom } = setup();
+  range.setStart(editor.firstChild, 2);
+  range.collapse(true);
+  const on = formatEditorRange(editor, range, "bold");
+  assert.equal(readEditorFormat(editor, on).bold, true);
+  const off = formatEditorRange(editor, on, "bold");
+  assert(off.collapsed);
+  assert.equal(readEditorFormat(editor, off).bold, false);
+  assert.equal(off.startContainer.parentElement.closest("strong"), null);
+  dom.window.close();
+});
+
+test("제목과 색상도 다시 누르면 선택 범위의 활성 상태가 해제된다", () => {
+  const { editor, range, dom } = setup();
+  range.setStart(editor.firstChild, 0);
+  range.setEnd(editor.firstChild, 2);
+  let selected = formatEditorRange(editor, range, "formatBlock", "h1");
+  assert.equal(readEditorFormat(editor, selected).block, "h1");
+  selected = formatEditorRange(editor, selected, "formatBlock", "h1");
+  assert.equal(readEditorFormat(editor, selected).block, null);
+  selected = formatEditorRange(editor, selected, "foreColor", "#e5a93c");
+  assert.equal(readEditorFormat(editor, selected).color, "#e5a93c");
+  selected = formatEditorRange(editor, selected, "foreColor", "#e5a93c");
+  assert.equal(readEditorFormat(editor, selected).color, null);
   assert.equal(editor.textContent, "안녕 테스트");
   dom.window.close();
 });

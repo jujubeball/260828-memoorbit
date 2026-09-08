@@ -42,7 +42,7 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
   const { createRoot } = await import("react-dom/client");
   const MemoModal = loadModal();
   const root = createRoot(document.getElementById("root"));
-  const initial = { id: "test", title: "안녕 테스트", content: "본문", tags: [], isPinned: false, syncStatus: "pending", createdAt: "2026-09-08T00:00:00Z", updatedAt: "2026-09-08T00:00:00Z" };
+  const initial = { id: "test", title: "안녕 테스트", richContent: "<p>안녕 테스트</p>", content: "본문", tags: [], isPinned: false, syncStatus: "pending", createdAt: "2026-09-08T00:00:00Z", updatedAt: "2026-09-08T00:00:00Z", images: [{ url: "data:image/png;base64,AA==", name: "사진" }] };
   try {
     await act(async () => { root.render(React.createElement(MemoModal, { isOpen: true, editingMemo: initial, onClose() {}, onSubmit() {} })); });
     const editor = document.querySelector('[aria-label="메모 내용"]');
@@ -65,8 +65,14 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     await click(button("텍스트 서식"));
     assert.equal(editor.firstChild.firstChild, node);
     await click(button("굵게"));
+    assert.equal(button("굵게").getAttribute("aria-pressed"), "true");
     assert.equal(editor.querySelector("strong").textContent, "안녕");
     assert.equal(editor.firstChild.textContent, "안녕 테스트");
+    await click(button("굵게"));
+    assert.equal(button("굵게").getAttribute("aria-pressed"), "false");
+    assert.equal(editor.textContent, "안녕 테스트");
+    await click(button("굵게"));
+    assert.equal(button("굵게").getAttribute("aria-pressed"), "true");
     const formatted = editor.innerHTML;
     await click(button("태그 관리"));
     const panel = document.getElementById("memo-tag-panel");
@@ -89,6 +95,43 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     assert(editor.parentElement.classList.contains("overflow-y-auto"));
     assert(editor.parentElement.classList.contains("touch-pan-y"));
     assert.equal(shell.style.getPropertyValue("--viewport-height"), "350px");
+    const image = document.querySelector("figure img");
+    assert(image.classList.contains("w-full"));
+    assert(image.classList.contains("h-auto"));
+    assert(image.classList.contains("max-h-[300px]"));
+    // 실제 React 키 이벤트와 모바일 beforeinput 경로도 같은 체크리스트 분기를 사용합니다.
+    await click(button("체크리스트"));
+    let checklistText = editor.querySelector(".memo-check-text");
+    checklistText.textContent = "할 일";
+    let caret = document.createRange();
+    caret.selectNodeContents(checklistText);
+    caret.collapse(false);
+    document.getSelection().removeAllRanges();
+    document.getSelection().addRange(caret);
+    await act(async () => {
+      const enter = new dom.window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+      editor.dispatchEvent(enter);
+      assert(enter.defaultPrevented);
+    });
+    assert.equal(editor.querySelectorAll(".memo-check-item").length, 2);
+    await act(async () => {
+      const enter = new dom.window.InputEvent("beforeinput", { inputType: "insertParagraph", bubbles: true, cancelable: true });
+      editor.dispatchEvent(enter);
+      assert(enter.defaultPrevented);
+    });
+    assert.equal(editor.querySelectorAll(".memo-check-item").length, 1);
+    checklistText = editor.querySelector(".memo-check-text");
+    caret = document.createRange();
+    caret.selectNodeContents(checklistText);
+    caret.collapse(false);
+    document.getSelection().removeAllRanges();
+    document.getSelection().addRange(caret);
+    await act(async () => {
+      const imeEnter = new dom.window.KeyboardEvent("keydown", { key: "Enter", isComposing: true, bubbles: true, cancelable: true });
+      editor.dispatchEvent(imeEnter);
+      assert.equal(imeEnter.defaultPrevented, false);
+    });
+    assert.equal(editor.querySelectorAll(".memo-check-item").length, 1);
   } finally {
     await act(async () => root.unmount());
     dom.window.close();
