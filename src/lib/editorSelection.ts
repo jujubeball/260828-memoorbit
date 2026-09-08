@@ -37,7 +37,9 @@ const selectedTextParts = (editor: HTMLElement, range: Range): Array<{ node: Tex
   const parts: Array<{ node: Text; start: number; end: number }> = [];
   while (walker.nextNode()) {
     const node = walker.currentNode as Text;
-    if (!range.intersectsNode(node) || node.parentElement?.closest('[contenteditable="false"]')) continue;
+    const readOnlyParent = node.parentElement?.closest('[contenteditable="false"]');
+    // 시트가 본문 전체를 잠근 경우에는 서식을 허용하고, 체크박스 등 개별 읽기 전용 블록만 제외합니다.
+    if (!range.intersectsNode(node) || (readOnlyParent && readOnlyParent !== editor)) continue;
     const start = node === range.startContainer ? range.startOffset : 0;
     const end = node === range.endContainer ? range.endOffset : node.length;
     if (end > start) parts.push({ node, start, end });
@@ -152,13 +154,14 @@ export const readEditorRange = (editor: HTMLElement): Range | null => {
 
 // 💡 [포커스 변경 전에 Range 복사]
 // focus가 브라우저의 현재 선택을 바꿀 수 있으므로 복사본을 만든 뒤 편집기에 다시 올립니다.
-export const restoreEditorRange = (editor: HTMLElement, saved: Range | null): Range => {
+export const restoreEditorRange = (editor: HTMLElement, saved: Range | null, focus = true): Range => {
   const range = saved && isEditorRange(editor, saved) ? saved.cloneRange() : editor.ownerDocument.createRange();
   if (!saved || !isEditorRange(editor, saved)) {
     range.selectNodeContents(editor);
     range.collapse(false);
   }
-  editor.focus({ preventScroll: true });
+  // 시트에서 서식을 고를 때는 읽기 상태의 본문 범위만 복원하여 키보드를 다시 열지 않습니다.
+  if (focus) editor.focus({ preventScroll: true });
   const selection = editor.ownerDocument.getSelection();
   selection?.removeAllRanges();
   selection?.addRange(range);

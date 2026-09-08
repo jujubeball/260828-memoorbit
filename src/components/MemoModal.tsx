@@ -15,6 +15,8 @@ import {
 import { enterEditorChecklist, insertEditorChecklist } from "@/src/lib/editorChecklist";
 import { IOSFormatSheet } from "@/src/components/iOSFormatSheet";
 import { useVisualViewport } from "@/src/hooks/useVisualViewport";
+import { useKeyboardFormatSheet } from "@/src/hooks/useKeyboardFormatSheet";
+import { formatEditorList } from "@/src/lib/editorLists";
 import { CARET_PLACEHOLDER, EMPTY_EDITOR_FORMAT, formatEditorRange, readEditorRange, readEditorFormat, restoreEditorRange } from "@/src/lib/editorSelection";
 import type { Memo } from "@/types/memo";
 import { requestRecommendedTags } from "@/src/lib/geminiClient";
@@ -135,7 +137,8 @@ export function MemoModal({
   const [isUsingLocalAnalysis, setIsUsingLocalAnalysis] = useState(false);
   const [isAnalyzingTags, setIsAnalyzingTags] = useState(false);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
-  const [isFormatOpen, setIsFormatOpen] = useState(false);
+  const formatSheet = useKeyboardFormatSheet(isOpen);
+  const isFormatOpen = formatSheet.mode === "format";
   const [activeFormat, setActiveFormat] = useState(EMPTY_EDITOR_FORMAT);
   // 선택 위치의 서식이 달라진 경우에만 버튼 상태를 갱신해 드래그 중 불필요한 렌더링을 줄입니다.
   const updateFormatState = useCallback((range: Range | null): void => {
@@ -156,7 +159,7 @@ export function MemoModal({
     if (!isOpen) return;
     const trackSelection = (): void => {
       const editor = editorRef.current;
-      if (!editor || !editor.contains(document.activeElement)) return;
+      if (!editor || formatSheet.mode !== "editor" || !editor.contains(document.activeElement)) return;
       const range = readEditorRange(editor);
       if (range) {
         savedRange.current = range;
@@ -165,7 +168,7 @@ export function MemoModal({
     };
     document.addEventListener("selectionchange", trackSelection);
     return () => document.removeEventListener("selectionchange", trackSelection);
-  }, [isOpen, updateFormatState]);
+  }, [isOpen, updateFormatState, formatSheet.mode]);
 
   // 💡 [모바일 키보드의 문단 삽입]
   // keydown 없이 전달되는 모바일 Enter도 처리하며 한글 조합 확정은 브라우저에 맡깁니다.
@@ -246,7 +249,7 @@ export function MemoModal({
 
   // 사용자가 본문을 드래그하면 현재 선택 범위를 복사해 서식 버튼을 누른 뒤에도 잃지 않게 합니다.
   const rememberSelection = (): void => {
-    if (!editorRef.current) return;
+    if (!editorRef.current || formatSheet.mode !== "editor") return;
     const range = readEditorRange(editorRef.current);
     if (range) {
       savedRange.current = range;
@@ -254,8 +257,8 @@ export function MemoModal({
     }
   };
   // 저장해 둔 선택 범위를 본문에 다시 올리고 적용 가능한 Range를 서식 함수에 돌려줍니다.
-  const restoreSelection = (): Range | null => editorRef.current
-    ? restoreEditorRange(editorRef.current, savedRange.current)
+  const restoreSelection = (focus = formatSheet.mode === "editor"): Range | null => editorRef.current
+    ? restoreEditorRange(editorRef.current, savedRange.current, focus)
     : null;
   // 체크리스트나 표처럼 DOM이 직접 바뀐 뒤 현재 글자를 plainText State와 다시 맞춥니다.
   const syncText = (): void => setPlainText((editorRef.current?.innerText ?? "").replaceAll(CARET_PLACEHOLDER, ""));
@@ -264,6 +267,7 @@ export function MemoModal({
   const focusEditorEnd = (): void => {
     const editor = editorRef.current;
     if (!editor) return;
+    resumeEditor();
     editor.focus({ preventScroll: true });
     const range = document.createRange();
     range.selectNodeContents(editor);
@@ -343,14 +347,11 @@ export function MemoModal({
     if (!editor || isSaving) return;
     const range = restoreSelection();
     if (!range) return;
-    const formatted = formatEditorRange(editor, range, command, value);
+    const formatted = formatEditorRange(editor, range, command, value)
+      ?? formatEditorList(editor, range, command);
     if (formatted) {
       savedRange.current = formatted;
       updateFormatState(formatted);
-    }
-    else if (["insertUnorderedList", "insertOrderedList", "indent", "outdent"].includes(command)) {
-      document.execCommand(command, false, value);
-      rememberSelection();
     }
     syncText();
   };
@@ -367,10 +368,41 @@ export function MemoModal({
   // 체크 원과 글자 영역을 나눠 만든 뒤 커서를 새 항목의 글자 시작 위치로 옮깁니다.
   const insertChecklist = (): void => {
     const editor = editorRef.current;
-    const range = restoreSelection();
+    if (!editor || isSaving) return;
+    resumeEditor();
+    const range = restoreSelection(true);
     if (!editor || !range || isSaving) return;
     savedRange.current = insertEditorChecklist(editor, range);
     rememberSelection();
+    syncText();
+  };
+  // 표 버튼은 선택 위치에 빈 표를 넣고 첫 셀에 커서를 두어 바로 입력할 수 있게 합니다.
+  const insertTable = (): void => {
+    const editor = editorRef.current;
+    if (!editor || isSaving) return;
+    resumeEditor();
+    const range = restoreSelection(true);
+    if (!range) return;
+    const table = document.createElement("table");
+    table.innerHTML = "<tbody><tr><td><br></td><td><br></td></tr><tr><td><br></td><td><br></td></tr></tbody>";
+    range.deleteContents();
+    const start = range.startContainer.nodeType === 1 ? range.startContainer as Element : range.startContainer.parentElement;
+    const block = start?.closest("p, h1, h2, h3, pre, div");
+    if (block && block !== editor && editor.contains(block)) {
+      // 문장 중간의 표는 문단을 앞뒤로 나눠 놓아 문단 안에 표가 잘못 중첩되지 않게 합니다.
+      const tail = document.createRange();
+      tail.selectNodeContents(block);
+      tail.setStart(range.startContainer, range.startOffset);
+      const suffix = tail.extractContents();
+      block.after(table);
+      const paragraph = document.createElement("p");
+      paragraph.append(suffix.hasChildNodes() ? suffix : document.createElement("br"));
+      table.after(paragraph);
+      if (!block.textContent?.replaceAll(CARET_PLACEHOLDER, "").trim()) block.remove();
+    } else range.insertNode(table);
+    range.selectNodeContents(table.rows[0].cells[0]);
+    range.collapse(true);
+    savedRange.current = restoreEditorRange(editor, range);
     syncText();
   };
   // 완료 버튼으로 폼이 제출되면 브라우저 새로고침을 막고 공통 저장 함수로 연결합니다.
@@ -443,6 +475,7 @@ export function MemoModal({
   };
   // 본문 클릭 대상이 체크박스인지 표 셀인지 판별해 각각 완료 State 또는 표 메뉴로 연결합니다.
   const handleEditorClick = (event: ReactMouseEvent<HTMLDivElement>): void => {
+    if (formatSheet.mode !== "editor" || isTagsOpen) resumeEditor();
     const target = event.target;
     if (target instanceof HTMLInputElement && target.type === "checkbox") {
       if (target.checked) target.setAttribute("checked", "");
@@ -511,29 +544,44 @@ export function MemoModal({
     selectedCell.innerText = await navigator.clipboard.readText();
     syncText();
   };
-  // 서식 패널만 닫고 본문의 포커스와 선택 범위는 그대로 보존합니다.
+  // 시트와 키보드 닫힘 대기를 함께 취소해 늦은 예약이 화면을 덮지 않게 합니다.
   const closeFormatLayer = (): void => {
-    setIsFormatOpen(false);
+    formatSheet.close();
   };
-  // 사용자가 하단의 가가 버튼을 누를 때 서식 패널을 현재 상태의 반대로 전환합니다.
+  // 💡 [본문으로 돌아가기]
+  // 사용자 터치 안에서 편집을 즉시 활성화한 뒤 포커스를 주어 iOS가 키보드를 다시 열 수 있게 합니다.
+  const resumeEditor = (): void => {
+    if (isSaving) return;
+    closeFormatLayer();
+    setIsTagsOpen(false);
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.contentEditable = "true";
+    editor.focus({ preventScroll: true });
+  };
+  // 💡 [가가 버튼의 키보드 교체]
+  // 선택 범위를 먼저 복사하고 현재 입력창을 흐리게 한 뒤 높이가 복원될 때까지 시트 표시를 기다립니다.
   const toggleFormatLayer = (): void => {
-    if (isFormatOpen) {
+    if (formatSheet.mode !== "editor") {
       closeFormatLayer();
       return;
     }
+    rememberSelection();
     setIsTagsOpen(false);
-    setIsFormatOpen(true);
+    formatSheet.open();
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
   };
 
   // 태그 버튼 하나가 직접 입력과 추천 칩을 함께 열고 서식 패널은 접습니다.
   const toggleTags = (): void => {
     rememberSelection();
-    setIsFormatOpen(false);
+    closeFormatLayer();
     setIsTagsOpen((current) => !current);
   };
-  // 편집기 맨 아래의 네 가지 빠른 실행 버튼이 같은 너비와 색상을 사용하도록 모은 클래스입니다.
+  // 다섯 도구의 내용 너비를 유지해 좁은 화면에서는 버튼을 줄이지 않고 가로로 넘깁니다.
   const bottomButton =
-    "ios-tap flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 text-xs font-semibold text-[#e5a93c]";
+    "ios-tap flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[#1e2029] px-4 text-sm font-semibold text-[#e5a93c]";
   return (
     <div
       className="fixed inset-0 z-[100] box-border flex h-[100dvh] w-full max-w-full flex-col overflow-hidden touch-none overscroll-none bg-[#121318] text-[#f3f4f6] xl:items-center xl:justify-center xl:bg-black/70 xl:p-6"
@@ -546,13 +594,21 @@ export function MemoModal({
       aria-labelledby="memo-modal-title"
       onClick={closeEditor}
       onTouchMove={(event) => event.stopPropagation()}
+      onScrollCapture={(event) => {
+        // 모달 외곽과 폼만 원점으로 되돌리고 본문·툴바의 정상적인 스크롤은 유지합니다.
+        const target = event.target;
+        if (target instanceof HTMLElement && target.hasAttribute("data-scroll-locked") && target.scrollTop !== 0) target.scrollTop = 0;
+      }}
+      data-scroll-locked
     >
       {/* 💡 [전체 화면 배경과 편집 영역 분리]
           바깥 배경은 화면 전체를 가리고, 안쪽 높이만 키보드를 따라 줄어들어 남는 공간에 목록이 비치지 않게 합니다. */}
       <div
+        data-scroll-locked
         className="fixed inset-x-0 top-[var(--viewport-top)] flex h-[var(--viewport-height)] min-h-0 w-full flex-col overflow-hidden bg-[#121318] xl:static xl:h-full xl:items-center xl:justify-center xl:bg-transparent"
       >
         <form
+          data-scroll-locked
           id="memo-form"
           onSubmit={submit}
           onClick={(event) => event.stopPropagation()}
@@ -621,7 +677,14 @@ export function MemoModal({
             )}
             <div
               ref={mountEditor}
-              contentEditable={!isSaving}
+              contentEditable={!isSaving && formatSheet.mode === "editor"}
+              data-memo-editor
+              onPointerDown={() => {
+                if (formatSheet.mode !== "editor" || isTagsOpen) resumeEditor();
+              }}
+              onFocus={() => {
+                if (formatSheet.mode !== "editor") closeFormatLayer();
+              }}
               suppressContentEditableWarning
               role="textbox"
               aria-label="메모 내용"
@@ -651,7 +714,7 @@ export function MemoModal({
           </div>
 
           {/* 💡 [키보드 도킹 툴바]
-              네 도구는 줄어들지 않는 하단 영역에 두고 서식 또는 태그 패널 하나만 바로 위에 펼칩니다. */}
+              도구는 가로 스크롤 한 줄에 두고 키보드가 내려간 뒤 서식 패널을 펼칩니다. */}
           <div
             className="z-20 box-border w-full max-w-full shrink-0 touch-none overscroll-none border-t border-[#2a2e3d] bg-[#161922] pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
           >
@@ -714,13 +777,18 @@ export function MemoModal({
                 </div>
               </section>
             )}
-            <div className="mx-auto flex w-full max-w-xl items-center px-1">
+            <div
+              className="scrollbar-hidden flex w-full items-center gap-2 overflow-x-auto overscroll-x-contain touch-pan-x whitespace-nowrap border-t border-[#2a2e3d] bg-[#161922] px-4 py-2"
+              role="toolbar"
+              aria-label="메모 작성 도구"
+            >
               <button
                 type="button"
                 onPointerDown={keepSelection}
                 onClick={toggleFormatLayer}
                 className={bottomButton}
                 aria-expanded={isFormatOpen}
+                aria-busy={formatSheet.mode === "waiting"}
                 aria-controls="memo-format-sheet"
                 aria-label="텍스트 서식"
               >
@@ -735,6 +803,9 @@ export function MemoModal({
                     가
                   </span>
                 </span>
+                <span>
+                  포맷
+                </span>
               </button>
               <button
                 type="button"
@@ -745,6 +816,9 @@ export function MemoModal({
               >
                 <span className="text-lg" aria-hidden="true">
                   ☑️
+                </span>
+                <span>
+                  체크리스트
                 </span>
               </button>
               <button
@@ -775,6 +849,20 @@ export function MemoModal({
                 </span>
                 <span>
                   첨부
+                </span>
+              </button>
+              <button
+                type="button"
+                onPointerDown={keepSelection}
+                onClick={insertTable}
+                className={bottomButton}
+                aria-label="표 삽입"
+              >
+                <span aria-hidden="true">
+                  ▦
+                </span>
+                <span>
+                  표
                 </span>
               </button>
               <input

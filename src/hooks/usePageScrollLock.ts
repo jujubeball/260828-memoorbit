@@ -15,6 +15,18 @@ interface OriginalScrollStyles {
   scrollY: number;
 }
 
+// 💡 [문서 원점 고정]
+// 키보드가 문서를 밀어도 루트만 되돌립니다. 본문과 가로 툴바의 내부 스크롤은 대상이 아닙니다.
+const keepDocumentAtOrigin = (): void => {
+  const html = document.documentElement;
+  const body = document.body;
+  if (html.scrollTop !== 0) html.scrollTop = 0;
+  if (body.scrollTop !== 0) body.scrollTop = 0;
+  if (window.scrollY !== 0 || (window.visualViewport?.offsetTop ?? 0) > 0) {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }
+};
+
 let activeLockCount = 0;
 let originalStyles: OriginalScrollStyles | null = null;
 
@@ -50,6 +62,10 @@ export function usePageScrollLock(isLocked: boolean): void {
       body.style.top = `-${originalStyles.scrollY}px`;
       body.style.left = `-${originalStyles.scrollX}px`;
       body.style.width = "100%";
+      keepDocumentAtOrigin();
+      window.addEventListener("scroll", keepDocumentAtOrigin, { passive: true });
+      window.visualViewport?.addEventListener("scroll", keepDocumentAtOrigin, { passive: true });
+      window.visualViewport?.addEventListener("resize", keepDocumentAtOrigin, { passive: true });
     }
 
     activeLockCount += 1;
@@ -57,6 +73,10 @@ export function usePageScrollLock(isLocked: boolean): void {
     return () => {
       activeLockCount = Math.max(0, activeLockCount - 1);
       if (activeLockCount > 0 || !originalStyles) return;
+
+      window.removeEventListener("scroll", keepDocumentAtOrigin);
+      window.visualViewport?.removeEventListener("scroll", keepDocumentAtOrigin);
+      window.visualViewport?.removeEventListener("resize", keepDocumentAtOrigin);
 
       html.style.overflow = originalStyles.htmlOverflow;
       html.style.overscrollBehavior = originalStyles.htmlOverscrollBehavior;

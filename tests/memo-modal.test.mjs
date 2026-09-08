@@ -34,8 +34,13 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
+  globalThis.Element = dom.window.Element;
+  globalThis.HTMLInputElement = dom.window.HTMLInputElement;
+  globalThis.HTMLTableCellElement = dom.window.HTMLTableCellElement;
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-  dom.window.scrollTo = () => {};
+  Object.defineProperty(dom.window, "scrollY", { value: 240, writable: true });
+  dom.window.scrollTo = ({ top }) => { dom.window.scrollY = top; };
+  Object.defineProperty(dom.window, "innerHeight", { value: 700, writable: true });
   Object.defineProperty(dom.window.HTMLElement.prototype, "innerText", { configurable: true, get() { return this.textContent; } });
   const viewport = Object.assign(new dom.window.EventTarget(), { height: 700, offsetTop: 0 });
   Object.defineProperty(dom.window, "visualViewport", { value: viewport });
@@ -62,8 +67,20 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     document.getSelection().removeAllRanges();
     document.getSelection().addRange(range);
     document.dispatchEvent(new dom.window.Event("selectionchange"));
+    viewport.height = 350;
     await click(button("텍스트 서식"));
     assert.equal(editor.firstChild.firstChild, node);
+    assert.notEqual(document.activeElement, editor);
+    assert.equal(editor.getAttribute("contenteditable"), "false");
+    assert.equal(document.getElementById("memo-format-sheet"), null);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 380)); });
+    assert.equal(document.getElementById("memo-format-sheet"), null);
+    // 키보드가 내려오면서 높이가 복원된 뒤에도 안정화 시간을 기다려 시트를 엽니다.
+    viewport.height = 700;
+    await act(async () => {
+      viewport.dispatchEvent(new dom.window.Event("resize"));
+      await new Promise((resolve) => setTimeout(resolve, 190));
+    });
     const sheet = document.getElementById("memo-format-sheet");
     assert.equal(document.querySelectorAll('[aria-label="서식 도구"]').length, 1);
     assert.equal(sheet.querySelectorAll('[role="group"]').length, 3);
@@ -71,6 +88,8 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     assert.equal(sheet.querySelector('[aria-label="문단 스타일"]').textContent.includes("모노스페이스"), true);
     assert.equal(sheet.closest("form").id, "memo-form");
     await click(button("굵게"));
+    assert.notEqual(document.activeElement, editor);
+    assert.equal(editor.getAttribute("contenteditable"), "false");
     assert.equal(button("굵게").getAttribute("aria-pressed"), "true");
     assert.equal(editor.querySelector("strong").textContent, "안녕");
     assert.equal(editor.firstChild.textContent, "안녕 테스트");
@@ -80,6 +99,12 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     await click(button("굵게"));
     assert.equal(button("굵게").getAttribute("aria-pressed"), "true");
     const formatted = editor.innerHTML;
+    // 본문 터치는 읽기 상태를 즉시 해제하고 키보드 진입용 포커스를 되돌립니다.
+    await click(editor);
+    assert.equal(document.getElementById("memo-format-sheet"), null);
+    assert.equal(editor.getAttribute("contenteditable"), "true");
+    assert.equal(document.activeElement, editor);
+    assert.equal(editor.innerHTML, formatted);
     await click(button("태그 관리"));
     assert.equal(document.getElementById("memo-format-sheet"), null);
     const panel = document.getElementById("memo-tag-panel");
@@ -112,9 +137,38 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     assert.equal(shell.style.getPropertyValue("--viewport-top"), "0px");
     assert.equal(shell.style.getPropertyValue("--viewport-height"), "350px");
     assert(shell.classList.contains("overscroll-none"));
+    const toolbar = shell.querySelector('[role="toolbar"]');
+    assert(toolbar.classList.contains("overflow-x-auto"));
+    assert(toolbar.classList.contains("touch-pan-x"));
+    assert(toolbar.classList.contains("whitespace-nowrap"));
+    assert.equal(toolbar.querySelectorAll("button").length, 5);
+    assert([...toolbar.querySelectorAll("button")].every((item) => item.classList.contains("shrink-0")));
+    editor.parentElement.scrollTop = 80;
+    toolbar.scrollLeft = 90;
+    const form = shell.querySelector("form");
+    form.scrollTop = 42;
+    await act(async () => {
+      form.dispatchEvent(new dom.window.Event("scroll"));
+      editor.parentElement.dispatchEvent(new dom.window.Event("scroll"));
+      toolbar.dispatchEvent(new dom.window.Event("scroll"));
+      document.documentElement.scrollTop = 30;
+      dom.window.scrollY = 30;
+      dom.window.dispatchEvent(new dom.window.Event("scroll"));
+    });
+    assert.equal(form.scrollTop, 0);
+    assert.equal(document.documentElement.scrollTop, 0);
+    assert.equal(dom.window.scrollY, 0);
+    assert.equal(editor.parentElement.scrollTop, 80);
+    assert.equal(toolbar.scrollLeft, 90);
     await click(button("텍스트 서식"));
     assert.equal(document.getElementById("memo-tag-panel"), null);
     await click(button("텍스트 서식"));
+    assert.equal(document.getElementById("memo-format-sheet"), null);
+    viewport.height = 700;
+    await act(async () => {
+      viewport.dispatchEvent(new dom.window.Event("resize"));
+      await new Promise((resolve) => setTimeout(resolve, 380));
+    });
     assert.equal(document.getElementById("memo-format-sheet"), null);
     const image = document.querySelector("figure img");
     assert(image.classList.contains("w-full"));
@@ -153,8 +207,13 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
       assert.equal(imeEnter.defaultPrevented, false);
     });
     assert.equal(editor.querySelectorAll(".memo-check-item").length, 1);
+    await click(button("표 삽입"));
+    assert.equal(editor.querySelectorAll("table td").length, 4);
+    assert.equal(editor.querySelector("p table, .memo-check-item table"), null);
+    assert.equal(document.activeElement, editor);
   } finally {
     await act(async () => root.unmount());
+    assert.equal(dom.window.scrollY, 240);
     dom.window.close();
   }
 });
