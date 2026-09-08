@@ -332,6 +332,9 @@ export function MemoCard({
           >
             {memo.title}
           </h3>
+          <span className="shrink-0 rounded-full border border-[#2a2e3d] px-2 py-0.5 text-xs text-[#9ca3af]">
+            {memo.syncStatus === "synced" ? "동기화 완료" : memo.syncStatus === "failed" ? "전송 재시도" : "전송 대기"}
+          </span>
         </div>
         <p
           className={`min-w-0 ${viewMode === "gallery" ? "mt-1 grid gap-0.5 text-xs leading-4" : "mt-0.5 flex gap-2 text-sm leading-4 text-[#d1d5db] sm:leading-5 xl:text-[15px]"}`}

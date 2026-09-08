@@ -32,6 +32,7 @@ export interface MemoDraft {
 }
 
 interface MemoModalProps {
+  isSaving?: boolean;
   isOpen: boolean;
   editingMemo: Memo | null;
   onClose: () => void;
@@ -93,6 +94,7 @@ const formatDate = (iso?: string): string =>
   }).format(iso ? new Date(iso) : new Date());
 
 export function MemoModal({
+  isSaving = false,
   isOpen,
   editingMemo,
   onClose,
@@ -339,6 +341,7 @@ export function MemoModal({
   // 💡 [이탈 자동 저장]
   // 본문에 한 글자라도 있으면 현재 DOM의 제목·본문·서식을 MemoDraft로 묶어 page.tsx의 공통 저장 함수로 전달합니다.
   const saveCurrentMemo = (): boolean => {
+    if (isSaving) return true;
     const editor = editorRef.current;
     if (!editor?.innerText.trim()) return false;
     const [title, ...body] = editor.innerText.split("\n");
@@ -546,10 +549,10 @@ export function MemoModal({
             </h2>
             <button
               type="submit"
-              disabled={!plainText.trim()}
+              disabled={isSaving || !plainText.trim()}
               className="ios-tap justify-self-end rounded-lg bg-[#e5a93c] px-3 py-1.5 text-sm font-bold text-[#121318] disabled:opacity-40"
             >
-              저장
+              {isSaving ? "저장 중…" : "저장"}
             </button>
           </header>
 
@@ -593,7 +596,7 @@ export function MemoModal({
             )}
             <div
               ref={editorRef}
-              contentEditable
+              contentEditable={!isSaving}
               suppressContentEditableWarning
               role="textbox"
               aria-label="메모 내용"

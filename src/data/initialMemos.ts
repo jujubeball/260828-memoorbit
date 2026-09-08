@@ -76,6 +76,7 @@ export const initialMemos: Memo[] = TAG_DISTRIBUTIONS.flatMap((distribution) =>
     ).toISOString();
 
     return {
+      syncStatus: "pending",
       id: `mock-${distribution.tag}-${String(tagIndex + 1).padStart(2, "0")}`,
       title: `${distribution.tag} ${TITLE_ENDINGS[tagIndex % TITLE_ENDINGS.length]} ${tagIndex + 1}`,
       content: createContent(distribution.subject, currentIndex),

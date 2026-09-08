@@ -10,6 +10,8 @@ export interface MemoLink {
 }
 
 export interface Memo {
+  syncStatus: "synced" | "pending" | "failed";
+  syncRevision?: string;
   id: string;
   title: string;
   content: string;
@@ -22,4 +24,14 @@ export interface Memo {
   imageUrl?: string;
   images?: MemoImageAttachment[];
   links?: MemoLink[];
+}
+
+export interface SyncQueueEntry {
+  id: string;
+  revision: string;
+  operation: "upsert" | "delete";
+  memo?: Memo;
+  attempts: number;
+  nextAttemptAt: number;
+  queuedAt: number;
 }

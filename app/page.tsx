@@ -24,10 +24,13 @@ import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
 import {
   hydrateMemoStorage,
   persistMemos,
+  STORAGE_FALLBACK_EVENT,
 } from "@/src/lib/memoStorage";
 import type { Memo } from "@/types/memo";
 import type { GeminiMemoLink } from "@/src/types/gemini";
 import { requestLinksForMemo, requestRecommendedTags } from "@/src/lib/geminiClient";
+import { createSyncTransport, startSyncQueue } from "@/src/lib/syncQueue";
+import { memoContentKey } from "@/src/lib/storage/db";
 import {
   filterMemos,
   type MemoFilterOptions,
@@ -133,6 +136,15 @@ export default function Home(): React.JSX.Element {
   // memos가 실제 메모 원본이고, 나머지 State는 현재 열린 화면·편집 대상·보기 방식을 기억하는 UI 상태입니다.
   const [memos, setMemos] = useState<Memo[]>(initialMemos);
   const [hasHydratedStorage, setHasHydratedStorage] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const [isSavingMemo, setIsSavingMemo] = useState(false);
+
+  // 로컬 DB가 일시적으로 막혀 별도 백업을 사용하면 사용자가 실제 보관 상태를 알 수 있게 안내합니다.
+  useEffect(() => {
+    const warn = (): void => setStorageError("IndexedDB를 사용할 수 없어 로컬 백업에 보관했습니다. 동기화는 저장소 복구 후 재개됩니다.");
+    window.addEventListener(STORAGE_FALLBACK_EVENT, warn);
+    return () => window.removeEventListener(STORAGE_FALLBACK_EVENT, warn);
+  }, []);
   const [editingMemo, setEditingMemo] = useState<Memo | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Memo | null>(null);
@@ -175,10 +187,14 @@ export default function Home(): React.JSX.Element {
   useEffect(() => {
     let isActive = true;
     const hydrate = async (): Promise<void> => {
-      const storedMemos = await hydrateMemoStorage(initialMemos);
-      if (isActive) {
-        setMemos(storedMemos);
-        setHasHydratedStorage(true);
+      try {
+        const storedMemos = await hydrateMemoStorage(initialMemos);
+        if (isActive) {
+          setMemos(storedMemos);
+          setHasHydratedStorage(true);
+        }
+      } catch {
+        if (isActive) setStorageError("기기 저장소를 열지 못했습니다. 브라우저 저장소 접근을 허용한 뒤 다시 불러와 주세요.");
       }
     };
     void hydrate();
@@ -239,9 +255,38 @@ export default function Home(): React.JSX.Element {
 
   // 메모 State가 바뀌면 IndexedDB 저장 작업을 순서대로 실행해 마지막 수정 내용이 새로고침 뒤에도 유지되게 합니다.
   useEffect(() => {
+    if (!hasHydratedStorage || isSavingMemo) return;
+    void persistMemos(memos).catch(() => setStorageError("기기에 저장하지 못했습니다. 저장 공간을 확인하고 다시 저장해 주세요."));
+  }, [hasHydratedStorage, isSavingMemo, memos]);
+
+  // 💡 [저장 큐 배지 구독]
+  // DB에서 도착한 상태는 내용이 같은 메모에만 합칩니다. 전송 중 작성한 새 내용은 이전 응답으로 덮어쓰지 않습니다.
+  useEffect(() => {
     if (!hasHydratedStorage) return;
-    void persistMemos(memos);
-  }, [hasHydratedStorage, memos]);
+    try {
+      return startSyncQueue({
+        transport: createSyncTransport(),
+        onError: () => setStorageError("동기화 큐를 읽지 못했습니다. 기기의 저장소 설정을 확인해 주세요."),
+        onChange: (stored) => {
+          const byId = new Map(stored.map((memo) => [memo.id, memo]));
+          setMemos((current) => {
+            let changed = false;
+            const next = current.map((memo) => {
+              const saved = byId.get(memo.id);
+              if (!saved || memoContentKey(saved) !== memoContentKey(memo)
+                || (saved.syncStatus === memo.syncStatus && saved.syncRevision === memo.syncRevision)) return memo;
+              changed = true;
+              return { ...memo, syncStatus: saved.syncStatus, syncRevision: saved.syncRevision };
+            });
+            return changed ? next : current;
+          });
+        },
+      });
+    } catch {
+      const timer = window.setTimeout(() => setStorageError("동기화 서버 설정을 확인해 주세요. 메모는 기기에 보관됩니다."), 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, [hasHydratedStorage]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent): void => {
@@ -309,7 +354,8 @@ export default function Home(): React.JSX.Element {
 
   // 💡 [AI 링크를 메모 State에 병합]
   // 서버가 준 메모 쌍을 양쪽 메모에서 모두 탐색할 수 있게 뒤집은 링크까지 만들고, 기존 메모 객체는 복사해 불변성을 지킵니다.
-  const applyAnalyzedLinks = useCallback((analyzedLinks: GeminiMemoLink[]): void => {
+  const applyAnalyzedLinks = useCallback((analyzedLinks: GeminiMemoLink[], analyzedIds: string[]): void => {
+    const analyzed = new Set(analyzedIds);
     const linksByMemo = new Map<string, Memo["links"]>();
     analyzedLinks.forEach(({ sourceId, targetId, weight, reason }) => {
       linksByMemo.set(sourceId, [
@@ -323,8 +369,8 @@ export default function Home(): React.JSX.Element {
     });
     setMemos((current) => current.map((memo) => {
       const analyzedMemoLinks = linksByMemo.get(memo.id);
-      return analyzedMemoLinks
-        ? { ...memo, links: analyzedMemoLinks }
+      return analyzed.has(memo.id)
+        ? { ...memo, links: analyzedMemoLinks ?? [], syncStatus: "pending" }
         : memo;
     }));
   }, []);
@@ -355,9 +401,16 @@ export default function Home(): React.JSX.Element {
   };
   // 💡 [메모 저장과 자동 저장의 공통 입구]
   // 완료 버튼과 뒤로가기 자동 저장이 모두 이 함수를 사용하며, 기존 메모는 교체하고 새 메모는 목록 맨 앞에 추가합니다.
-  const submitMemo = (draft: MemoDraft): void => {
+  const submitMemo = async (draft: MemoDraft): Promise<void> => {
+    if (!hasHydratedStorage) {
+      setStorageError("기존 메모를 불러오는 중입니다. 잠시 후 다시 저장해 주세요.");
+      return;
+    }
+    if (isSavingMemo) return;
+    setIsSavingMemo(true);
     const now = new Date().toISOString();
     const values = {
+      syncStatus: "pending" as const,
       title: draft.title,
       content: draft.content,
       richContent: draft.richContent,
@@ -377,6 +430,16 @@ export default function Home(): React.JSX.Element {
           createdAt: now,
           isPinned: false,
         };
+    // 💡 [저장 확인 후 편집기 닫기]
+    // 네트워크 응답은 기다리지 않지만 로컬 기록은 완료한 뒤 닫습니다. 실패하면 편집 내용을 화면에 남깁니다.
+    try {
+      setStorageError(null);
+      await persistMemos([savedMemo, ...memos.filter((memo) => memo.id !== savedMemo.id)]);
+    } catch {
+      setStorageError("메모를 저장하지 못했습니다. 편집 내용을 유지했으니 다시 저장해 주세요.");
+      setIsSavingMemo(false);
+      return;
+    }
     setMemos((current) => [
       savedMemo,
       ...current
@@ -387,13 +450,15 @@ export default function Home(): React.JSX.Element {
         })),
     ]);
     const existingMemos = memos.filter((memo) => memo.id !== savedMemo.id);
-    if (existingMemos.length > 0) {
+    if (existingMemos.length > 0 && navigator.onLine) {
       void requestLinksForMemo(savedMemo, existingMemos)
         .then((links) => {
           const linksByTarget = new Map(
             links.map((link) => [link.targetId, link]),
           );
           setMemos((current) => current.map((memo) => {
+            const latest = current.find((item) => item.id === savedMemo.id);
+            if (!latest || latest.updatedAt !== savedMemo.updatedAt) return memo;
             if (memo.id === savedMemo.id) return { ...memo, links };
             const reverseLink = linksByTarget.get(memo.id);
             if (!reverseLink) return memo;
@@ -417,6 +482,7 @@ export default function Home(): React.JSX.Element {
         });
     }
     closeEditor();
+    setIsSavingMemo(false);
   };
   // 각 Memo 객체를 화면의 MemoCard와 수정·삭제·고정 이벤트에 연결합니다.
   const renderMemo = (memo: Memo): React.JSX.Element => (
@@ -433,7 +499,7 @@ export default function Home(): React.JSX.Element {
       onTogglePin={(id) =>
         setMemos((current) =>
           current.map((item) =>
-            item.id === id ? { ...item, isPinned: !item.isPinned } : item,
+            item.id === id ? { ...item, isPinned: !item.isPinned, syncStatus: "pending" } : item,
           ),
         )
       }
@@ -445,6 +511,11 @@ export default function Home(): React.JSX.Element {
       style={{ "--panel-width": `${panelWidth}px` } as CSSProperties}
       className={`min-h-dvh bg-[#0f1117] text-[#f3f4f6] xl:pl-[var(--panel-width)] ${activeSection === "orbit" ? "xl:h-screen xl:overflow-hidden" : ""}`}
     >
+      {storageError && (
+        <div role="alert" className="fixed inset-x-4 top-16 z-[150] rounded-xl border border-red-400 bg-[#121318] p-3 text-sm text-red-200">
+          {storageError}
+        </div>
+      )}
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-[var(--panel-width)] min-w-[280px] max-w-[600px] border-r border-[#2a2e3d] bg-[#1a1d26]/80 p-5 backdrop-blur-md xl:flex xl:flex-col">
         <button
           type="button"
@@ -727,6 +798,7 @@ export default function Home(): React.JSX.Element {
       )}
       {isEditorOpen && (
         <MemoModal
+          isSaving={isSavingMemo}
           key={editingMemo?.id ?? "new"}
           isOpen
           editingMemo={editingMemo}

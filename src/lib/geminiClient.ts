@@ -54,6 +54,19 @@ export const requestMemoLinks = async (
   memos: Memo[],
   signal?: AbortSignal,
 ): Promise<GeminiMemoLink[]> => {
+  // 500개를 넘는 경우 묶음을 겹쳐 보내 경계 메모의 연결도 일부 확보하고, 모든 노드가 분석 대상에 포함되게 합니다.
+  if (memos.length > 500) {
+    const links = new Map<string, GeminiMemoLink>();
+    for (let start = 0; start < memos.length; start += 450) {
+      const batch = await requestMemoLinks(memos.slice(start, start + 500), signal);
+      batch.forEach((link) => {
+        const key = [link.sourceId, link.targetId].sort().join(":");
+        if ((links.get(key)?.weight ?? -1) < link.weight) links.set(key, link);
+      });
+      if (start + 500 >= memos.length) break;
+    }
+    return [...links.values()];
+  }
   const response = await fetch("/api/links/recommend", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -70,7 +83,14 @@ export const requestMemoLinks = async (
   if (!response.ok) throw new Error("Gemini 메모 연관 분석에 실패했습니다.");
   const result = await response.json() as { links?: unknown };
   if (!Array.isArray(result.links)) throw new Error("메모 연관 응답 형식이 올바르지 않습니다.");
-  return result.links as GeminiMemoLink[];
+  const validIds = new Set(memos.map((memo) => memo.id));
+  return result.links.filter((item): item is GeminiMemoLink => {
+    if (!item || typeof item !== "object") return false;
+    const link = item as Partial<GeminiMemoLink>;
+    return typeof link.sourceId === "string" && typeof link.targetId === "string"
+      && validIds.has(link.sourceId) && validIds.has(link.targetId) && link.sourceId !== link.targetId
+      && typeof link.weight === "number" && Number.isFinite(link.weight) && link.weight >= 0 && link.weight <= 1;
+  });
 };
 
 // 💡 [저장 직후 메모 연결 요청]
