@@ -6,13 +6,14 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type KeyboardEvent as ReactKeyboardEvent,
-  type TouchEvent as ReactTouchEvent,
   useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { useVisualViewport } from "@/src/hooks/useVisualViewport";
+import { CARET_PLACEHOLDER, formatEditorRange, readEditorRange, restoreEditorRange } from "@/src/lib/editorSelection";
 import type { Memo } from "@/types/memo";
 import { requestRecommendedTags } from "@/src/lib/geminiClient";
 import { extractDynamicKeywords } from "@/src/lib/textAnalysis";
@@ -107,6 +108,13 @@ export function MemoModal({
   const tagInputRef = useRef<HTMLInputElement>(null);
   const savedRange = useRef<Range | null>(null);
   const selectedCellRef = useRef<HTMLTableCellElement | null>(null);
+  // 💡 [초기 본문 한 번만 주입]
+  // 태그·키보드 상태가 바뀌어도 React가 사용자가 편집한 DOM과 선택 범위를 다시 만들지 않게 합니다.
+  const [initialHtml] = useState(() => createInitialHtml(editingMemo));
+  const mountEditor = useCallback((element: HTMLDivElement | null): void => {
+    editorRef.current = element;
+    if (element) element.innerHTML = initialHtml;
+  }, [initialHtml]);
   // 💡 [사용자가 바꾸는 편집 상태]
   // 입력할 때마다 화면을 다시 그려야 하는 값만 State로 보관하고, 실제 서식 HTML은 편집 DOM에서 저장 순간 읽습니다.
   const [plainText, setPlainText] = useState(
@@ -124,8 +132,7 @@ export function MemoModal({
   const [recommendedTags, setRecommendedTags] = useState(() => extractDynamicKeywords(plainText));
   const [isUsingLocalAnalysis, setIsUsingLocalAnalysis] = useState(false);
   const [isAnalyzingTags, setIsAnalyzingTags] = useState(false);
-  const [isAiTagsOpen, setIsAiTagsOpen] = useState(false);
-  const [isTagInputOpen, setIsTagInputOpen] = useState(false);
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [isFormatOpen, setIsFormatOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const viewport = useVisualViewport(isOpen);
@@ -134,14 +141,28 @@ export function MemoModal({
 
   usePageScrollLock(isOpen);
 
+  // 💡 [모바일 선택 핸들 추적]
+  // 손가락으로 선택 경계를 바꾸는 동안 Range를 복사하고, 태그 입력창의 선택은 본문 선택을 덮어쓰지 않습니다.
+  useEffect(() => {
+    if (!isOpen) return;
+    const trackSelection = (): void => {
+      const editor = editorRef.current;
+      if (!editor || !editor.contains(document.activeElement)) return;
+      const range = readEditorRange(editor);
+      if (range) savedRange.current = range;
+    };
+    document.addEventListener("selectionchange", trackSelection);
+    return () => document.removeEventListener("selectionchange", trackSelection);
+  }, [isOpen]);
+
   // 태그 입력 도구를 열면 새로 나타난 입력창으로 포커스를 옮겨 모바일 키보드가 자연스럽게 이어지게 합니다.
   useEffect(() => {
-    if (!isTagInputOpen) return;
+    if (!isTagsOpen) return;
     const frameId = window.requestAnimationFrame(() => {
       tagInputRef.current?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frameId);
-  }, [isTagInputOpen]);
+  }, [isTagsOpen]);
 
   // 💡 [300ms Gemini 실시간 분석]
   // 사용자가 입력을 잠깐 멈추면 서버 Route에 최신 본문을 보내고, 실패할 때만 브라우저의 로컬 핵심어 분석기를 사용합니다.
@@ -193,30 +214,16 @@ export function MemoModal({
 
   // 사용자가 본문을 드래그하면 현재 선택 범위를 복사해 서식 버튼을 누른 뒤에도 잃지 않게 합니다.
   const rememberSelection = (): void => {
-    const selection = window.getSelection();
-    if (
-      !selection?.rangeCount ||
-      !editorRef.current?.contains(selection.anchorNode)
-    )
-      return;
-    savedRange.current = selection.getRangeAt(0).cloneRange();
+    if (!editorRef.current) return;
+    const range = readEditorRange(editorRef.current);
+    if (range) savedRange.current = range;
   };
   // 저장해 둔 선택 범위를 본문에 다시 올리고 적용 가능한 Range를 서식 함수에 돌려줍니다.
-  const restoreSelection = (): Range | null => {
-    const selection = window.getSelection();
-    const range = savedRange.current;
-    if (
-      !selection ||
-      !range ||
-      !editorRef.current?.contains(range.commonAncestorContainer)
-    )
-      return null;
-    selection.removeAllRanges();
-    selection.addRange(range);
-    return range;
-  };
+  const restoreSelection = (): Range | null => editorRef.current
+    ? restoreEditorRange(editorRef.current, savedRange.current)
+    : null;
   // 체크리스트나 표처럼 DOM이 직접 바뀐 뒤 현재 글자를 plainText State와 다시 맞춥니다.
-  const syncText = (): void => setPlainText(editorRef.current?.innerText ?? "");
+  const syncText = (): void => setPlainText((editorRef.current?.innerText ?? "").replaceAll(CARET_PLACEHOLDER, ""));
 
   // 에디터의 여백을 눌렀을 때 마지막 글자 뒤에 새 커서를 만들어 바로 이어 쓸 수 있게 합니다.
   const focusEditorEnd = (): void => {
@@ -237,9 +244,6 @@ export function MemoModal({
     if (event.target === event.currentTarget) focusEditorEnd();
   };
 
-  const handleEditorAreaTouch = (event: ReactTouchEvent<HTMLDivElement>): void => {
-    if (event.target === event.currentTarget) focusEditorEnd();
-  };
 
   // 💡 [이미지·표 블록 삭제]
   // 선택 범위 안의 블록 또는 접힌 커서 바로 앞·뒤의 블록을 찾아 키보드 삭제 한 번으로 통째로 제거합니다.
@@ -286,12 +290,18 @@ export function MemoModal({
     syncText();
   };
 
-  // 선택 범위가 있을 때만 브라우저 서식 명령을 실행하고 최신 글자 상태를 저장합니다.
+  // 복원한 텍스트 범위에는 부분 서식을 적용하고, 목록·들여쓰기만 문단 명령으로 처리합니다.
   const applyFormat = (command: string, value?: string): void => {
+    const editor = editorRef.current;
+    if (!editor || isSaving) return;
     const range = restoreSelection();
-    if (!range || range.collapsed) return;
-    document.execCommand(command, false, value);
-    rememberSelection();
+    if (!range) return;
+    const formatted = formatEditorRange(editor, range, command, value);
+    if (formatted) savedRange.current = formatted;
+    else if (["insertUnorderedList", "insertOrderedList", "indent", "outdent"].includes(command)) {
+      document.execCommand(command, false, value);
+      rememberSelection();
+    }
     syncText();
   };
   // 마지막 커서 위치에 체크리스트·표·목록 HTML을 삽입하고 캔버스 내용을 State에 반영합니다.
@@ -306,7 +316,10 @@ export function MemoModal({
     event:
       | ReactMouseEvent<HTMLButtonElement>
       | ReactPointerEvent<HTMLButtonElement>,
-  ): void => event.preventDefault();
+  ): void => {
+    rememberSelection();
+    event.preventDefault();
+  };
   // 💡 [체크리스트 삽입]
   // 체크 원과 글자 영역을 나눠 만든 뒤 커서를 새 항목의 글자 시작 위치로 옮깁니다.
   const insertChecklist = (): void => {
@@ -343,12 +356,13 @@ export function MemoModal({
   const saveCurrentMemo = (): boolean => {
     if (isSaving) return true;
     const editor = editorRef.current;
-    if (!editor?.innerText.trim()) return false;
-    const [title, ...body] = editor.innerText.split("\n");
+    const text = editor?.innerText.replaceAll(CARET_PLACEHOLDER, "");
+    if (!editor || !text?.trim()) return false;
+    const [title, ...body] = text.split("\n");
     onSubmit({
       title: title.trim(),
       content: body.join("\n").trim(),
-      richContent: sanitizeEditorHtml(editor.innerHTML),
+      richContent: sanitizeEditorHtml(editor.innerHTML.replaceAll(CARET_PLACEHOLDER, "")),
       tags,
       imageUrl,
       images,
@@ -472,8 +486,6 @@ export function MemoModal({
   };
   // 서식 패널을 닫을 때 내부 포커스와 하위 색상 팔레트도 함께 정리합니다.
   const closeFormatLayer = (): void => {
-    if (document.activeElement instanceof HTMLElement)
-      document.activeElement.blur();
     setIsFormatOpen(false);
     setIsPaletteOpen(false);
   };
@@ -483,34 +495,27 @@ export function MemoModal({
       closeFormatLayer();
       return;
     }
-    setIsAiTagsOpen(false);
-    setIsTagInputOpen(false);
+    setIsTagsOpen(false);
     setIsFormatOpen(true);
   };
 
-  // AI 추천과 직접 입력은 동시에 화면을 차지하지 않도록, 선택한 도구 하나만 툴바 위에 펼칩니다.
-  const toggleAiTags = (): void => {
-    if (isFormatOpen) closeFormatLayer();
-    setIsTagInputOpen(false);
-    setIsAiTagsOpen((current) => !current);
-  };
-
-  const toggleTagInput = (): void => {
-    if (isFormatOpen) closeFormatLayer();
-    setIsAiTagsOpen(false);
-    setIsTagInputOpen((current) => !current);
+  // 태그 버튼 하나가 직접 입력과 추천 칩을 함께 열고 서식 패널은 접습니다.
+  const toggleTags = (): void => {
+    rememberSelection();
+    setIsFormatOpen(false);
+    setIsPaletteOpen(false);
+    setIsTagsOpen((current) => !current);
   };
   // 여러 서식 버튼이 동일한 터치 크기와 글자 모양을 공유하도록 모은 Tailwind 클래스입니다.
   const formatButton =
     "ios-tap flex h-11 min-w-11 items-center justify-center rounded-lg px-3 text-[15px] font-semibold text-white";
 
-  // 편집기 맨 아래의 다섯 가지 빠른 실행 버튼이 같은 너비와 색상을 사용하도록 모은 클래스입니다.
+  // 편집기 맨 아래의 네 가지 빠른 실행 버튼이 같은 너비와 색상을 사용하도록 모은 클래스입니다.
   const bottomButton =
     "ios-tap flex h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-[#e5a93c]";
-
   return (
     <div
-      className="fixed inset-0 z-[100] box-border flex h-[100dvh] w-full max-w-full flex-col overflow-hidden bg-[#121318] text-[#f3f4f6] xl:items-center xl:justify-center xl:bg-black/70 xl:p-6"
+      className="fixed inset-0 z-[100] box-border flex h-[100dvh] w-full max-w-full flex-col overflow-hidden touch-none bg-[#121318] text-[#f3f4f6] xl:items-center xl:justify-center xl:bg-black/70 xl:p-6"
       style={{
         "--viewport-height": viewport.height === null ? "100dvh" : `${viewport.height}px`,
         "--viewport-top": `${viewport.offsetTop}px`,
@@ -532,7 +537,7 @@ export function MemoModal({
           onClick={(event) => event.stopPropagation()}
           className="box-border flex h-full min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#121318] xl:mx-auto xl:h-[75vh] xl:max-h-[80vh] xl:max-w-2xl xl:flex-none xl:rounded-3xl xl:border xl:border-[#2a2e3d] xl:shadow-2xl"
         >
-          <header className="sticky top-0 z-20 grid h-14 w-full flex-none grid-cols-[1fr_auto_1fr] items-center border-b border-[#2a2e3d] bg-[#121318] px-4">
+          <header className="z-20 flex h-14 w-full shrink-0 items-center justify-between border-b border-[#2a2e3d] bg-[#121318] px-4">
             <button
               type="button"
               onClick={closeEditor}
@@ -557,9 +562,8 @@ export function MemoModal({
           </header>
 
           <div
-            className="box-border min-h-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto touch-pan-y overscroll-none px-4 py-3"
+            className="box-border min-h-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto touch-pan-y overscroll-y-contain [-webkit-overflow-scrolling:touch] px-4 py-3"
             onClick={handleEditorAreaClick}
-            onTouchStart={handleEditorAreaTouch}
           >
             <p className="pb-4 text-center text-xs text-[#8e8e93]">
               {formatDate(editingMemo?.updatedAt)}
@@ -595,7 +599,7 @@ export function MemoModal({
               </div>
             )}
             <div
-              ref={editorRef}
+              ref={mountEditor}
               contentEditable={!isSaving}
               suppressContentEditableWarning
               role="textbox"
@@ -612,30 +616,42 @@ export function MemoModal({
                 selectTableCell(cell);
               }}
               onInput={(event) => {
-                setPlainText(event.currentTarget.innerText);
+                setPlainText(event.currentTarget.innerText.replaceAll(CARET_PLACEHOLDER, ""));
+                rememberSelection();
                 setIsAnalyzingTags(true);
               }}
               onSelect={rememberSelection}
               onKeyUp={rememberSelection}
               onKeyDown={handleEditorKeyDown}
-              className="rich-editor box-border min-h-[70%] w-full max-w-full select-text overflow-x-hidden break-words text-[17px] leading-7 text-white outline-none"
+              className="rich-editor box-border min-h-[70%] w-full max-w-full select-text break-words text-[17px] leading-7 text-white outline-none"
               data-placeholder="메모를 입력하세요"
-              dangerouslySetInnerHTML={{ __html: createInitialHtml(editingMemo) }}
+
             />
           </div>
 
           {/* 💡 [키보드 도킹 툴바]
-              기본 상태에는 다섯 도구만 한 줄로 두고, AI 추천이나 직접 입력은 사용자가 요청할 때만 바로 위에 펼쳐 본문 높이를 지킵니다. */}
+              네 도구는 줄어들지 않는 하단 영역에 두고 통합 태그 패널만 바로 위에 펼칩니다. */}
           <div
-            className="sticky bottom-0 z-20 box-border w-full max-w-full flex-none touch-pan-x overscroll-none overflow-x-hidden border-t border-[#2a2e3d] bg-[#161922] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+            className="z-20 box-border w-full max-w-full shrink-0 touch-pan-x overscroll-none overflow-x-hidden border-t border-[#2a2e3d] bg-[#161922] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
           >
-            {isAiTagsOpen && (
+            {isTagsOpen && (
               <section
                 className={`animate-[fade-in_180ms_ease-out] motion-reduce:animate-none border-b border-[#2a2e3d] px-3 py-2 ${isAnalyzingTags ? "bg-[#e5a93c]/5" : ""}`}
-                aria-label="AI 추천 태그"
-                aria-live="polite"
+                id="memo-tag-panel"
+                aria-label="태그 관리 패널"
               >
-                <div className="scrollbar-hidden flex min-h-8 w-full items-center gap-2 overflow-x-auto overscroll-x-contain">
+                <h3 className="mb-2 text-xs font-semibold text-[#9ca3af]">
+                  🏷️ 태그 관리
+                </h3>
+                <input
+                  ref={tagInputRef}
+                  value={tags}
+                  onChange={(event) => setTags(event.target.value)}
+                  className="w-full rounded-lg border border-[#2a2e3d] bg-[#121318] px-3 py-2 text-base text-white outline-none placeholder:text-[#636366] focus:border-[#e5a93c]"
+                  placeholder="태그 직접 추가: 쉼표로 구분"
+                  aria-label="태그 직접 추가"
+                />
+                <div className="scrollbar-hidden mt-2 flex min-h-8 w-full items-center gap-2 overflow-x-auto touch-pan-x overscroll-x-contain" aria-label="AI 추천 태그" aria-live="polite">
                   <span
                     className={`shrink-0 text-xs text-[#8e8e93] ${isAnalyzingTags ? "animate-pulse text-[#ffc86b] motion-reduce:animate-none" : ""}`}
                   >
@@ -669,39 +685,22 @@ export function MemoModal({
                 </div>
               </section>
             )}
-            {isTagInputOpen && (
-              <input
-                ref={tagInputRef}
-                value={tags}
-                onChange={(event) => setTags(event.target.value)}
-                className="w-full border-b border-[#2a2e3d] bg-[#121318] px-4 py-3 text-base text-white outline-none placeholder:text-[#636366] focus:border-[#e5a93c]"
-                placeholder="태그 직접 추가: 쉼표로 구분"
-                aria-label="태그 직접 추가"
-              />
-            )}
             <div className="mx-auto flex w-full max-w-xl items-center px-1">
               <button
                 type="button"
                 onPointerDown={keepSelection}
-                onClick={toggleAiTags}
+                onClick={toggleTags}
                 className={bottomButton}
-                aria-expanded={isAiTagsOpen}
-              >
-                <span className="text-lg" aria-hidden="true">
-                  ✨
-                </span>
-                <span>AI 태그</span>
-              </button>
-              <button
-                type="button"
-                onClick={toggleTagInput}
-                className={bottomButton}
-                aria-expanded={isTagInputOpen}
+                aria-expanded={isTagsOpen}
+                aria-controls="memo-tag-panel"
+                aria-label="태그 관리"
               >
                 <span className="text-lg" aria-hidden="true">
                   🏷️
                 </span>
-                <span>태그 입력</span>
+                <span>
+                  태그
+                </span>
               </button>
               <button
                 type="button"
@@ -759,159 +758,162 @@ export function MemoModal({
           </div>
         </form>
 
-        <section
-          className={`absolute inset-x-0 bottom-0 z-40 box-border w-full max-w-full overflow-x-hidden rounded-t-3xl bg-[#2c2c2e] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_35px_rgb(0_0_0/0.45)] transition-transform duration-300 ${isFormatOpen ? "translate-y-0" : "translate-y-full"}`}
-          aria-label="서식 도구"
-          aria-hidden={!isFormatOpen}
-          inert={!isFormatOpen}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="mx-auto w-full max-w-xl overflow-x-hidden">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="h-1 w-9 rounded-full bg-[#636366]" />
-              <button
+        {isFormatOpen && (
+          <section
+            className={`absolute inset-x-0 bottom-[calc(4rem_+_env(safe-area-inset-bottom))] z-40 box-border w-full max-h-[calc(100%_-_8rem)] max-w-full overflow-x-hidden overflow-y-auto touch-pan-y overscroll-y-contain rounded-t-3xl bg-[#2c2c2e] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_35px_rgb(0_0_0/0.45)] animate-[fade-in_180ms_ease-out] motion-reduce:animate-none`}
+            aria-label="서식 도구"
+            aria-hidden={!isFormatOpen}
+            inert={!isFormatOpen}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto w-full max-w-xl overflow-x-hidden">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="h-1 w-9 rounded-full bg-[#636366]" />
+                <button
                 type="button"
+                onPointerDown={keepSelection}
                 onClick={closeFormatLayer}
-                className="ios-tap h-9 w-9 rounded-full bg-[#48484a] text-lg"
-                aria-label="서식 도구 닫기"
-              >
-                ×
-              </button>
-            </div>
-            <div
-              className="grid grid-cols-5 rounded-xl bg-[#3a3a3c] p-1"
-              aria-label="문단 스타일"
-            >
-              {[
-                ["제목", "h1"],
-                ["머리말", "h2"],
-                ["부머리말", "h3"],
-                ["본문", "p"],
-                ["모노", "pre"],
-              ].map(([label, value]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onPointerDown={keepSelection}
-                  onClick={() => applyFormat("formatBlock", value)}
-                  className={formatButton}
+                  className="ios-tap h-9 w-9 rounded-full bg-[#48484a] text-lg"
+                  aria-label="서식 도구 닫기"
                 >
-                  {label}
+                  ×
                 </button>
-              ))}
-            </div>
-            <div
-              className="mt-2 flex items-center justify-between rounded-xl bg-[#3a3a3c] p-1"
-              aria-label="글자 서식"
-            >
-              {[
-                ["B", "bold", "굵게"],
-                ["I", "italic", "기울임"],
-                ["U", "underline", "밑줄"],
-                ["S", "strikeThrough", "취소선"],
-              ].map(([label, command, ariaLabel]) => (
-                <button
-                  key={command}
-                  type="button"
-                  onPointerDown={keepSelection}
-                  onClick={() => applyFormat(command)}
-                  className={formatButton}
-                  aria-label={ariaLabel}
-                >
-                  {label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onPointerDown={keepSelection}
-                onClick={() => setIsPaletteOpen((current) => !current)}
-                className={formatButton}
-                aria-expanded={isPaletteOpen}
-                aria-label="글자 색상"
-              >
-                ✎
-              </button>
-            </div>
-            {isPaletteOpen && (
-              <div className="mt-2 flex justify-center gap-4 rounded-xl bg-[#3a3a3c] p-3">
-                {["#ffffff", "#e5a93c", "#ff453a", "#0a84ff", "#30d158"].map(
-                  (color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onPointerDown={keepSelection}
-                      onClick={() => applyFormat("foreColor", color)}
-                      className="format-color-button h-7 w-7 rounded-full border-2 border-white/50"
-                      data-color={color}
-                      aria-label={`${color} 글자 색상`}
-                    />
-                  ),
-                )}
               </div>
-            )}
-            <div
-              className="mt-2 grid grid-cols-6 rounded-xl bg-[#3a3a3c] p-1"
-              aria-label="목록과 들여쓰기"
-            >
-              <button
-                type="button"
-                onPointerDown={keepSelection}
-                onClick={() => applyFormat("insertUnorderedList")}
-                className={formatButton}
-                aria-label="순서 없는 목록"
+              <div
+                className="grid grid-cols-5 rounded-xl bg-[#3a3a3c] p-1"
+                aria-label="문단 스타일"
               >
-                • ≡
-              </button>
-              <button
-                type="button"
-                onPointerDown={keepSelection}
-                onClick={() =>
-                  insertAtCaret('<ul class="dashed-list"><li><br></li></ul>')
-                }
-                className={formatButton}
-                aria-label="대시 목록"
+                {[
+                  ["제목", "h1"],
+                  ["머리말", "h2"],
+                  ["부머리말", "h3"],
+                  ["본문", "p"],
+                  ["모노", "pre"],
+                ].map(([label, value]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onPointerDown={keepSelection}
+                    onClick={() => applyFormat("formatBlock", value)}
+                    className={formatButton}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div
+                className="mt-2 flex items-center justify-between rounded-xl bg-[#3a3a3c] p-1"
+                aria-label="글자 서식"
               >
-                – ≡
-              </button>
-              <button
-                type="button"
-                onPointerDown={keepSelection}
-                onClick={() => applyFormat("insertOrderedList")}
-                className={formatButton}
-                aria-label="숫자 목록"
+                {[
+                  ["B", "bold", "굵게"],
+                  ["I", "italic", "기울임"],
+                  ["U", "underline", "밑줄"],
+                  ["S", "strikeThrough", "취소선"],
+                ].map(([label, command, ariaLabel]) => (
+                  <button
+                    key={command}
+                    type="button"
+                    onPointerDown={keepSelection}
+                    onClick={() => applyFormat(command)}
+                    className={formatButton}
+                    aria-label={ariaLabel}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={() => setIsPaletteOpen((current) => !current)}
+                  className={formatButton}
+                  aria-expanded={isPaletteOpen}
+                  aria-label="글자 색상"
+                >
+                  ✎
+                </button>
+              </div>
+              {isPaletteOpen && (
+                <div className="mt-2 flex justify-center gap-4 rounded-xl bg-[#3a3a3c] p-3">
+                  {["#ffffff", "#e5a93c", "#ff453a", "#0a84ff", "#30d158"].map(
+                    (color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onPointerDown={keepSelection}
+                        onClick={() => applyFormat("foreColor", color)}
+                        className="format-color-button h-7 w-7 rounded-full border-2 border-white/50"
+                        data-color={color}
+                        aria-label={`${color} 글자 색상`}
+                      />
+                    ),
+                  )}
+                </div>
+              )}
+              <div
+                className="mt-2 grid grid-cols-6 rounded-xl bg-[#3a3a3c] p-1"
+                aria-label="목록과 들여쓰기"
               >
-                1. ≡
-              </button>
-              <button
-                type="button"
-                onPointerDown={keepSelection}
-                onClick={() => applyFormat("outdent")}
-                className={formatButton}
-                aria-label="내어쓰기"
-              >
-                ⇤
-              </button>
-              <button
-                type="button"
-                onPointerDown={keepSelection}
-                onClick={() => applyFormat("indent")}
-                className={formatButton}
-                aria-label="들여쓰기"
-              >
-                ⇥
-              </button>
-              <button
-                type="button"
-                onPointerDown={keepSelection}
-                onClick={insertTable}
-                className={formatButton}
-                aria-label="표"
-              >
-                ▦
-              </button>
+                <button
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={() => applyFormat("insertUnorderedList")}
+                  className={formatButton}
+                  aria-label="순서 없는 목록"
+                >
+                  • ≡
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={() =>
+                    insertAtCaret('<ul class="dashed-list"><li><br></li></ul>')
+                  }
+                  className={formatButton}
+                  aria-label="대시 목록"
+                >
+                  – ≡
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={() => applyFormat("insertOrderedList")}
+                  className={formatButton}
+                  aria-label="숫자 목록"
+                >
+                  1. ≡
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={() => applyFormat("outdent")}
+                  className={formatButton}
+                  aria-label="내어쓰기"
+                >
+                  ⇤
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={() => applyFormat("indent")}
+                  className={formatButton}
+                  aria-label="들여쓰기"
+                >
+                  ⇥
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={insertTable}
+                  className={formatButton}
+                  aria-label="표"
+                >
+                  ▦
+                </button>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {tableMenuPosition && (
           <div
