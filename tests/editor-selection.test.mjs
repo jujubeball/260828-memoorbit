@@ -19,6 +19,30 @@ function setup(html = "안녕 테스트") {
   return { dom, document, editor, range };
 }
 
+for (const command of ["bold", "italic", "underline", "strikeThrough", "formatBlock"]) {
+  test(`운동만 선택하고 포커스를 옮겨도 ${command} 적용·해제 범위가 유지된다`, () => {
+    const { editor, range, dom, document } = setup("<p>운동은 하면 할 수록 어렵다</p>");
+    range.setStart(editor.firstChild.firstChild, 0);
+    range.setEnd(editor.firstChild.firstChild, 2);
+    document.getSelection().addRange(range);
+    const saved = readEditorRange(editor);
+    document.querySelector("input").focus();
+    const restored = restoreEditorRange(editor, saved);
+    const value = command === "formatBlock" ? "h1" : undefined;
+    const formatted = formatEditorRange(editor, restored, command, value);
+    assert.equal(formatted.toString(), "운동");
+    assert.equal(editor.querySelector("p").lastChild.textContent, "은 하면 할 수록 어렵다");
+    const state = readEditorFormat(editor, formatted);
+    assert.equal(command === "formatBlock" ? state.block : state[command], value ?? true);
+    const cleared = formatEditorRange(editor, formatted, command, value);
+    assert.equal(cleared.toString(), "운동");
+    assert.equal(editor.textContent, "운동은 하면 할 수록 어렵다");
+    const next = readEditorFormat(editor, cleared);
+    assert.equal(command === "formatBlock" ? next.block : next[command], command === "formatBlock" ? null : false);
+    dom.window.close();
+  });
+}
+
 for (const [command, tag] of [["bold", "strong"], ["italic", "em"], ["underline", "u"], ["strikeThrough", "s"]]) {
   test(`안녕만 선택해 ${command} 적용 시 테스트는 그대로 남는다`, () => {
     const { editor, range, dom } = setup();

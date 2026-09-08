@@ -12,7 +12,7 @@ export function useVisualViewport(active = true): VisualViewportState {
   const [viewport, setViewport] = useState<VisualViewportState>({ height: null, offsetTop: 0 });
 
   // 💡 [가시 영역 추적]
-  // 키보드와 화면 이동 이벤트를 한 프레임으로 묶어 모달에 실제 보이는 영역을 전달합니다.
+  // 키보드와 화면 크기 변경만 한 프레임으로 묶습니다. 스크롤마다 위치를 바꾸면 iOS의 화면 보정과 서로 반복되어 모달이 떨릴 수 있습니다.
   useEffect(() => {
     if (!active) return;
     const visualViewport = window.visualViewport;
@@ -31,12 +31,10 @@ export function useVisualViewport(active = true): VisualViewportState {
     };
     schedule();
     visualViewport?.addEventListener("resize", schedule);
-    visualViewport?.addEventListener("scroll", schedule);
     window.addEventListener("resize", schedule);
     return () => {
       window.cancelAnimationFrame(frame);
       visualViewport?.removeEventListener("resize", schedule);
-      visualViewport?.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", schedule);
     };
   }, [active]);
