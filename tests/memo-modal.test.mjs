@@ -142,6 +142,12 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     assert(toolbar.classList.contains("touch-pan-x"));
     assert(toolbar.classList.contains("whitespace-nowrap"));
     assert.equal(toolbar.querySelectorAll("button").length, 5);
+    assert.deepEqual([...toolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), [
+      "텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "태그 관리",
+    ]);
+    assert.deepEqual([...shell.querySelector("header").children].map((item) => item.tagName), ["BUTTON", "H2", "BUTTON"]);
+    assert.equal(shell.querySelector("header").firstElementChild.textContent, "저장");
+    assert.equal(shell.querySelector("header").lastElementChild.textContent, "닫기");
     assert([...toolbar.querySelectorAll("button")].every((item) => item.classList.contains("shrink-0")));
     editor.parentElement.scrollTop = 80;
     toolbar.scrollLeft = 90;
@@ -211,6 +217,67 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     assert.equal(editor.querySelectorAll("table td").length, 4);
     assert.equal(editor.querySelector("p table, .memo-check-item table"), null);
     assert.equal(document.activeElement, editor);
+    assert.equal(editor.querySelector("table").nextElementSibling.outerHTML, "<p><br></p>");
+    // 첫 표 셀에서 다시 눌러도 독립 표 두 개와 각 표 뒤의 빈 문단이 생깁니다.
+    await click(button("표 삽입"));
+    assert.equal(editor.querySelectorAll("table").length, 2);
+    assert.equal(editor.querySelector("table table"), null);
+    for (const table of editor.querySelectorAll("table")) {
+      assert.equal(table.parentElement, editor);
+      assert.equal(table.nextElementSibling.outerHTML, "<p><br></p>");
+    }
+    const scroller = editor.parentElement;
+    assert(scroller.classList.contains("pb-60"));
+    // 여백의 단순 클릭만 끝 문단으로 이동하며, 드래그 시작은 선택과 스크롤을 유지합니다.
+    const beforeTouch = document.getSelection().getRangeAt(0).cloneRange();
+    await act(async () => scroller.dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true })));
+    assert.equal(document.getSelection().anchorNode, beforeTouch.startContainer);
+    await click(scroller);
+    assert.equal(document.activeElement, editor);
+    assert.equal(document.getSelection().anchorNode, editor.lastElementChild);
+    assert.equal(document.getSelection().anchorNode.closest("table"), null);
+    const tail = editor.lastElementChild;
+    scroller.getBoundingClientRect = () => ({ top: 100, bottom: 400 });
+    tail.getBoundingClientRect = () => ({ top: 450, bottom: 478 });
+    scroller.scrollTop = 0;
+    await click(scroller);
+    assert.equal(scroller.scrollTop, 106);
+    assert.equal(form.scrollTop, 0);
+    // 빈 본문 루트와 문장 중간에서도 빈 문단을 보장하고 뒤쪽 글자를 보존합니다.
+    const selectCaret = (container, offset) => {
+      const position = document.createRange();
+      position.setStart(container, offset);
+      position.collapse(true);
+      document.getSelection().removeAllRanges();
+      document.getSelection().addRange(position);
+    };
+    editor.innerHTML = "";
+    selectCaret(editor, 0);
+    await click(button("표 삽입"));
+    assert.equal(editor.children.length, 2);
+    assert.equal(editor.lastElementChild.outerHTML, "<p><br></p>");
+    await click(button("표 삽입"));
+    assert.equal(editor.querySelectorAll("table").length, 2);
+    assert.equal(editor.querySelector("table table"), null);
+    await click(scroller);
+    assert.equal(document.getSelection().anchorNode, editor.lastElementChild);
+    await click(button("표 삽입"));
+    assert.equal(editor.querySelectorAll("table").length, 3);
+    for (const table of editor.querySelectorAll("table")) {
+      assert.equal(table.nextElementSibling.outerHTML, "<p><br></p>");
+    }
+    await click(scroller);
+    const nextLine = document.getSelection().getRangeAt(0);
+    nextLine.insertNode(document.createTextNode("표 다음 줄"));
+    await act(async () => editor.dispatchEvent(new dom.window.InputEvent("input", { bubbles: true })));
+    assert.equal(editor.lastElementChild.textContent, "표 다음 줄");
+    assert.equal(editor.querySelectorAll("table")[1].textContent, "");
+    editor.innerHTML = "<p>앞문장 뒷문장</p>";
+    selectCaret(editor.firstChild.firstChild, 4);
+    await click(button("표 삽입"));
+    assert.equal(editor.firstElementChild.textContent, "앞문장 ");
+    assert.equal(editor.querySelector("table").nextElementSibling.outerHTML, "<p><br></p>");
+    assert.equal(editor.lastElementChild.textContent, "뒷문장");
   } finally {
     await act(async () => root.unmount());
     assert.equal(dom.window.scrollY, 240);

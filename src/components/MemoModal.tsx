@@ -266,16 +266,35 @@ export function MemoModal({
   // 에디터의 여백을 눌렀을 때 마지막 글자 뒤에 새 커서를 만들어 바로 이어 쓸 수 있게 합니다.
   const focusEditorEnd = (): void => {
     const editor = editorRef.current;
-    if (!editor) return;
+    if (!editor || isSaving) return;
     resumeEditor();
-    editor.focus({ preventScroll: true });
+    // 마지막 블록이 표나 목록이면 그 바깥에 빈 문단을 만들어 셀 안으로 커서가 되돌아가지 않게 합니다.
+    let paragraph = editor.lastElementChild;
+    if (!paragraph?.matches("p") || editor.lastChild !== paragraph) {
+      paragraph = document.createElement("p");
+      paragraph.append(document.createElement("br"));
+      editor.append(paragraph);
+    }
     const range = document.createRange();
-    range.selectNodeContents(editor);
-    range.collapse(false);
+    range.selectNodeContents(paragraph);
+    range.collapse(!paragraph.textContent);
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
     savedRange.current = range.cloneRange();
+    updateFormatState(range);
+    // 💡 [본문 안에서만 커서 드러내기]
+    // 하단 여백을 누른 위치와 마지막 문단이 멀면 본문 스크롤만 조정해 헤더·툴바는 그대로 둡니다.
+    const scroller = editor.parentElement;
+    if (scroller) {
+      const bounds = scroller.getBoundingClientRect();
+      const caretBounds = paragraph.getBoundingClientRect();
+      if (caretBounds.bottom > bounds.bottom - 28) {
+        scroller.scrollTop += caretBounds.bottom - bounds.bottom + 28;
+      } else if (caretBounds.top < bounds.top) {
+        scroller.scrollTop += caretBounds.top - bounds.top;
+      }
+    }
   };
 
   // 바깥 스크롤 영역의 패딩 자체가 눌린 경우에만 기존 본문 선택을 건드리지 않고 맨 끝으로 이동합니다.
@@ -376,7 +395,8 @@ export function MemoModal({
     rememberSelection();
     syncText();
   };
-  // 표 버튼은 선택 위치에 빈 표를 넣고 첫 셀에 커서를 두어 바로 입력할 수 있게 합니다.
+  // 💡 [표와 다음 입력 문단 삽입]
+  // 선택 위치에 독립 표와 빈 문단을 함께 넣고 첫 셀로 이동합니다. 표 안에서 다시 눌러도 중첩하지 않습니다.
   const insertTable = (): void => {
     const editor = editorRef.current;
     if (!editor || isSaving) return;
@@ -387,19 +407,45 @@ export function MemoModal({
     table.innerHTML = "<tbody><tr><td><br></td><td><br></td></tr><tr><td><br></td><td><br></td></tr></tbody>";
     range.deleteContents();
     const start = range.startContainer.nodeType === 1 ? range.startContainer as Element : range.startContainer.parentElement;
-    const block = start?.closest("p, h1, h2, h3, pre, div");
-    if (block && block !== editor && editor.contains(block)) {
+    let block = start;
+    while (block && block !== editor && block.parentElement !== editor) {
+      block = block.parentElement;
+    }
+    const paragraph = document.createElement("p");
+    paragraph.append(document.createElement("br"));
+    if (block?.matches("table") && editor.contains(block)) {
+      // 기존 표의 다음 줄도 남겨 두어 두 표 사이와 마지막 표 아래를 각각 터치할 수 있게 합니다.
+      let spacer = block.nextElementSibling;
+      if (!spacer?.matches("p") || spacer.textContent?.trim() || spacer.querySelector("img, table")) {
+        spacer = document.createElement("p");
+        spacer.append(document.createElement("br"));
+        block.after(spacer);
+      }
+      spacer.after(table, paragraph);
+    } else if (block && block !== editor && editor.contains(block)) {
       // 문장 중간의 표는 문단을 앞뒤로 나눠 놓아 문단 안에 표가 잘못 중첩되지 않게 합니다.
       const tail = document.createRange();
       tail.selectNodeContents(block);
       tail.setStart(range.startContainer, range.startOffset);
       const suffix = tail.extractContents();
-      block.after(table);
-      const paragraph = document.createElement("p");
-      paragraph.append(suffix.hasChildNodes() ? suffix : document.createElement("br"));
-      table.after(paragraph);
-      if (!block.textContent?.replaceAll(CARET_PLACEHOLDER, "").trim()) block.remove();
-    } else range.insertNode(table);
+      block.after(table, paragraph);
+      if (suffix.hasChildNodes()) {
+        const remainder = block.cloneNode(false);
+        remainder.appendChild(suffix);
+        paragraph.after(remainder);
+      }
+      if (!block.textContent?.replaceAll(CARET_PLACEHOLDER, "").trim() && !block.querySelector("img, table")) {
+        if (block.matches("p") && block.previousElementSibling?.matches("table")) {
+          block.replaceChildren(document.createElement("br"));
+        } else {
+          block.remove();
+        }
+      }
+    } else {
+      const fragment = document.createDocumentFragment();
+      fragment.append(table, paragraph);
+      range.insertNode(fragment);
+    }
     range.selectNodeContents(table.rows[0].cells[0]);
     range.collapse(true);
     savedRange.current = restoreEditorRange(editor, range);
@@ -614,14 +660,13 @@ export function MemoModal({
           onClick={(event) => event.stopPropagation()}
           className="box-border flex h-full min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#121318] xl:mx-auto xl:h-[75vh] xl:max-h-[80vh] xl:max-w-2xl xl:flex-none xl:rounded-3xl xl:border xl:border-[#2a2e3d] xl:shadow-2xl"
         >
-          <header className="z-20 flex h-14 w-full shrink-0 items-center justify-between border-b border-[#2a2e3d] bg-[#121318] px-4">
+          <header className="z-20 grid h-14 w-full shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-[#2a2e3d] bg-[#121318] px-4">
             <button
-              type="button"
-              onClick={closeEditor}
-              className="ios-tap justify-self-start text-base font-semibold text-[#e5a93c]"
-              aria-label="메모를 자동 저장하고 목록으로 돌아가기"
+              type="submit"
+              disabled={isSaving || !plainText.trim()}
+              className="ios-tap min-h-11 justify-self-start text-base font-semibold text-[#e5a93c] disabled:opacity-40"
             >
-              닫기
+              {isSaving ? "저장 중…" : "저장"}
             </button>
             <h2
               id="memo-modal-title"
@@ -630,16 +675,18 @@ export function MemoModal({
               {editingMemo ? "메모 편집 중" : plainText.trim() ? "새 메모 작성 중" : "새 메모"}
             </h2>
             <button
-              type="submit"
-              disabled={isSaving || !plainText.trim()}
-              className="ios-tap justify-self-end rounded-lg bg-[#e5a93c] px-3 py-1.5 text-sm font-bold text-[#121318] disabled:opacity-40"
+              type="button"
+              onClick={closeEditor}
+              disabled={isSaving}
+              className="ios-tap min-h-11 justify-self-end text-base font-semibold text-[#e5a93c] disabled:opacity-40"
+              aria-label="메모를 자동 저장하고 목록으로 돌아가기"
             >
-              {isSaving ? "저장 중…" : "저장"}
+              닫기
             </button>
           </header>
 
           <div
-            className="box-border min-h-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto touch-pan-y overscroll-y-contain [-webkit-overflow-scrolling:touch] px-4 py-3"
+            className="box-border min-h-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto touch-pan-y overscroll-y-contain [-webkit-overflow-scrolling:touch] px-4 pt-3 pb-60"
             onClick={handleEditorAreaClick}
           >
             <p className="pb-4 text-center text-xs text-[#8e8e93]">
@@ -804,7 +851,7 @@ export function MemoModal({
                   </span>
                 </span>
                 <span>
-                  포맷
+                  서식
                 </span>
               </button>
               <button
@@ -824,17 +871,15 @@ export function MemoModal({
               <button
                 type="button"
                 onPointerDown={keepSelection}
-                onClick={toggleTags}
+                onClick={insertTable}
                 className={bottomButton}
-                aria-expanded={isTagsOpen}
-                aria-controls="memo-tag-panel"
-                aria-label="태그 관리"
+                aria-label="표 삽입"
               >
                 <span className="text-lg" aria-hidden="true">
-                  🏷️
+                  ▦
                 </span>
                 <span>
-                  태그
+                  표
                 </span>
               </button>
               <button
@@ -854,15 +899,17 @@ export function MemoModal({
               <button
                 type="button"
                 onPointerDown={keepSelection}
-                onClick={insertTable}
+                onClick={toggleTags}
                 className={bottomButton}
-                aria-label="표 삽입"
+                aria-expanded={isTagsOpen}
+                aria-controls="memo-tag-panel"
+                aria-label="태그 관리"
               >
-                <span aria-hidden="true">
-                  ▦
+                <span className="text-lg" aria-hidden="true">
+                  🏷️
                 </span>
                 <span>
-                  표
+                  태그
                 </span>
               </button>
               <input
