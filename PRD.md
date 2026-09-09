@@ -210,7 +210,15 @@ MemoOrbit는 스쳐 지나가는 아이디어를 가장 빠르고 편안하게 �
 
 - 루트 레이아웃에 Vercel Web Analytics를 배치하여 배포 환경의 페이지 방문 통계를 수집한다. `@vercel/analytics` 의존성을 배포 설치 목록에 포함한다.
 
+### 4.7 개발자용 구조 설명과 핵심 코드 주석
+
+- 루트 `PROJECT_STRUCTURE.md`에 `src/`의 모든 소스 파일과 실제 API 경로인 `app/api/`의 역할·호출 관계·입출력 흐름을 한글로 정리한다. 화면 진입점, 데이터 타입, 저장과 검색·AI 분석 흐름, 기능별 수정 위치와 미구현 영역도 구분한다.
+- 요청 명칭 `CreateMemoModal.tsx`의 실제 구현은 `src/components/MemoModal.tsx`이다. 이 파일과 `useVisualViewport.ts`, `filterMemos.ts`, `syncQueue.ts`의 함수·상태·이펙트에 입력 출처·처리 원리·화면 반영·정리 시점을 설명하는 한글 주석을 보강한다.
+- IndexedDB 기록을 담당하는 `storage/db.ts`·`memoStorage.ts`와 서버 전송을 담당하는 `syncQueue.ts`의 책임을 구분한다. 문서화 작업에서는 실행 로직을 변경하지 않으며, 실제 소스 목록과 문서 경로의 일치 및 주석 외 코드 불변을 검증한다.
+
 ## 5. 구현 검수 체크리스트
+- [x] PROJECT_STRUCTURE.md에 src·API 소스 37개 역할·호출 관계·데이터 흐름 정리 및 로컬 링크 57개 검증
+- [x] MemoModal·useVisualViewport·filterMemos·syncQueue 한글 주석 보강, 줄바꿈 정규화 후 주석 외 구문·토큰 불변 및 ESLint·TypeScript 검사 통과
 - [x] 저장·타이틀·닫기 및 서식·체크리스트·표·첨부·태그 순서, 연속 표 3개와 각 표 뒤 빈 문단, 하단 여백 클릭 후 다음 줄 입력·본문 스크롤 조정 자동 검증
 - [ ] iPhone Safari 실기기에서 작성 모달 시각 일치·키보드/시트 전환·연속 표 아래 여백 터치와 실제 스크롤 검수 (연결 가능한 브라우저 없음)
 - [x] 키보드 해제 후 서식 시트 전환·본문 재진입·루트 스크롤 원점 고정·가로 툴바 자동 검증
