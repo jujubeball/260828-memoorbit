@@ -78,3 +78,13 @@
 
 3. **[깊이 있는 프론트엔드 지식] 실무 핵심 개념 및 원리 돋보기**:
    - 해당 작업에 적용된 핵심 개념의 필요성, 안 쓸 때 발생하는 실무 문제점, 이번 프로젝트 적용 사례를 풍부하게 설명.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

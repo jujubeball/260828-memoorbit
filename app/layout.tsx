@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,6 +33,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
       {/* 루트 본문도 기기 너비를 넘지 않도록 막아 모든 페이지가 같은 가로 경계를 공유합니다. */}
       <body className="flex min-h-full w-full max-w-full flex-col overflow-x-hidden">
         {children}
+        {/* 페이지 방문 시 분석 스크립트를 연결하여 Vercel에 방문 통계를 전달합니다. */}
+        <Analytics />
       </body>
     </html>
   );
