@@ -216,6 +216,14 @@ MemoOrbit는 스쳐 지나가는 아이디어를 가장 빠르고 편안하게 �
 - 요청 명칭 `CreateMemoModal.tsx`의 실제 구현은 `src/components/MemoModal.tsx`이다. 이 파일과 `useVisualViewport.ts`, `filterMemos.ts`, `syncQueue.ts`의 함수·상태·이펙트에 입력 출처·처리 원리·화면 반영·정리 시점을 설명하는 한글 주석을 보강한다.
 - IndexedDB 기록을 담당하는 `storage/db.ts`·`memoStorage.ts`와 서버 전송을 담당하는 `syncQueue.ts`의 책임을 구분한다. 문서화 작업에서는 실행 로직을 변경하지 않으며, 실제 소스 목록과 문서 경로의 일치 및 주석 외 코드 불변을 검증한다.
 
+### 4.8 전체 코드베이스 학습과 모듈별 정밀 리뷰
+
+- 루트 `FULL_CODEBASE_LEARNING_GUIDE.md`에 시스템 기반·상태 파이프라인, 모바일 에디터·UI, 검색·물리 캔버스·방문 통계의 3개 레이어별 학습 순서를 제공한다.
+- 버전 관리 중인 모든 파일의 역할·입력·상태 변경·출력 또는 부수 효과·경계 사례를 설명한다. 정적 자산·설정·테스트·문서도 목록에 포함하고 자동 생성물과 비밀 환경설정은 별도로 구분한다.
+- 실제 작성 모달 `MemoModal.tsx`의 상태·참조·이펙트·선택 범위·뷰포트·서식·표·JSX를 작은 코드 발췌와 교차 해설로 정밀 분석한다. 직접 연결되는 IndexedDB 저장·전송 시점을 추적하며 현재 사용하지 않는 Zustand Store를 가정하지 않는다.
+- 기존 구조 설명서와 연결하고, 코드 발췌·파일 링크·전체 파일 포함 여부를 실제 소스와 대조한다. 이번 작업은 문서 생성으로 한정한다.
+- [x] 전체 파일 역할·모듈 맵·3개 레이어 커리큘럼 및 코드 발췌 해설 작성, 기존 구조 설명서 연결 완료.
+
 ## 5. 구현 검수 체크리스트
 - [x] PROJECT_STRUCTURE.md에 src·API 소스 37개 역할·호출 관계·데이터 흐름 정리 및 로컬 링크 57개 검증
 - [x] MemoModal·useVisualViewport·filterMemos·syncQueue 한글 주석 보강, 줄바꿈 정규화 후 주석 외 구문·토큰 불변 및 ESLint·TypeScript 검사 통과

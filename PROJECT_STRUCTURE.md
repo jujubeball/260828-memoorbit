@@ -2,6 +2,8 @@
 
 이 문서는 2026-09-09의 실제 소스 코드를 기준으로 작성했다. 구현 예정인 기능은 현재 동작과 구분한다. 요구사항과 완료 여부는 [PRD.md](PRD.md), 개발 규칙은 [AGENTS.md](AGENTS.md), 저장 큐의 서버 계약은 [docs/sync-and-orbit.md](docs/sync-and-orbit.md)를 함께 참고한다.
 
+코드 발췌와 경계 사례를 따라 깊이 학습하려면 [전체 코드베이스 학습 가이드](FULL_CODEBASE_LEARNING_GUIDE.md)를 읽는다. 시스템·상태, 모바일 에디터·UI, 검색·물리 캔버스의 세 레이어로 학습 순서를 제공한다.
+
 ## 1. 먼저 알아둘 구조
 
 MemoOrbit는 **Next.js App Router 화면 + React 브라우저 상태 + IndexedDB 로컬 저장 + Gemini 분석 API**로 구성된다. 브라우저가 메모를 먼저 저장하고, 별도 전송 큐가 연결된 서버로 보내도록 설계되어 있다. 저장 서버와 회원 인증은 아직 구현되지 않았다. Gemini API는 분석을 담당하며 메모를 보관하는 서버가 아니다.
