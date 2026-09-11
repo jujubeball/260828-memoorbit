@@ -3,7 +3,11 @@
 import { useEffect, useEffectEvent, useRef, useState, type PointerEvent } from "react";
 import type { Memo } from "@/types/memo";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
-import { requestMemoLinks } from "@/src/lib/geminiClient";
+import {
+  GeminiApiError,
+  getGeminiErrorLabel,
+  requestMemoLinks,
+} from "@/src/lib/geminiClient";
 import type { GeminiMemoLink } from "@/src/types/gemini";
 import { createOrbitLayout, stepOrbitLayout, zoomOrbitAt, type OrbitLayout, type OrbitPoint, type OrbitTransform } from "@/src/lib/orbitClustering";
 import { drawOrbitCanvas } from "@/src/lib/orbitCanvas";
@@ -33,25 +37,52 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
   const gestureRef = useRef<GestureState>({ points: new Map(), start: null, moved: false });
   const redrawRef = useRef<() => void>(() => {});
   const fitRef = useRef<() => void>(() => {});
+  const edgeRevealStartedAtRef = useRef<number | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [analysisState, setAnalysisState] = useState("저장된 AI 연결을 표시합니다.");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [retry, setRetry] = useState(0);
   const selectedMemo = memos.find((memo) => memo.id === selectedId);
   // 배지 변경은 물리 배치를 다시 시작하지 않도록 노드·연결 정보만 실행 기준으로 사용합니다.
   const layoutKey = JSON.stringify(memos.map(({ id, links }) => ({ id, links })));
   const analysisKey = memos.map((memo) => `${memo.id}:${memo.updatedAt}`).join("|");
   const seedLayout = useEffectEvent(() => createOrbitLayout(memos));
-  const analyze = useEffectEvent(async (signal: AbortSignal) => {
-    if (memos.length < 2 || memos.every((memo) => memo.links !== undefined)) return;
-    if (!navigator.onLine) { setAnalysisState("오프라인: 저장된 AI 연결만 표시합니다."); return; }
+  const analyze = useEffectEvent(async (signal: AbortSignal, force = false) => {
+    if (memos.length < 2) return;
+    if (!force && memos.every((memo) => memo.links !== undefined)) return;
+    if (!navigator.onLine) {
+      console.error("[Tag Orbit] AI 분석을 시작하지 못했습니다.", {
+        category: "network",
+        details: "브라우저가 오프라인 상태입니다.",
+        memoCount: memos.length,
+      });
+      setAnalysisState("네트워크 통신 오류: 저장된 연결을 유지합니다.");
+      return;
+    }
+    setIsAnalyzing(true);
     setAnalysisState("AI 의미 연결을 분석하고 있습니다…");
     try {
       const links = await requestMemoLinks(memos, signal);
       if (signal.aborted) return;
+      edgeRevealStartedAtRef.current = performance.now();
       onLinksAnalyzed(links, memos.map((memo) => memo.id));
       setAnalysisState(links.length ? "AI 유사도에 따라 성운을 배치했습니다." : "강한 AI 연결이 아직 없습니다. 개별 메모를 표시합니다.");
-    } catch {
-      if (!signal.aborted) setAnalysisState("AI 분석에 실패했습니다. 저장된 연결을 유지합니다.");
+    } catch (error) {
+      if (signal.aborted) return;
+      const category = getGeminiErrorLabel(error);
+      const details = error instanceof GeminiApiError
+        ? error.details
+        : error instanceof Error
+          ? error.message
+          : String(error);
+      console.error("[Tag Orbit] AI 연결 분석 실패", {
+        category,
+        details,
+        memoCount: memos.length,
+      });
+      setAnalysisState(`${category}: 저장된 연결을 유지합니다.`);
+    } finally {
+      if (!signal.aborted) setIsAnalyzing(false);
     }
   });
 
@@ -59,7 +90,9 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
   // 본문이 바뀌거나 화면을 떠나면 이전 분석을 취소하고 재연결 때 다시 시도합니다.
   useEffect(() => {
     const controller = new AbortController();
-    const timer = window.setTimeout(() => { void analyze(controller.signal); }, 0);
+    const timer = window.setTimeout(() => {
+      void analyze(controller.signal, retry > 0);
+    }, 0);
     const online = (): void => setRetry((current) => current + 1);
     window.addEventListener("online", online);
     return () => { window.clearTimeout(timer); controller.abort(); window.removeEventListener("online", online); };
@@ -77,6 +110,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
       const nodes = layoutRef.current.nodes;
       if (!nodes.length) return;
       const rect = canvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
       const left = Math.min(...nodes.map((node) => node.x)) - 45;
       const right = Math.max(...nodes.map((node) => node.x)) + 45;
       const top = Math.min(...nodes.map((node) => node.y)) - 45;
@@ -90,15 +124,33 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
         layoutRef.current = stepOrbitLayout(layoutRef.current);
         dirty = true;
       }
-      if (dirty) { drawOrbitCanvas(canvas, layoutRef.current, transformRef.current); dirty = false; }
+      const edgeRevealProgress = edgeRevealStartedAtRef.current === null
+        ? 1
+        : Math.min(1, (performance.now() - edgeRevealStartedAtRef.current) / 650);
+      if (edgeRevealProgress < 1) dirty = true;
+      else edgeRevealStartedAtRef.current = null;
+      if (dirty) {
+        drawOrbitCanvas(
+          canvas,
+          layoutRef.current,
+          transformRef.current,
+          edgeRevealProgress,
+        );
+        dirty = false;
+      }
       if (layoutRef.current.iteration < 180 && layoutRef.current.nodes.length > 0) frame = window.requestAnimationFrame(tick);
     };
     const redraw = (): void => { dirty = true; if (!frame) frame = window.requestAnimationFrame(tick); };
     redrawRef.current = redraw;
     fitRef.current = () => { fit(); redraw(); };
     fit(); redraw();
-    const observer = new ResizeObserver(() => { fit(); redraw(); });
-    observer.observe(canvas);
+    const resize = (): void => {
+      fit();
+      redraw();
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(canvas.parentElement ?? canvas);
+    window.addEventListener("resize", resize);
     const wheel = (event: WheelEvent): void => {
       event.preventDefault();
       const rect = canvas.getBoundingClientRect();
@@ -110,6 +162,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
     return () => {
       window.cancelAnimationFrame(frame);
       observer.disconnect();
+      window.removeEventListener("resize", resize);
       canvas.removeEventListener("wheel", wheel);
       redrawRef.current = () => {};
       fitRef.current = () => {};
@@ -226,11 +279,22 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
         )}
       </div>
       <div className="flex items-center justify-between gap-2 py-2 text-xs text-[#9ca3af]">
-        <p role="status">
+        <p role="status" aria-live="polite">
           {analysisState}
         </p>
-        <button type="button" onClick={() => setRetry((current) => current + 1)} className="shrink-0 p-2 text-[#ffc86b]">
-          분석 재시도
+        <button
+          type="button"
+          onClick={() => setRetry((current) => current + 1)}
+          disabled={isAnalyzing}
+          className="flex shrink-0 items-center gap-2 p-2 text-[#ffc86b] disabled:cursor-wait disabled:opacity-60"
+        >
+          {isAnalyzing && (
+            <span
+              className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#ffc86b]/30 border-t-[#ffc86b] motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+          )}
+          {isAnalyzing ? "분석 중…" : "분석 재시도"}
         </button>
       </div>
       <p className="pb-2 text-xs text-[#9ca3af]">

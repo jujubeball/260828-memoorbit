@@ -2,10 +2,16 @@ import type { OrbitLayout, OrbitTransform } from "@/src/lib/orbitClustering";
 
 // 💡 [성운 배경과 희소 연결선 그리기]
 // 물리 계산이 만든 좌표를 받아 같은 그룹의 중심·궤도·메모를 그립니다. 내용과 React 상태는 변경하지 않습니다.
-export const drawOrbitCanvas = (canvas: HTMLCanvasElement, layout: OrbitLayout, transform: OrbitTransform): void => {
+export const drawOrbitCanvas = (
+  canvas: HTMLCanvasElement,
+  layout: OrbitLayout,
+  transform: OrbitTransform,
+  edgeRevealProgress = 1,
+): void => {
   const context = canvas.getContext("2d");
   if (!context) return;
   const rect = canvas.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
   const ratio = Math.min(2, window.devicePixelRatio || 1);
   if (canvas.width !== Math.round(rect.width * ratio) || canvas.height !== Math.round(rect.height * ratio)) {
     canvas.width = Math.round(rect.width * ratio);
@@ -44,10 +50,10 @@ export const drawOrbitCanvas = (canvas: HTMLCanvasElement, layout: OrbitLayout, 
     degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
     const a = nodes[edge.source];
     const b = nodes[edge.target];
-    context.strokeStyle = `rgba(229,169,60,${edge.weight * 0.6})`;
+    context.strokeStyle = `rgba(229,169,60,${edge.weight * 0.6 * edgeRevealProgress})`;
     context.lineWidth = edge.weight * 2;
     context.shadowColor = "#e5a93c";
-    context.shadowBlur = 6;
+    context.shadowBlur = 6 * edgeRevealProgress;
     context.beginPath();
     context.moveTo(a.x, a.y);
     context.quadraticCurveTo((a.x + b.x) / 2 + 8, (a.y + b.y) / 2 - 12, b.x, b.y);

@@ -7,13 +7,46 @@ import type { MemoLink } from "@/types/memo";
 // 일반 Error에 서버가 보낸 details를 별도 칸으로 보존해, 시간 궤도 화면이 fetch failed의 실제 하위 원인을 그대로 읽을 수 있게 합니다.
 export class GeminiApiError extends Error {
   readonly details: string;
+  readonly category: GeminiErrorCategory;
+  readonly status?: number;
 
-  constructor(message: string, details: string) {
+  constructor(
+    message: string,
+    details: string,
+    category: GeminiErrorCategory = "unknown",
+    status?: number,
+  ) {
     super(message);
     this.name = "GeminiApiError";
     this.details = details;
+    this.category = category;
+    this.status = status;
   }
 }
+
+export type GeminiErrorCategory =
+  | "api-key"
+  | "timeout"
+  | "network"
+  | "response"
+  | "server"
+  | "unknown";
+
+const GEMINI_ERROR_LABELS: Record<GeminiErrorCategory, string> = {
+  "api-key": "API 키 설정 필요",
+  timeout: "분석 요청 시간 초과",
+  network: "네트워크 통신 오류",
+  response: "AI 응답 형식 오류",
+  server: "AI 서버 응답 오류",
+  unknown: "알 수 없는 분석 오류",
+};
+
+export const getGeminiErrorLabel = (error: unknown): string =>
+  error instanceof GeminiApiError
+    ? GEMINI_ERROR_LABELS[error.category]
+    : error instanceof TypeError
+      ? GEMINI_ERROR_LABELS.network
+      : GEMINI_ERROR_LABELS.unknown;
 
 interface RecommendedTagsResponse {
   tags: string[];
@@ -67,30 +100,112 @@ export const requestMemoLinks = async (
     }
     return [...links.values()];
   }
-  const response = await fetch("/api/links/recommend", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      memos: memos.map(({ id, title, content, tags }) => ({
-        id,
-        title,
-        content: content.slice(0, 500),
-        tags,
-      })),
-    }),
-    signal,
-  });
-  if (!response.ok) throw new Error("Gemini 메모 연관 분석에 실패했습니다.");
-  const result = await response.json() as { links?: unknown };
-  if (!Array.isArray(result.links)) throw new Error("메모 연관 응답 형식이 올바르지 않습니다.");
-  const validIds = new Set(memos.map((memo) => memo.id));
-  return result.links.filter((item): item is GeminiMemoLink => {
-    if (!item || typeof item !== "object") return false;
-    const link = item as Partial<GeminiMemoLink>;
-    return typeof link.sourceId === "string" && typeof link.targetId === "string"
-      && validIds.has(link.sourceId) && validIds.has(link.targetId) && link.sourceId !== link.targetId
-      && typeof link.weight === "number" && Number.isFinite(link.weight) && link.weight >= 0 && link.weight <= 1;
-  });
+  const requestController = new AbortController();
+  let didTimeout = false;
+  const abortFromCaller = (): void => requestController.abort(signal?.reason);
+  if (signal?.aborted) abortFromCaller();
+  else signal?.addEventListener("abort", abortFromCaller, { once: true });
+  const timeoutId = window.setTimeout(() => {
+    didTimeout = true;
+    requestController.abort();
+  }, 15_000);
+
+  try {
+    const response = await fetch("/api/links/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        memos: memos.map(({ id, title, content, tags }) => ({
+          id,
+          title,
+          content: content.slice(0, 500),
+          tags,
+        })),
+      }),
+      signal: requestController.signal,
+    });
+    const responseText = await response.text();
+    let result: { links?: unknown; error?: string; details?: string };
+    try {
+      result = JSON.parse(responseText) as typeof result;
+    } catch {
+      throw new GeminiApiError(
+        "Gemini 메모 연관 응답을 해석하지 못했습니다.",
+        `HTTP ${response.status}: JSON 응답이 아닙니다.`,
+        "response",
+        response.status,
+      );
+    }
+    if (!response.ok) {
+      const details = result.details ?? result.error ?? `HTTP ${response.status}`;
+      const category: GeminiErrorCategory = /api\s*키|api key/i.test(details)
+        ? "api-key"
+        : "server";
+      throw new GeminiApiError(
+        "Gemini 메모 연관 분석에 실패했습니다.",
+        details,
+        category,
+        response.status,
+      );
+    }
+    if (!Array.isArray(result.links)) {
+      throw new GeminiApiError(
+        "메모 연관 응답 형식이 올바르지 않습니다.",
+        "links 배열이 응답에 없습니다.",
+        "response",
+        response.status,
+      );
+    }
+    const validIds = new Set(memos.map((memo) => memo.id));
+    const validLinks = result.links.filter((item): item is GeminiMemoLink => {
+      if (!item || typeof item !== "object") return false;
+      const link = item as Partial<GeminiMemoLink>;
+      return typeof link.sourceId === "string" && typeof link.targetId === "string"
+        && validIds.has(link.sourceId) && validIds.has(link.targetId) && link.sourceId !== link.targetId
+        && typeof link.weight === "number" && Number.isFinite(link.weight) && link.weight >= 0 && link.weight <= 1;
+    });
+    if (result.links.length > 0 && validLinks.length === 0) {
+      throw new GeminiApiError(
+        "메모 연관 응답에 유효한 링크가 없습니다.",
+        "links 항목의 ID 또는 가중치 구조가 올바르지 않습니다.",
+        "response",
+        response.status,
+      );
+    }
+    return validLinks;
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    const failure = error instanceof GeminiApiError
+      ? error
+      : didTimeout
+        ? new GeminiApiError(
+            "Gemini 메모 연관 분석 시간이 초과되었습니다.",
+            "15초 안에 응답을 받지 못했습니다.",
+            "timeout",
+          )
+        : error instanceof TypeError
+          ? new GeminiApiError(
+              "Gemini 메모 연관 분석 네트워크 요청에 실패했습니다.",
+              error.message,
+              "network",
+            )
+          : new GeminiApiError(
+              "Gemini 메모 연관 분석에 실패했습니다.",
+              error instanceof Error ? error.message : String(error),
+              "unknown",
+            );
+    console.error("[Tag Orbit] 링크 추천 API 호출 실패", {
+      category: failure.category,
+      status: failure.status,
+      message: failure.message,
+      details: failure.details,
+      memoCount: memos.length,
+    });
+    throw failure;
+  } finally {
+    window.clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", abortFromCaller);
+  }
 };
 
 // 💡 [저장 직후 메모 연결 요청]
