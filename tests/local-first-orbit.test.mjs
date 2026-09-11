@@ -289,6 +289,23 @@ test("고정 여부와 본문 길이와 태그 수가 성운 노드 크기에 �
   assert(radiusById.get("pinned") > radiusById.get("normal"));
 });
 
+test("LOD 클러스터 레이블은 가장 많이 등장한 태그와 메모 수를 제공한다", () => {
+  const { createOrbitLayout, getOrbitClusterSummaries } = loader()("src/lib/orbitClustering.ts");
+  const layout = createOrbitLayout([
+    memo("a", { tags: ["개발", "기록"] }),
+    memo("b", { tags: ["개발"] }),
+    memo("c", { tags: ["개발", "여행"] }),
+  ]);
+  const clusters = getOrbitClusterSummaries(layout);
+
+  assert.equal(clusters.length, 1);
+  assert.equal(clusters[0].label, "개발");
+  assert.equal(clusters[0].memberIds.length, 3);
+  assert(Number.isFinite(clusters[0].x));
+  assert(Number.isFinite(clusters[0].y));
+  assert(clusters[0].radius > 0);
+});
+
 test("높은 유사도는 가까운 거리, 낮은 유사도는 먼 거리로 안정화된다", () => {
   const { stepOrbitLayout } = loader()("src/lib/orbitClustering.ts");
   const separation = (weight) => {

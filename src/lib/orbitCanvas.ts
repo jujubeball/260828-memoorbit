@@ -1,4 +1,8 @@
-import type { OrbitLayout, OrbitTransform } from "@/src/lib/orbitClustering";
+import {
+  getOrbitClusterSummaries,
+  type OrbitLayout,
+  type OrbitTransform,
+} from "@/src/lib/orbitClustering";
 
 // 💡 [성운 배경과 희소 연결선 그리기]
 // 물리 계산이 만든 좌표를 받아 같은 그룹의 중심·궤도·메모를 그립니다. 내용과 React 상태는 변경하지 않습니다.
@@ -8,6 +12,7 @@ export const drawOrbitCanvas = (
   transform: OrbitTransform,
   edgeRevealProgress = 1,
   selectedId: string | null = null,
+  focusedClusterId: string | null = null,
 ): void => {
   const context = canvas.getContext("2d");
   if (!context) return;
@@ -33,27 +38,37 @@ export const drawOrbitCanvas = (
       if (edge.target === selectedIndex) relatedNodeIndices.add(edge.source);
     });
   }
-  const clusters = new Map<string, typeof nodes>();
-  nodes.forEach((node) => clusters.set(node.cluster, [...(clusters.get(node.cluster) ?? []), node]));
-  clusters.forEach((members) => {
-    if (members.length < 2) return;
-    const x = members.reduce((sum, node) => sum + node.x, 0) / members.length;
-    const y = members.reduce((sum, node) => sum + node.y, 0) / members.length;
-    const radius = Math.max(
-      28,
-      ...members.map((node) => Math.hypot(node.x - x, node.y - y) + node.radius + 12),
+  const clusters = getOrbitClusterSummaries(layout);
+  clusters.forEach((cluster) => {
+    const isFocusedCluster = cluster.id === focusedClusterId;
+    const glow = context.createRadialGradient(
+      cluster.x,
+      cluster.y,
+      0,
+      cluster.x,
+      cluster.y,
+      cluster.radius,
     );
-    const glow = context.createRadialGradient(x, y, 0, x, y, radius);
-    glow.addColorStop(0, "rgba(229,169,60,0.13)");
+    glow.addColorStop(0, isFocusedCluster ? "rgba(125,211,252,0.24)" : "rgba(229,169,60,0.13)");
     glow.addColorStop(1, "rgba(229,169,60,0)");
     context.fillStyle = glow;
     context.beginPath();
-    context.arc(x, y, radius, 0, Math.PI * 2);
+    context.arc(cluster.x, cluster.y, cluster.radius, 0, Math.PI * 2);
     context.fill();
-    context.strokeStyle = "rgba(229,169,60,0.2)";
-    context.lineWidth = 1;
+    context.strokeStyle = isFocusedCluster ? "rgba(125,211,252,0.55)" : "rgba(229,169,60,0.2)";
+    context.lineWidth = isFocusedCluster ? 1.8 : 1;
+    context.shadowColor = isFocusedCluster ? "#7dd3fc" : "transparent";
+    context.shadowBlur = isFocusedCluster ? 18 : 0;
     context.beginPath();
-    context.ellipse(x, y, radius, radius * 0.72, -0.3, 0, Math.PI * 2);
+    context.ellipse(
+      cluster.x,
+      cluster.y,
+      cluster.radius,
+      cluster.radius * 0.72,
+      -0.3,
+      0,
+      Math.PI * 2,
+    );
     context.stroke();
   });
   // 강한 선부터 노드당 최대 네 개만 보여 복잡한 거미줄 모양을 줄입니다.
@@ -68,10 +83,21 @@ export const drawOrbitCanvas = (
     degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
     const a = nodes[edge.source];
     const b = nodes[edge.target];
+    const isClusterEdge = focusedClusterId !== null
+      && (a.cluster === focusedClusterId || b.cluster === focusedClusterId);
     const isSelectedEdge = selectedIndex < 0
       || edge.source === selectedIndex
       || edge.target === selectedIndex;
-    const selectionOpacity = selectedIndex < 0 ? 1 : isSelectedEdge ? 1 : 0.12;
+    const selectionOpacity = selectedIndex >= 0
+      ? isSelectedEdge ? 1 : 0.12
+      : focusedClusterId !== null
+        ? isClusterEdge ? 1 : 0.16
+        : 1;
+    const isHighlightedEdge = selectedIndex >= 0
+      ? isSelectedEdge
+      : focusedClusterId !== null
+        ? isClusterEdge
+        : true;
     const edgeOpacity = edge.weight * 0.65 * edgeRevealProgress * selectionOpacity;
     const gradient = context.createLinearGradient(a.x, a.y, b.x, b.y);
     gradient.addColorStop(0, `rgba(125,211,252,${edgeOpacity * 0.55})`);
@@ -80,7 +106,7 @@ export const drawOrbitCanvas = (
     context.strokeStyle = gradient;
     context.lineWidth = edge.weight * 1.8 + Math.min(3, edge.sharedTagCount) * 0.45;
     context.shadowColor = "#e5a93c";
-    context.shadowBlur = (isSelectedEdge ? 10 : 5) * edgeRevealProgress;
+    context.shadowBlur = (isHighlightedEdge ? 10 : 4) * edgeRevealProgress;
     context.beginPath();
     context.moveTo(a.x, a.y);
     context.quadraticCurveTo((a.x + b.x) / 2 + 8, (a.y + b.y) / 2 - 12, b.x, b.y);
@@ -90,7 +116,11 @@ export const drawOrbitCanvas = (
   nodes.forEach((node, index) => {
     const isSelected = index === selectedIndex;
     const isRelated = relatedNodeIndices.has(index);
-    const isDimmed = selectedIndex >= 0 && !isSelected && !isRelated;
+    const isDimmedByNode = selectedIndex >= 0 && !isSelected && !isRelated;
+    const isDimmedByCluster = selectedIndex < 0
+      && focusedClusterId !== null
+      && node.cluster !== focusedClusterId;
+    const isDimmed = isDimmedByNode || isDimmedByCluster;
     context.globalAlpha = isDimmed ? 0.28 : 1;
     const baseRadius = Number.isFinite(node.radius) ? node.radius : 8;
     const pulse = node.isPinned
@@ -123,7 +153,39 @@ export const drawOrbitCanvas = (
     context.strokeStyle = isSelected ? "#fff3c4" : "#ffc86b";
     context.lineWidth = isSelected ? 2.5 : isRelated ? 1.8 : 1;
     context.stroke();
+
+    const titleOpacity = Math.max(0, Math.min(1, (transform.scale - 1.05) / 0.65));
+    if (titleOpacity > 0) {
+      context.globalAlpha = (isDimmed ? 0.18 : 0.9) * titleOpacity;
+      context.shadowBlur = 5;
+      context.shadowColor = "#07090f";
+      context.fillStyle = "#e5e7eb";
+      context.font = `${Math.max(8, 11 / transform.scale)}px sans-serif`;
+      context.textBaseline = "middle";
+      const title = node.title.length > 18 ? `${node.title.slice(0, 18)}…` : node.title;
+      context.fillText(title, node.x + displayRadius + 5 / transform.scale, node.y);
+    }
   });
+
+  if (transform.scale < 1.35) {
+    clusters.forEach((cluster) => {
+      const isFocused = cluster.id === focusedClusterId;
+      const fontSize = (isFocused ? 15 : 13) / transform.scale;
+      context.globalAlpha = isFocused ? 1 : 0.82;
+      context.font = `700 ${fontSize}px sans-serif`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillStyle = isFocused ? "#bae6fd" : "#fcd38d";
+      context.shadowColor = isFocused ? "#38bdf8" : "#e5a93c";
+      context.shadowBlur = isFocused ? 14 : 9;
+      context.fillText(
+        `#${cluster.label} (${cluster.memberIds.length})`,
+        cluster.x,
+        cluster.y - cluster.radius * 0.35,
+      );
+    });
+  }
   context.globalAlpha = 1;
   context.shadowBlur = 0;
+  context.textAlign = "start";
 };

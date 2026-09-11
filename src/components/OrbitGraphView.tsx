@@ -9,7 +9,15 @@ import {
   requestMemoLinks,
 } from "@/src/lib/geminiClient";
 import type { GeminiMemoLink } from "@/src/types/gemini";
-import { createOrbitLayout, stepOrbitLayout, zoomOrbitAt, type OrbitLayout, type OrbitPoint, type OrbitTransform } from "@/src/lib/orbitClustering";
+import {
+  createOrbitLayout,
+  getOrbitClusterSummaries,
+  stepOrbitLayout,
+  zoomOrbitAt,
+  type OrbitLayout,
+  type OrbitPoint,
+  type OrbitTransform,
+} from "@/src/lib/orbitClustering";
 import { drawOrbitCanvas } from "@/src/lib/orbitCanvas";
 
 interface OrbitGraphViewProps {
@@ -46,8 +54,11 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
   const edgeRevealStartedAtRef = useRef<number | null>(null);
   const selectedIdRef = useRef<string | null>(null);
   const hoveredIdRef = useRef<string | null>(null);
+  const hoveredClusterIdRef = useRef<string | null>(null);
   const panFrameRef = useRef(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [orbitQuery, setOrbitQuery] = useState("");
+  const [discoveryMemoIds, setDiscoveryMemoIds] = useState<string[]>([]);
   const [analysisState, setAnalysisState] = useState("저장된 AI 연결을 표시합니다.");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -60,20 +71,19 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
     isPinned,
     createdAt,
   }) => ({ id, links, tags, content, isPinned, createdAt })));
-  const selectedMemo = memos.find((memo) => memo.id === selectedId);
-  const connectedMemoIds = useMemo(() => {
-    const connectedIds = new Set<string>();
-    if (!selectedId) return connectedIds;
-    const layout = createOrbitLayout(memos);
-    const selectedIndex = layout.nodes.findIndex((node) => node.id === selectedId);
-    layout.edges.forEach((edge) => {
-      if (edge.source === selectedIndex) connectedIds.add(layout.nodes[edge.target].id);
-      if (edge.target === selectedIndex) connectedIds.add(layout.nodes[edge.source].id);
-    });
-    return connectedIds;
-  }, [memos, selectedId]);
-  const connectedMemos = memos.filter((memo) => connectedMemoIds.has(memo.id));
-  const previewImage = selectedMemo?.imageUrl ?? selectedMemo?.images?.[0]?.url;
+  const discoveryMemos = discoveryMemoIds
+    .map((id) => memos.find((memo) => memo.id === id))
+    .filter((memo): memo is Memo => memo !== undefined);
+  const topTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    memos.forEach((memo) => memo.tags.forEach((tag) => {
+      const normalized = tag.trim();
+      if (normalized) counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
+    }));
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 6);
+  }, [memos]);
   const analysisKey = memos.map((memo) => `${memo.id}:${memo.updatedAt}`).join("|");
   const seedLayout = useEffectEvent(() => createOrbitLayout(memos));
   const analyze = useEffectEvent(async (signal: AbortSignal, force = false) => {
@@ -85,7 +95,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
         details: "브라우저가 오프라인 상태입니다.",
         memoCount: memos.length,
       });
-      setAnalysisState("네트워크 통신 오류: 저장된 연결을 유지합니다.");
+      setAnalysisState("네트워크 통신 오류: 로컬 태그 성운을 표시합니다.");
       return;
     }
     setIsAnalyzing(true);
@@ -95,7 +105,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
       if (signal.aborted) return;
       edgeRevealStartedAtRef.current = performance.now();
       onLinksAnalyzed(links, memos.map((memo) => memo.id));
-      setAnalysisState(links.length ? "AI 유사도에 따라 성운을 배치했습니다." : "강한 AI 연결이 아직 없습니다. 개별 메모를 표시합니다.");
+      setAnalysisState(links.length ? "AI 유사도에 따라 성운을 배치했습니다." : "로컬 태그와 작성일로 성운을 배치했습니다.");
     } catch (error) {
       if (signal.aborted) return;
       const category = getGeminiErrorLabel(error);
@@ -109,7 +119,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
         details,
         memoCount: memos.length,
       });
-      setAnalysisState(`${category}: 저장된 연결을 유지합니다.`);
+      setAnalysisState(`${category}: 로컬 태그 성운을 표시합니다.`);
     } finally {
       if (!signal.aborted) setIsAnalyzing(false);
     }
@@ -166,6 +176,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
           transformRef.current,
           edgeRevealProgress,
           selectedIdRef.current ?? hoveredIdRef.current,
+          hoveredClusterIdRef.current,
         );
         dirty = false;
       }
@@ -230,6 +241,22 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
     const hitRadius = Math.max(16, nearest.radius * transform.scale + 8);
     return nodeDistance <= hitRadius ? nearest.id : null;
   };
+  const findClusterAtPoint = (point: OrbitPoint): string | null => {
+    const transform = transformRef.current;
+    const clusters = getOrbitClusterSummaries(layoutRef.current);
+    const nearest = clusters
+      .map((cluster) => ({
+        cluster,
+        distance: Math.hypot(
+          cluster.x * transform.scale + transform.x - point.x,
+          (cluster.y - cluster.radius * 0.35) * transform.scale + transform.y - point.y,
+        ),
+      }))
+      .sort((a, b) => a.distance - b.distance)[0];
+    if (!nearest) return null;
+    const labelHitRadius = Math.max(28, Math.min(64, nearest.cluster.radius * transform.scale * 0.45));
+    return nearest.distance <= labelHitRadius ? nearest.cluster.id : null;
+  };
   // 한 손가락 탭은 미리보기로, 이동이나 두 손가락 사용은 확대·이동으로 분리합니다.
   const pointerDown = (event: PointerEvent<HTMLCanvasElement>): void => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -245,8 +272,15 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
     if (!gesture.points.has(event.pointerId)) {
       if (event.pointerType === "mouse") {
         const nextHoveredId = findNodeAtPoint(pointFromEvent(event));
+        const nextHoveredClusterId = nextHoveredId
+          ? layoutRef.current.nodes.find((node) => node.id === nextHoveredId)?.cluster ?? null
+          : findClusterAtPoint(pointFromEvent(event));
         if (hoveredIdRef.current !== nextHoveredId) {
           hoveredIdRef.current = nextHoveredId;
+          redrawRef.current();
+        }
+        if (hoveredClusterIdRef.current !== nextHoveredClusterId) {
+          hoveredClusterIdRef.current = nextHoveredClusterId;
           redrawRef.current();
         }
       }
@@ -270,44 +304,45 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
     if (!gesture.points.has(event.pointerId)) return;
     const point = pointFromEvent(event);
     if (!cancelled && !gesture.moved && gesture.points.size === 1 && gesture.start && distance(gesture.start, point) <= 6) {
-      setSelectedId(findNodeAtPoint(point));
+      const nodeId = findNodeAtPoint(point);
+      const clusterId = nodeId
+        ? layoutRef.current.nodes.find((node) => node.id === nodeId)?.cluster ?? null
+        : findClusterAtPoint(point);
+      if (clusterId) openCluster(clusterId, nodeId);
+      else {
+        setSelectedId(null);
+        setDiscoveryMemoIds([]);
+      }
     }
     if (cancelled) gesture.moved = true;
     gesture.points.delete(event.pointerId);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
-  const zoom = (ratio: number): void => {
-    transformRef.current = zoomOrbitAt(transformRef.current, { x: 0, y: 0 }, { x: 0, y: 0 }, ratio);
-    redrawRef.current();
-  };
-
   const clearHoveredNode = (): void => {
-    if (!hoveredIdRef.current) return;
+    if (!hoveredIdRef.current && !hoveredClusterIdRef.current) return;
     hoveredIdRef.current = null;
+    hoveredClusterIdRef.current = null;
     redrawRef.current();
   };
 
-  // 💡 [연결 메모로 부드럽게 이동]
-  // 프리뷰의 연결 칩을 누르면 목표 노드가 중앙에 오도록 현재 좌표와 목표 좌표를 360ms 동안 보간합니다.
-  const focusNode = (id: string): void => {
-    const node = layoutRef.current.nodes.find((item) => item.id === id);
-    if (!node) return;
+  // 💡 [성운 카메라 이동]
+  // 검색·태그·클러스터 선택이 만든 목표 중심과 배율까지 현재 카메라 좌표를 360ms 동안 부드럽게 보간합니다.
+  const animateCamera = (center: OrbitPoint, targetScale: number): void => {
     window.cancelAnimationFrame(panFrameRef.current);
-    const startedAt = performance.now();
     const start = transformRef.current;
-    const targetScale = Math.max(1.25, Math.min(2, start.scale));
+    let startedAt: number | null = null;
     const target = {
       scale: targetScale,
-      x: -node.x * targetScale,
-      y: -node.y * targetScale,
+      x: -center.x * targetScale,
+      y: -center.y * targetScale,
     };
-    setSelectedId(id);
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       transformRef.current = target;
       redrawRef.current();
       return;
     }
     const animate = (now: number): void => {
+      startedAt ??= now;
       const progress = Math.min(1, (now - startedAt) / 360);
       const eased = 1 - Math.pow(1 - progress, 3);
       transformRef.current = {
@@ -319,6 +354,54 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
       if (progress < 1) panFrameRef.current = window.requestAnimationFrame(animate);
     };
     panFrameRef.current = window.requestAnimationFrame(animate);
+  };
+
+  const focusMemoGroup = (memoIds: string[], targetScale = 1.2): void => {
+    const idSet = new Set(memoIds);
+    const nodes = layoutRef.current.nodes.filter((node) => idSet.has(node.id));
+    if (!nodes.length) return;
+    animateCamera({
+      x: nodes.reduce((sum, node) => sum + node.x, 0) / nodes.length,
+      y: nodes.reduce((sum, node) => sum + node.y, 0) / nodes.length,
+    }, targetScale);
+  };
+
+  // 클러스터나 노드를 누르면 같은 성운의 메모 ID를 패널에 전달하고 선택한 별을 함께 강조합니다.
+  const openCluster = (clusterId: string, selectedNodeId: string | null = null): void => {
+    const memberIds = layoutRef.current.nodes
+      .filter((node) => node.cluster === clusterId)
+      .map((node) => node.id);
+    setSelectedId(selectedNodeId);
+    setDiscoveryMemoIds(memberIds);
+    focusMemoGroup(memberIds, selectedNodeId ? 1.45 : 1.15);
+  };
+
+  const focusTag = (tag: string): void => {
+    const normalizedTag = tag.toLowerCase();
+    const memberIds = memos
+      .filter((memo) => memo.tags.some((memoTag) => memoTag.trim().toLowerCase() === normalizedTag))
+      .map((memo) => memo.id);
+    setSelectedId(null);
+    setDiscoveryMemoIds(memberIds);
+    focusMemoGroup(memberIds, 1.15);
+  };
+
+  const searchOrbit = (): void => {
+    const query = orbitQuery.trim().toLowerCase();
+    if (!query) return;
+    const matches = memos.filter((memo) =>
+      memo.title.toLowerCase().includes(query)
+      || memo.content.toLowerCase().includes(query)
+      || memo.tags.some((tag) => tag.toLowerCase().includes(query)));
+    if (matches.length === 0) {
+      setSelectedId(null);
+      setDiscoveryMemoIds([]);
+      setAnalysisState(`“${orbitQuery.trim()}” 검색 결과가 없습니다.`);
+      return;
+    }
+    setSelectedId(matches.length === 1 ? matches[0].id : null);
+    setDiscoveryMemoIds(matches.map((memo) => memo.id));
+    focusMemoGroup(matches.map((memo) => memo.id), matches.length === 1 ? 1.55 : 1.2);
   };
 
   return (
@@ -337,7 +420,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
         <canvas
           ref={canvasRef}
           className="h-full w-full touch-none cursor-grab active:cursor-grabbing"
-          aria-label={`${memos.length}개 메모 성운. 메모 선택 메뉴로도 탐색할 수 있습니다.`}
+          aria-label={`${memos.length}개 메모 성운. 상단 검색과 태그 칩 또는 성운의 별을 눌러 탐색할 수 있습니다.`}
           onPointerDown={pointerDown}
           onPointerMove={pointerMove}
           onPointerUp={(event) => pointerEnd(event)}
@@ -346,49 +429,45 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
           onLostPointerCapture={(event) => pointerEnd(event, true)}
         />
 
-        <div className="absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-1.5 text-xs">
-          <button
-            type="button"
-            onClick={() => zoom(1.2)}
-            className="rounded-lg border border-white/10 bg-[#121318]/75 px-3 py-2 text-[#ffc86b] shadow-lg backdrop-blur-md"
-            aria-label="궤도 확대"
-          >
-            확대 +
-          </button>
-          <button
-            type="button"
-            onClick={() => zoom(0.8)}
-            className="rounded-lg border border-white/10 bg-[#121318]/75 px-3 py-2 text-[#ffc86b] shadow-lg backdrop-blur-md"
-            aria-label="궤도 축소"
-          >
-            축소 −
-          </button>
-          <button
-            type="button"
-            onClick={() => fitRef.current()}
-            className="rounded-lg border border-white/10 bg-[#121318]/75 px-3 py-2 text-[#d1d5db] shadow-lg backdrop-blur-md"
-          >
-            전체 보기
-          </button>
-          <select
-            aria-label="미리 볼 메모 선택"
-            value={selectedMemo?.id ?? ""}
-            onChange={(event) => {
-              const id = event.target.value;
-              if (id) focusNode(id);
-              else setSelectedId(null);
+        <div className="absolute left-1/2 top-3 z-20 w-[min(92%,42rem)] -translate-x-1/2 rounded-2xl border border-white/15 bg-[#121318]/72 p-2.5 shadow-[0_16px_45px_rgb(0_0_0/0.42)] backdrop-blur-xl">
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              searchOrbit();
             }}
-            className="min-w-0 max-w-44 rounded-lg border border-white/10 bg-[#121318]/80 p-2 text-[#d1d5db] shadow-lg backdrop-blur-md"
           >
-            <option value="">
-              메모 선택 ({memos.length}개)
-            </option>
-            {memos.map((memo) => (
-              <option key={memo.id} value={memo.id}>
-                {memo.title}
-              </option>
-            ))}
-          </select>
+            <span aria-hidden="true" className="pl-1 text-sm">
+              🔭
+            </span>
+            <input
+              type="search"
+              value={orbitQuery}
+              onChange={(event) => setOrbitQuery(event.target.value)}
+              placeholder="성운에서 제목, 내용, 태그 검색"
+              className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-sm text-white outline-none placeholder:text-[#7f8798]"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-[#e5a93c] px-3 py-1.5 text-xs font-bold text-[#121318]"
+            >
+              이동
+            </button>
+          </form>
+          {topTags.length > 0 && (
+            <div className="scrollbar-hidden mt-2 flex gap-1.5 overflow-x-auto border-t border-white/10 pt-2">
+              {topTags.map(([tag, count]) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => focusTag(tag)}
+                  className="shrink-0 rounded-full border border-sky-300/20 bg-sky-300/8 px-2.5 py-1 text-xs text-sky-100 transition hover:border-sky-300/50 hover:bg-sky-300/15"
+                >
+                  #{tag} {count}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {memos.length === 0 && (
@@ -397,7 +476,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
           </p>
         )}
 
-        {!selectedMemo && (
+        {discoveryMemos.length === 0 && (
           <div className="absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#121318]/70 px-3 py-2 text-xs text-[#9ca3af] shadow-xl backdrop-blur-md sm:left-auto sm:w-auto">
             <p role="status" aria-live="polite" className="truncate">
               {analysisState}
@@ -419,73 +498,66 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
           </div>
         )}
 
-        {selectedMemo && (
-          <aside
-            aria-label="메모 미리보기"
-            className="absolute inset-x-3 bottom-3 z-20 max-h-[68%] overflow-y-auto overscroll-contain rounded-2xl border border-white/15 bg-[#121318]/82 p-4 shadow-[0_20px_60px_rgb(0_0_0/0.55)] backdrop-blur-xl sm:left-auto sm:right-4 sm:w-96"
-          >
-            {previewImage && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={previewImage}
-                alt=""
-                className="mb-3 max-h-40 w-full rounded-xl object-cover"
-              />
-            )}
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <strong className="block truncate text-base text-white">
-                  {selectedMemo.title}
-                </strong>
-                <time className="mt-1 block text-xs text-[#9ca3af]">
-                  {formatOrbitDate(selectedMemo.createdAt)}
-                </time>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedId(null)}
-                className="shrink-0 rounded-full border border-white/10 px-3 py-1.5 text-xs text-[#d1d5db]"
-              >
-                닫기
-              </button>
+        <aside
+          aria-label="성운 메모 탐색 패널"
+          aria-hidden={discoveryMemos.length === 0}
+          inert={discoveryMemos.length === 0}
+          className={`absolute bottom-0 right-0 top-0 z-30 flex w-[min(88%,25rem)] flex-col border-l border-white/15 bg-[#11141d]/88 shadow-[-18px_0_55px_rgb(0_0_0/0.48)] backdrop-blur-2xl transition duration-300 ease-out ${discoveryMemos.length > 0 ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-full opacity-0"}`}
+        >
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.16em] text-[#e5a93c]">
+                DISCOVERY
+              </p>
+              <h3 className="mt-1 text-lg font-bold text-white">
+                이 성운의 메모 {discoveryMemos.length}개
+              </h3>
             </div>
-            {selectedMemo.tags.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {selectedMemo.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full border border-[#e5a93c]/35 bg-[#e5a93c]/10 px-2.5 py-1 text-xs text-[#ffc86b]"
-                  >
-                    #{tag}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedId(null);
+                setDiscoveryMemoIds([]);
+              }}
+              className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-[#d1d5db]"
+            >
+              닫기
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+            {discoveryMemos.map((memo) => {
+              const image = memo.imageUrl ?? memo.images?.[0]?.url;
+              return (
+                <button
+                  key={memo.id}
+                  type="button"
+                  onClick={() => onOpenMemo(memo)}
+                  className={`flex w-full gap-3 rounded-xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-[#e5a93c]/50 hover:bg-white/8 ${memo.id === selectedId ? "border-[#e5a93c]/55 bg-[#e5a93c]/10" : "border-white/10 bg-white/5"}`}
+                >
+                  {image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={image}
+                      alt=""
+                      className="h-16 w-16 shrink-0 rounded-lg object-cover"
+                    />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm text-white">
+                      {memo.title}
+                    </strong>
+                    <time className="mt-1 block text-xs text-[#9ca3af]">
+                      {formatOrbitDate(memo.createdAt)}
+                    </time>
+                    <span className="mt-2 block truncate text-xs text-[#ffc86b]">
+                      {memo.tags.length > 0 ? memo.tags.map((tag) => `#${tag}`).join(" ") : "태그 없음"}
+                    </span>
                   </span>
-                ))}
-              </div>
-            )}
-            <p className="mt-3 line-clamp-4 text-sm leading-6 text-[#d1d5db]">
-              {selectedMemo.content || "추가 본문이 없습니다."}
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const nextMemo = connectedMemos[0];
-                  if (nextMemo) focusNode(nextMemo.id);
-                }}
-                disabled={connectedMemos.length === 0}
-                className="rounded-full border border-sky-300/30 bg-sky-300/10 px-3 py-2 text-xs font-semibold text-sky-200 disabled:opacity-40"
-              >
-                연결된 메모 ({connectedMemos.length}개)
-              </button>
-              <button
-                type="button"
-                onClick={() => onOpenMemo(selectedMemo)}
-                className="rounded-lg bg-[#e5a93c] px-3 py-2 text-sm font-semibold text-[#121318]"
-              >
-                메모 열기
-              </button>
-            </div>
-          </aside>
-        )}
+                </button>
+              );
+            })}
+          </div>
+        </aside>
       </div>
     </section>
   );

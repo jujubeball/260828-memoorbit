@@ -2,6 +2,8 @@ import type { Memo } from "@/types/memo";
 
 export interface OrbitNode {
   id: string;
+  title: string;
+  tags: string[];
   cluster: string;
   radius: number;
   isPinned: boolean;
@@ -25,8 +27,39 @@ export interface OrbitLayout {
   iteration: number;
 }
 
+export interface OrbitClusterSummary {
+  id: string;
+  label: string;
+  memberIds: string[];
+  x: number;
+  y: number;
+  radius: number;
+}
+
 export interface OrbitTransform { x: number; y: number; scale: number }
 export interface OrbitPoint { x: number; y: number }
+
+// 클러스터 레이블과 클릭 영역이 같은 중심을 사용하도록 노드 좌표에서 대표 태그·범위를 한 번에 계산합니다.
+export const getOrbitClusterSummaries = (layout: OrbitLayout): OrbitClusterSummary[] => {
+  const groups = new Map<string, OrbitNode[]>();
+  layout.nodes.forEach((node) => groups.set(node.cluster, [...(groups.get(node.cluster) ?? []), node]));
+  return [...groups.entries()].map(([id, members]) => {
+    const x = members.reduce((sum, node) => sum + node.x, 0) / members.length;
+    const y = members.reduce((sum, node) => sum + node.y, 0) / members.length;
+    const tagCounts = new Map<string, number>();
+    members.forEach((node) => node.tags.forEach((tag) => {
+      const normalized = tag.trim();
+      if (normalized) tagCounts.set(normalized, (tagCounts.get(normalized) ?? 0) + 1);
+    }));
+    const label = [...tagCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0]
+      ?? "기록";
+    const radius = Math.max(
+      28,
+      ...members.map((node) => Math.hypot(node.x - x, node.y - y) + node.radius + 12),
+    );
+    return { id, label, memberIds: members.map((node) => node.id), x, y, radius };
+  });
+};
 
 // 💡 [확대 중심 보존]
 // 두 손가락 중점 아래 있던 메모가 확대 후에도 같은 손가락 위치에 오도록 이동량을 함께 계산합니다.
@@ -48,7 +81,7 @@ export const createOrbitLayout = (memos: Memo[]): OrbitLayout => {
     return index;
   };
   const pairs = new Map<string, OrbitEdge>();
-  // 저장된 AI 점수만 사용하며 미분석 쌍에 가짜 유사도를 채우지 않습니다.
+  // 유효한 AI 점수를 우선 모으고, 하나도 없을 때에만 아래의 화면용 로컬 관계를 사용합니다.
   ordered.forEach((memo, index) => memo.links?.forEach((link) => {
     const target = indices.get(link.targetId);
     if (target === undefined || target === index || !Number.isFinite(link.weight)
@@ -158,6 +191,8 @@ export const createOrbitLayout = (memos: Memo[]): OrbitLayout => {
         + Math.min(3, memo.tags.length);
       return {
         id: memo.id,
+        title: memo.title,
+        tags: [...memo.tags],
         cluster: ordered[root(index)].id,
         radius,
         isPinned: memo.isPinned,

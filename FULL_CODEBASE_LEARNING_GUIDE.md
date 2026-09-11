@@ -1,6 +1,6 @@
 # MemoOrbit 전체 코드베이스 학습 및 모듈별 리뷰 가이드
 
-분석 기준: 2026-09-10, 문서 작성 직전 커밋 `71e0dbf`의 실행 코드.
+분석 기준: 2026-09-11, `21d8eda` 이후 Tag Orbit LOD 탐색 개편까지 반영한 실행 코드.
 
 이 문서는 파일을 찾는 지도이면서, 작은 코드 조각을 읽고 실행 흐름을 설명하는 학습 교재다. [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)는 빠른 구조 확인용, 이 문서는 원리·경계 사례·학습 과제까지 살펴보는 정밀 리뷰용이다. 요구사항은 [PRD.md](PRD.md), 작업 규칙은 [AGENTS.md](AGENTS.md)에 있다.
 
@@ -42,7 +42,9 @@ flowchart TD
   Filter --> Cards[MemoCard와 MemoryOrbitView]
   Filter --> Orbit[OrbitGraphView]
   Orbit --> Physics[orbitClustering]
+  Physics --> Fallback[로컬 태그·작성일 Fallback 간선]
   Physics --> Canvas[orbitCanvas]
+  Canvas --> Preview[Glass 검색과 Discovery 메모 패널]
   State --> Timeline[TimelineStreamView]
   Modal --> Client[geminiClient]
   Home --> Client
@@ -81,7 +83,7 @@ flowchart TD
 | Layer 2-4 | 표·첨부·태그 → 카드·날짜 UI | 입력 모듈의 경계 사례 파악 | 표 아래 CSS 여백만으로 입력 줄이 생기는가? |
 | Layer 3-1 | SearchFilterBar → Home 점수 → filterMemos | 검색·정렬 파이프라인 이해 | 선택 태그 OR와 조건 간 AND는 어디에 있는가? |
 | Layer 3-2 | geminiClient → 4개 API → 시간 분석 | 서버 계약과 실패 처리 이해 | AI 분석 실패 시 어떤 화면 값이 유지되는가? |
-| Layer 3-3 | OrbitGraphView → clustering → canvas | 물리 좌표와 화면 좌표 구분 | 배지 갱신이 물리 계산을 재시작시키는가? |
+| Layer 3-3 | OrbitGraphView → clustering → canvas | AI·로컬 간선, 물리 좌표와 화면 좌표 구분 | 태그·본문·고정 상태가 바뀌면 무엇을 다시 계산하는가? |
 | Layer 3-4 | Analytics → 테스트 → 정적 자산 | 관측과 검증 범위 이해 | 방문 통계가 메모 편집 이벤트를 기록하는가? |
 
 각 차시는 코드를 읽고 **입력 → 변경 → 출력**을 자신의 말로 설명한 다음, 마지막 검수 질문을 확인한다. 실험은 별도 변경으로 수행한다. 이 문서 작성에서는 실행 코드를 수정하지 않았다.
@@ -1063,27 +1065,25 @@ AI 검색은 문자열 일치 또는 양수 점수로 후보를 만든다. 태�
 
 ### 5.12 [src/components/OrbitGraphView.tsx](src/components/OrbitGraphView.tsx)
 
-**역할:** 메모별 성운의 데이터·물리 계산·사용자 제스처를 연결한다.
+**역할:** 필터된 메모를 성운 배치로 바꾸고, AI 분석·Canvas 프레임·사용자 제스처·Glass 검색 툴바·Discovery 패널을 연결한다. 200개 메모 `<select>`와 확대·축소·전체 보기 버튼 배열, 화면 아래 제스처 설명은 제거했다. 사용자가 행동하는 데 필요한 분석 상태와 재시도만 Canvas 위의 작은 오버레이로 남겼다. `app/page.tsx`도 Orbit일 때 `xl:max-w-5xl`과 바깥 패딩을 해제하므로 Canvas는 사이드바 오른쪽의 남은 폭과 높이를 사용한다.
 
-<!-- SOURCE src/components/OrbitGraphView.tsx:41:4 -->
-[src/components/OrbitGraphView.tsx L41-L44](src/components/OrbitGraphView.tsx#L41).
+`layoutKey`에는 `id`, `links`, `tags`, `content`, `isPinned`, `createdAt`이 들어간다. 이 값들은 로컬 간선·노드 크기·물리 배치에 영향을 주므로 바뀌면 layout을 다시 만든다. 반대로 `syncStatus` 같은 배송 배지만 바뀌어도 성운이 흔들리지는 않는다. `analysisKey`는 `id`와 `updatedAt`으로 AI 분석 대상을 판별하고, `useEffectEvent`의 `seedLayout`과 `analyze`는 Effect를 불필요하게 재구독하지 않으면서 최신 메모를 읽는다.
 
-```tsx
-  const layoutKey = JSON.stringify(memos.map(({ id, links }) => ({ id, links })));
-  const analysisKey = memos.map((memo) => `${memo.id}:${memo.updatedAt}`).join("|");
-  const seedLayout = useEffectEvent(() => createOrbitLayout(memos));
-  const analyze = useEffectEvent(async (signal: AbortSignal) => {
-```
+**데이터 흐름:** `Home.filteredMemos` → `createOrbitLayout(memos)` → `layoutRef` → 최대 180회의 `stepOrbitLayout` → `drawOrbitCanvas`. AI 결과가 오면 `onLinksAnalyzed` → `Home.applyAnalyzedLinks` → `memos` 갱신·로컬 저장으로 돌아간다. AI 실패 중에는 메모 원본을 지우지 않고 `createOrbitLayout`의 화면 전용 Fallback 관계를 사용한다.
 
-layoutKey는 id·links만 포함하여 배지 변경으로 물리 배치를 다시 만들지 않게 한다. analysisKey는 id·updatedAt으로 분석 대상을 판별한다. `useEffectEvent`는 최신 memos를 읽는 계산·분석 함수를 제공한다.
+**State와 Ref의 경계:** `selectedId`, `orbitQuery`, `discoveryMemoIds`, `analysisState`, `isAnalyzing`, `retry`는 JSX를 바꾸므로 State다. 프레임마다 바뀌는 `layoutRef`, `transformRef`, `hoveredIdRef`, `hoveredClusterIdRef`, 제스처 좌표와 애니메이션 번호는 Ref다. `selectedIdRef`는 Canvas 프레임이 최신 선택을 읽게 하고, 선택 State가 바뀌는 Effect가 이를 동기화한 뒤 다시 그린다.
 
-**흐름:** filteredMemos → 저장 링크 확인/AI 요청 → Home 링크 병합 → layoutRef 초기화 → rAF 물리 단계 → canvas 그리기. selectedId만 React State로 두고 프레임마다 바뀌는 좌표는 Ref로 둔다.
+**검색·태그 이동:** `topTags`는 현재 메모의 태그 빈도를 세어 상위 6개를 만든다. `focusTag`는 선택 태그의 메모 ID를 모으고 `focusMemoGroup`이 현재 물리 좌표의 평균 중심을 계산한다. 검색 폼의 `searchOrbit`은 제목·본문·태그를 소문자로 비교하고 결과 묶음을 같은 경로로 보낸다. `animateCamera`는 목표 중심과 배율까지 360ms ease-out으로 Pan/Zoom하며 동작 감소 설정에서는 즉시 이동한다.
 
-**경계 사례:** 180단계 후 계산 반복을 멈추는 구현이며 수학적 수렴을 직접 판정하는 것은 아니다. pointercancel은 탭 선택으로 처리하지 않는다. 두 손가락 중점·거리로 확대를 계산하고 휠은 passive:false로 기본 동작을 막는다. 작은 이동 6px은 탭 판별 기준이다. 빈 메모·오프라인·AI 실패는 저장된 링크와 안내로 처리한다.
+**노드·클러스터 선택:** `findNodeAtPoint`는 확대 비율과 노드별 radius로 별을 판정하고, 별이 아니면 `findClusterAtPoint`가 LOD 레이블 중심과 Aura 크기를 이용해 클러스터를 판정한다. `openCluster`는 같은 cluster ID의 메모를 `discoveryMemoIds`에 넣고 우측 패널을 연다. 패널은 제목·작성일·태그·대표 사진을 가진 메모 카드 목록이며, 카드 클릭은 기존 `onOpenMemo(memo)`를 호출해 작성·수정 모달로 이어진다. 저장소나 부모 State 구조는 새로 만들지 않는다.
+
+**제스처와 크기 변경:** 탭은 6px 이내 이동일 때만 선택으로 처리한다. 드래그는 x/y를 옮기고 두 손가락은 중점과 거리로 확대한다. `pointercancel`은 탭으로 오인하지 않는다. 휠은 `passive:false`로 기본 문서 확대를 막는다. `ResizeObserver`와 window resize가 부모 크기 변경을 감지해 fit과 redraw를 한 프레임에 요청한다.
+
+**경계 사례:** 물리 계산은 180단계 후 멈추지만 고정 메모 Pulse는 모션 감소 설정이 아닐 때 계속 그린다. Discovery 패널이 닫혀 있을 때만 분석 상태 오버레이가 보인다. 검색 결과가 없으면 패널을 열지 않고 상태 문구로 알려 준다. 빈 메모·오프라인·AI 실패에서도 Canvas와 로컬 메모 노드는 유지된다.
 
 ### 5.13 [src/lib/orbitClustering.ts](src/lib/orbitClustering.ts)
 
-**역할:** 그림을 그리지 않고 배치·힘·확대 좌표를 계산한다.
+**역할:** 그림을 그리지 않고 AI·로컬 관계, 노드 크기, 배치·힘·확대 좌표를 계산하는 순수 계산 계층이다. 입력 `Memo[]`를 복사해 정렬하며 `Memo.links`나 IndexedDB를 변경하지 않는다.
 
 <!-- SOURCE src/lib/orbitClustering.ts:29:6 -->
 [src/lib/orbitClustering.ts L29-L34](src/lib/orbitClustering.ts#L29).
@@ -1099,13 +1099,29 @@ export const zoomOrbitAt = (
 
 `factor`만큼 확대하면서 이전 중점 아래 좌표가 새 중점 아래에 남도록 x/y를 함께 바꾼다. 이동을 보정하지 않으면 핀치 중심이 화면 중앙으로 끌리는 느낌이 난다.
 
-**흐름:** Memo 링크 → 유효하고 중복 없는 간선 → 0.75 이상 연결의 그룹 → 결정적 초기 좌표 → 반발·스프링·감쇠를 한 단계 적용한 새 layout. **경계 사례:** 존재하지 않는 ID·자기 연결·NaN 점수는 제외한다. 미분석 쌍에 가짜 유사도는 만들지 않는다. 전 노드 쌍의 반발 계산은 노드 수 증가에 따라 비용이 커지므로 240개 테스트가 무제한 규모의 성능 보장은 아니다.
+**AI 간선 흐름:** 각 `Memo.links`에서 존재하는 대상 ID와 0~1 범위의 유한 weight만 받는다. 자기 연결과 잘못된 대상은 버리고, 같은 두 메모가 양쪽에서 연결되어 있으면 더 큰 weight 하나만 남긴다. 유효한 AI 간선이 하나라도 있으면 이를 우선 사용한다.
+
+**Local Gravity & Edge Fallback:** AI 간선 Map이 비어 있을 때만 화면용 관계를 만든다. 각 태그를 `trim().toLowerCase()`로 정규화하고 Set으로 중복을 제거한다. 공통 태그 한 개는 weight 0.75, 두 개는 0.85처럼 높아지며 최대 0.95로 제한된다. `sharedTagCount`는 Canvas의 선 굵기에도 쓰인다. 태그가 없는 메모는 모든 후보와 `createdAt` 시각 차이를 비교해 가장 가까운 하나와 weight 0.58의 미세 간선을 만든다. 날짜가 잘못되면 결정적인 배열 거리로 대체한다.
+
+**클러스터와 노드 크기:** weight 0.75 이상 간선은 union-find 방식으로 같은 cluster에 묶인다. 그룹은 황금각 기반의 결정적 초기 좌표를 받아 같은 입력이면 같은 출발점에서 시작한다. radius는 기본 7에 본문 길이 단계, 고정 메모 3, 태그 수 최대 3을 더한다. 따라서 고정 여부·본문 길이·태그가 실제 충돌 거리와 그림 크기에 함께 영향을 준다.
+
+**한 물리 단계:** 모든 노드 쌍은 radius 합과 8px 여유를 기준으로 겹침 반발을 받는다. 간선은 weight에 비례하는 스프링 힘으로 목표 거리까지 끌어당긴다. 속도 감쇠와 cooling을 적용한 새 노드 배열을 반환하므로 이전 layout을 직접 변경하지 않는다.
+
+**경계 사례:** 유효한 AI 간선이 일부만 있어도 로컬 Fallback을 섞지는 않는다. 태그 없는 메모가 하나뿐이고 다른 메모가 없으면 시간 간선을 만들 수 없다. 공통 태그 쌍은 많아질 수 있고 전 노드 쌍 반발도 O(n²)이므로 240개 테스트 통과가 무제한 규모의 성능을 보장하지는 않는다. Fallback edge는 의미 분석 결과가 아니라 탐색 화면의 로컬 힌트다.
 
 ### 5.14 [src/lib/orbitCanvas.ts](src/lib/orbitCanvas.ts)
 
-**역할:** 좌표를 픽셀로 표현한다. **흐름:** canvas+layout+transform → DPR 반영 버퍼 → 중심 이동/확대 → 그룹 빛·궤도·강한 간선·노드. State나 메모 내용을 수정하지 않는다.
+**역할:** 계산된 좌표를 우주 성운 픽셀로 표현한다. 입력은 `canvas`, `layout`, `transform`, 간선 등장 진행률, 선택 또는 호버 ID이며 React State나 메모 내용을 수정하지 않는다.
 
-**경계 사례:** DPR은 최대 2, 선은 가중치 0.75 이상·노드당 최대 4개로 제한한다. canvas width/height 재설정은 context 상태를 초기화할 수 있어 이후 transform을 다시 설정한다. getContext가 없으면 반환한다. 물리 계산과 렌더링을 섞으면 좌표 문제인지 그리기 문제인지 찾기 어려워진다.
+**그리기 순서:** CSS 표시 크기와 최대 2배 DPR로 픽셀 버퍼를 맞춘다 → 화면 중심으로 이동하고 scale을 적용한다 → cluster 중심의 은은한 방사형 성운과 타원 궤도를 그린다 → 간선을 그린다 → 노드를 가장 위에 그린다. Canvas width/height가 재설정되면 Context 상태가 초기화되므로 매번 `setTransform`부터 다시 적용한다.
+
+**간선 비주얼:** AI 간선은 기존처럼 weight 0.75 이상만 표시하고 로컬 Fallback 간선은 작성일 미세 간선까지 허용한다. 단, 복잡한 거미줄을 막기 위해 강한 순서로 각 노드 최대 네 개만 그린다. 시작 스카이블루 → 중앙 골드 → 끝 스카이블루의 선형 그라데이션과 shadow blur를 적용한다. 굵기는 weight와 `sharedTagCount`를 함께 반영하고, 새 AI 결과의 `edgeRevealProgress`는 선이 부드럽게 나타나게 한다.
+
+**노드 비주얼과 Focus Dimming:** radius가 실제 별 크기가 된다. 고정 노드는 `performance.now()` 기반 Pulse와 더 큰 황금 Glow를 사용한다. 선택 또는 호버 ID가 있으면 간선을 훑어 직접 연결된 이웃 Set을 만들고, 선택 노드·이웃·직접 간선만 밝게 남긴다. 나머지 노드는 `globalAlpha 0.28`, 간선은 더 낮은 투명도로 내려 관계의 초점을 만든다.
+
+**LOD와 클러스터 Hover:** `getOrbitClusterSummaries`가 만든 대표 태그·중심·반지름을 공유한다. scale 1.35 미만의 전체 보기에서는 중심 위에 `#대표태그 (N)` 네온 레이블을 그린다. scale 1.05부터 개별 제목이 나타나기 시작해 1.7에서 완전히 보이며, 18자를 넘는 제목은 줄임표로 자른다. `focusedClusterId`가 있으면 해당 Aura와 그 안의 간선을 스카이블루로 밝히고 다른 별과 선을 낮은 투명도로 내린다. 따라서 Component의 클릭 좌표와 Canvas의 레이블 좌표가 같은 요약 계산을 사용한다.
+
+**경계 사례:** `getContext`가 없거나 표시 영역이 0이면 즉시 반환한다. 레거시 테스트 노드처럼 radius가 없으면 8을 사용한다. Pulse는 좌표를 바꾸지 않고 표시 반지름만 바꾼다. Canvas 자체에는 DOM 노드별 접근성 요소가 없으므로 상단의 실제 HTML 검색 입력·태그 버튼과 Discovery 카드가 키보드 탐색 경로를 제공한다.
 
 ### 5.15 [src/utils/selectRepresentativeImage.ts](src/utils/selectRepresentativeImage.ts)
 
@@ -1173,7 +1189,7 @@ export const zoomOrbitAt = (
 | --- | --- | --- |
 | [tests/editor-checklist.test.mjs](tests/editor-checklist.test.mjs) | JSDOM에 문단/Range 생성 → 체크리스트 함수 실행 → DOM·커서 검사 | 중간 삽입·Enter·빈 항목 종료 확인. 실제 iOS 이벤트 발생 순서의 완전 재현 아님 |
 | [tests/editor-selection.test.mjs](tests/editor-selection.test.mjs) | TS 유틸리티 로드 → 선택·서식·목록 처리 → 부분 변경·보존 검사 | 전체 글자 대신 선택만 바뀌는지, 서식 해제 보존 확인. 모바일 선택 핸들 시각 검수 아님 |
-| [tests/local-first-orbit.test.mjs](tests/local-first-orbit.test.mjs) | fake-indexeddb·전송기 주입 → 큐 실패·경합·복구 및 좌표 계산 → 결과 검사 | 영속 큐·수정본·삭제·240노드 수치 확인. 실제 인증/저장 서버 성공 아님 |
+| [tests/local-first-orbit.test.mjs](tests/local-first-orbit.test.mjs) | fake-indexeddb·전송기 주입 → 큐 실패·경합·복구 및 좌표 계산 → 결과 검사 | 영속 큐·수정본·삭제·240노드와 공통 태그/작성일 Fallback 간선·노드 크기 차등 확인. Canvas의 실제 Glow와 터치 감각 검수는 아님 |
 | [tests/memo-modal.test.mjs](tests/memo-modal.test.mjs) | React act + JSDOM + 가짜 viewport → 버튼/입력 이벤트 → DOM·State 결과 검사 | 태그·시트·선택·표 연속 입력과 스크롤 계산 확인. 실제 CSS 레이아웃·키보드 렌더링 아님 |
 
 기존 명령은 `npm test`, `npx eslint .`, `npx tsc --noEmit`, `npm run build`다. Windows PowerShell 정책으로 npm.ps1이 막히면 npm.cmd/npx.cmd를 사용한다. 코드 발췌·문서만 바꾸는 작업과 동작 수정 작업은 검증 범위를 구분한다. 이 가이드에서 소개한 테스트가 모든 함수의 자동 커버리지를 뜻하지는 않는다.
@@ -1191,7 +1207,11 @@ export const zoomOrbitAt = (
 | pending이 계속 표시됨 | endpoint → createSyncTransport → queue revision | 서버 미설정은 정상 대기일 수 있음 |
 | 전송 응답 뒤 최신 내용이 사라짐 | settleSyncEntry → Home.onChange | revision과 memoContentKey 검사 |
 | 날짜 필터 결과가 다름 | 검색 dateBounds vs 시간 분석 날짜 | 작성일/수정일·로컬/UTC·종료 밀리초 |
-| 성운이 배지 변경마다 흔들림 | layoutKey → 물리 Effect | id/links 외 값을 계산 키에 넣었는지 |
+| 성운이 배지 변경마다 흔들림 | layoutKey → 물리 Effect | links·tags·content·isPinned·createdAt 외 배송 배지를 계산 키에 넣었는지 |
+| AI 실패 뒤 별이 점으로만 보임 | createOrbitLayout → pairs.size → Fallback edge | 공통 태그 정규화와 태그 없는 메모의 최근 날짜 이웃 생성 여부 |
+| 선택한 별의 관계가 눈에 안 들어옴 | selectedId/hoveredId → drawOrbitCanvas | 직접 이웃 Set과 나머지 globalAlpha·간선 투명도 |
+| 태그 칩을 눌러도 이동하지 않음 | focusTag → focusMemoGroup → animateCamera | 태그 정규화·현재 layout 좌표·목표 scale/x/y·이전 frame 취소 |
+| 성운 레이블을 눌러도 패널이 안 열림 | findClusterAtPoint → openCluster → discoveryMemoIds | 레이블 중심 hit radius와 cluster ID 일치 여부 |
 | 달력 코드 수정이 반영되지 않음 | DateInputBox import | 미사용 ResponsiveDatePicker를 수정했는지 |
 
 ### 끝까지 읽은 뒤 설명해 볼 다섯 문장
