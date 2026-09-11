@@ -243,6 +243,52 @@ test("240개 노드는 입력을 변경하지 않고 유한 좌표·6개 의미 
   console.log(`240 nodes / 180 steps: ${Math.round(performance.now() - started)}ms`);
 });
 
+test("AI 연결이 없으면 공통 태그 수에 따라 로컬 간선의 힘이 강해진다", () => {
+  const { createOrbitLayout } = loader()("src/lib/orbitClustering.ts");
+  const memos = [
+    memo("a", { tags: ["개발", "기록"] }),
+    memo("b", { tags: ["개발"] }),
+    memo("c", { tags: ["개발", "기록"] }),
+  ];
+  const original = JSON.stringify(memos);
+  const layout = createOrbitLayout(memos);
+  const oneTagEdge = layout.edges.find((edge) => edge.source === 0 && edge.target === 1);
+  const twoTagEdge = layout.edges.find((edge) => edge.source === 0 && edge.target === 2);
+
+  assert.equal(oneTagEdge.isFallback, true);
+  assert.equal(oneTagEdge.sharedTagCount, 1);
+  assert.equal(twoTagEdge.sharedTagCount, 2);
+  assert(twoTagEdge.weight > oneTagEdge.weight);
+  assert.equal(JSON.stringify(memos), original);
+});
+
+test("태그 없는 메모는 작성일이 가장 가까운 메모와 미세 간선으로 연결된다", () => {
+  const { createOrbitLayout } = loader()("src/lib/orbitClustering.ts");
+  const layout = createOrbitLayout([
+    memo("a", { createdAt: "2026-09-01T00:00:00Z" }),
+    memo("b", { createdAt: "2026-09-09T00:00:00Z" }),
+    memo("c", { createdAt: "2026-09-10T00:00:00Z" }),
+  ]);
+  const nearbyEdge = layout.edges.find((edge) => edge.source === 1 && edge.target === 2);
+
+  assert.equal(nearbyEdge.isFallback, true);
+  assert.equal(nearbyEdge.weight, 0.58);
+  assert.equal(nearbyEdge.sharedTagCount, 0);
+});
+
+test("고정 여부와 본문 길이와 태그 수가 성운 노드 크기에 반영된다", () => {
+  const { createOrbitLayout } = loader()("src/lib/orbitClustering.ts");
+  const layout = createOrbitLayout([
+    memo("normal"),
+    memo("tagged", { content: "긴 본문 ".repeat(30), tags: ["개발", "기록"] }),
+    memo("pinned", { isPinned: true }),
+  ]);
+  const radiusById = new Map(layout.nodes.map((node) => [node.id, node.radius]));
+
+  assert(radiusById.get("tagged") > radiusById.get("normal"));
+  assert(radiusById.get("pinned") > radiusById.get("normal"));
+});
+
 test("높은 유사도는 가까운 거리, 낮은 유사도는 먼 거리로 안정화된다", () => {
   const { stepOrbitLayout } = loader()("src/lib/orbitClustering.ts");
   const separation = (weight) => {

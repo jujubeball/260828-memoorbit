@@ -604,7 +604,7 @@ export default function Home(): React.JSX.Element {
         </div>
       </header>
       <main
-        className={`mx-auto w-full max-w-full overflow-x-clip px-4 pt-14 xl:max-w-5xl xl:pt-0 ${activeSection === "timeline" ? "pb-8" : "pb-28"} ${activeSection === "orbit" ? "xl:h-dvh xl:overflow-hidden xl:pb-0" : ""}`}
+        className={`mx-auto w-full max-w-full overflow-x-clip px-4 pt-14 xl:pt-0 ${activeSection === "timeline" ? "pb-8 xl:max-w-5xl" : "pb-28"} ${activeSection === "memos" ? "xl:max-w-5xl" : ""} ${activeSection === "orbit" ? "px-0 xl:h-dvh xl:overflow-hidden xl:pb-0" : ""}`}
       >
         {activeSection === "memos" && (
           <>

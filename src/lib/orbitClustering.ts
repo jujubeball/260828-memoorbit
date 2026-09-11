@@ -3,6 +3,8 @@ import type { Memo } from "@/types/memo";
 export interface OrbitNode {
   id: string;
   cluster: string;
+  radius: number;
+  isPinned: boolean;
   x: number;
   y: number;
   vx: number;
@@ -13,6 +15,8 @@ export interface OrbitEdge {
   source: number;
   target: number;
   weight: number;
+  sharedTagCount: number;
+  isFallback: boolean;
 }
 
 export interface OrbitLayout {
@@ -52,8 +56,72 @@ export const createOrbitLayout = (memos: Memo[]): OrbitLayout => {
     const source = Math.min(index, target);
     const end = Math.max(index, target);
     const key = `${source}:${end}`;
-    if ((pairs.get(key)?.weight ?? -1) < link.weight) pairs.set(key, { source, target: end, weight: link.weight });
+    if ((pairs.get(key)?.weight ?? -1) < link.weight) {
+      pairs.set(key, {
+        source,
+        target: end,
+        weight: link.weight,
+        sharedTagCount: 0,
+        isFallback: false,
+      });
+    }
   }));
+
+  // 💡 [로컬 태그 Fallback 간선]
+  // 유효한 AI 간선이 전혀 없을 때만 같은 태그를 공유하는 메모 쌍을 화면용으로 연결하며 Memo.links 원본에는 기록하지 않습니다.
+  if (pairs.size === 0) {
+    for (let source = 0; source < ordered.length; source += 1) {
+      const sourceTags = new Set(
+        ordered[source].tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean),
+      );
+      if (sourceTags.size === 0) continue;
+      for (let target = source + 1; target < ordered.length; target += 1) {
+        const targetTags = new Set(
+          ordered[target].tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean),
+        );
+        const sharedTagCount = [...targetTags].filter((tag) => sourceTags.has(tag)).length;
+        if (sharedTagCount === 0) continue;
+        pairs.set(`${source}:${target}`, {
+          source,
+          target,
+          weight: Math.min(0.95, 0.75 + (sharedTagCount - 1) * 0.1),
+          sharedTagCount,
+          isFallback: true,
+        });
+      }
+    }
+
+    // 태그가 없는 메모는 작성 시각 차이가 가장 작은 이웃 하나와 미세 간선으로 연결해 화면 구석의 외딴 점이 되지 않게 합니다.
+    ordered.forEach((memo, source) => {
+      if (memo.tags.some((tag) => tag.trim())) return;
+      const sourceTime = new Date(memo.createdAt).getTime();
+      let nearestTarget = -1;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+      ordered.forEach((candidate, target) => {
+        if (source === target) return;
+        const candidateTime = new Date(candidate.createdAt).getTime();
+        const timeDistance = Number.isFinite(sourceTime) && Number.isFinite(candidateTime)
+          ? Math.abs(sourceTime - candidateTime)
+          : Math.abs(source - target);
+        if (timeDistance < nearestDistance) {
+          nearestDistance = timeDistance;
+          nearestTarget = target;
+        }
+      });
+      if (nearestTarget < 0) return;
+      const start = Math.min(source, nearestTarget);
+      const end = Math.max(source, nearestTarget);
+      const key = `${start}:${end}`;
+      if (pairs.has(key)) return;
+      pairs.set(key, {
+        source: start,
+        target: end,
+        weight: 0.58,
+        sharedTagCount: 0,
+        isFallback: true,
+      });
+    });
+  }
   const edges = [...pairs.values()];
   edges.forEach((edge) => {
     if (edge.weight >= 0.75) parents[root(edge.target)] = root(edge.source);
@@ -78,9 +146,26 @@ export const createOrbitLayout = (memos: Memo[]): OrbitLayout => {
   });
   return {
     iteration: 0, edges,
-    nodes: ordered.map((memo, index) => ({
-      id: memo.id, cluster: ordered[root(index)].id, ...positions.get(index)!, vx: 0, vy: 0,
-    })),
+    nodes: ordered.map((memo, index) => {
+      const contentLengthStep = memo.content.length >= 400
+        ? 4
+        : memo.content.length >= 120
+          ? 2
+          : 0;
+      const radius = 7
+        + contentLengthStep
+        + (memo.isPinned ? 3 : 0)
+        + Math.min(3, memo.tags.length);
+      return {
+        id: memo.id,
+        cluster: ordered[root(index)].id,
+        radius,
+        isPinned: memo.isPinned,
+        ...positions.get(index)!,
+        vx: 0,
+        vy: 0,
+      };
+    }),
   };
 };
 
@@ -95,7 +180,13 @@ export const stepOrbitLayout = (layout: OrbitLayout): OrbitLayout => {
       const dy = nodes[j].y - nodes[i].y;
       if (dx === 0 && dy === 0) dx = 0.1;
       const distance = Math.max(1, Math.hypot(dx, dy));
-      const repulsion = Math.min(8, 450 / (distance * distance) + Math.max(0, 26 - distance) * 0.2);
+      const firstRadius = Number.isFinite(nodes[i].radius) ? nodes[i].radius : 8;
+      const secondRadius = Number.isFinite(nodes[j].radius) ? nodes[j].radius : 8;
+      const collisionDistance = firstRadius + secondRadius + 8;
+      const repulsion = Math.min(
+        8,
+        450 / (distance * distance) + Math.max(0, collisionDistance - distance) * 0.2,
+      );
       const fx = dx / distance * repulsion;
       const fy = dy / distance * repulsion;
       forces[i].x -= fx; forces[i].y -= fy;
@@ -106,8 +197,11 @@ export const stepOrbitLayout = (layout: OrbitLayout): OrbitLayout => {
     const dx = nodes[target].x - nodes[source].x;
     const dy = nodes[target].y - nodes[source].y;
     const distance = Math.max(1, Math.hypot(dx, dy));
+    const sourceRadius = Number.isFinite(nodes[source].radius) ? nodes[source].radius : 8;
+    const targetRadius = Number.isFinite(nodes[target].radius) ? nodes[target].radius : 8;
+    const nodeDistance = sourceRadius + targetRadius;
     const force = weight >= 0.5
-      ? (distance - (32 + (1 - weight) * 130)) * weight * 0.025
+      ? (distance - (nodeDistance + 16 + (1 - weight) * 130)) * weight * 0.025
       : -(1 - weight) * Math.min(3, 120 / distance);
     const fx = dx / distance * force;
     const fy = dy / distance * force;
