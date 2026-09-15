@@ -16,6 +16,7 @@ import {
 } from "@/src/components/MemoryOrbitView";
 import { MemoModal, type MemoDraft } from "@/src/components/MemoModal";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
+import { AuthButton } from "@/src/components/AuthButton";
 import { OrbitGraphView } from "@/src/components/OrbitGraphView";
 import { SearchFilterBar } from "@/src/components/SearchFilterBar";
 import { TimelineStreamView } from "@/src/components/TimelineStreamView";
@@ -564,7 +565,13 @@ export default function Home(): React.JSX.Element {
             </button>
           ))}
         </nav>
-        <p className="mt-auto px-3 text-xs text-[#8e8e93]">
+        <div className="mt-auto hidden items-center gap-2 px-3 xl:flex">
+          <AuthButton />
+          <span className="text-xs text-[#8e8e93]">
+            클라우드 계정
+          </span>
+        </div>
+        <p className="px-3 text-xs text-[#8e8e93]">
           생각의 궤도를 기록하고 다시 발견하세요.
         </p>
         {/* 마우스와 키보드가 함께 사용할 수 있는 PC LNB 너비 조절 구분선입니다. */}
@@ -600,7 +607,7 @@ export default function Home(): React.JSX.Element {
           >
             MemoOrbit
           </button>
-          <span className="h-11 w-11" aria-hidden="true" />
+          <AuthButton />
         </div>
       </header>
       <main
