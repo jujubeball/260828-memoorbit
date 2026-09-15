@@ -63,6 +63,11 @@ test("인증 초기 응답이 새 로그인 이벤트를 덮어쓰지 않고 로
     await current.signInWithApple();
     assert.deepEqual(oauthCalls.map((call) => call.provider), ["google", "apple"]);
     assert(oauthCalls.every((call) => call.options.redirectTo === "http://localhost:3000/auth/callback"));
+    // SDK가 영문 네트워크 예외를 던져도 화면으로는 한글 안내만 전달합니다.
+    auth.signInWithOAuth = async () => { throw new Error("Failed to fetch"); };
+    await assert.rejects(current.signInWithGoogle(), /로그인 연결에 실패/);
+    auth.signOut = async () => ({ error: new Error("Network unavailable") });
+    await assert.rejects(current.signOut(), /로그아웃하지 못했습니다/);
   } finally {
     await act(async () => root.unmount());
     dom.window.close();
@@ -92,9 +97,86 @@ test("Supabase 미설정과 OAuth 취소에도 게스트 화면이 렌더링되�
     assert.equal(state.isLoading, false);
     assert.equal(state.isConfigured, false);
     assert.equal(state.user, null);
+    assert.equal(state.isGuest, true);
     assert.match(state.error, /다시 시도/);
     assert.equal(document.querySelector("p").textContent, "메모 작성 가능");
     assert.equal(window.location.search, "?keep=1");
+  } finally {
+    await act(async () => root.unmount());
+    dom.window.close();
+  }
+});
+
+test("소셜 모달은 클릭으로만 열리고 두 공급자·중복 방지·오류·닫기·포커스 복원을 지원한다", async () => {
+  const dom = new JSDOM('<div id="root"></div>', { url: "http://localhost:3000", pretendToBeVisual: true });
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  globalThis.HTMLElement = dom.window.HTMLElement;
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  window.scrollTo = () => {};
+  dom.window.HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute("open", "");
+    this.querySelector("button")?.focus();
+  };
+  dom.window.HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
+  let rejectGoogle;
+  let googleCalls = 0;
+  let appleCalls = 0;
+  const authState = {
+    user: null, isLoading: false, isConfigured: false, error: null,
+    signInWithGoogle: () => {
+      googleCalls += 1;
+      return new Promise((_resolve, reject) => { rejectGoogle = reject; });
+    },
+    signInWithApple: async () => { appleCalls += 1; },
+    signOut: async () => { authState.user = null; },
+  };
+  const mocks = {
+    "@/hooks/useAuth": { useAuth: () => authState },
+    "@/src/hooks/usePageScrollLock": load("src/hooks/usePageScrollLock.ts", {}),
+  };
+  const modal = load("components/auth/SocialAuthModal.tsx", mocks);
+  const { AuthButton } = load("src/components/AuthButton.tsx", { ...mocks, "@/components/auth/SocialAuthModal": modal });
+  const { createRoot } = await import("react-dom/client");
+  const root = createRoot(document.getElementById("root"));
+  const render = () => root.render(React.createElement(React.Fragment, null,
+    React.createElement("textarea", { defaultValue: "게스트 메모 보존" }), React.createElement(AuthButton)));
+  const trigger = () => document.querySelector('[aria-haspopup="dialog"]');
+  const open = () => act(async () => { trigger().focus(); trigger().click(); });
+  try {
+    await act(async () => render());
+    const editor = document.querySelector("textarea");
+    assert.equal(document.querySelector("dialog"), null);
+    assert.equal(googleCalls + appleCalls, 0);
+    await open();
+    assert.equal(document.querySelectorAll("dialog input, dialog textarea").length, 0);
+    let buttons = [...document.querySelectorAll("dialog button")];
+    assert.deepEqual(buttons.slice(1).map((button) => button.textContent), ["Google 로그인", "Apple 로그인"]);
+    assert(buttons.slice(1).every((button) => button.disabled));
+    authState.isConfigured = true;
+    await act(async () => render());
+    buttons = [...document.querySelectorAll("dialog button")];
+    await act(async () => { buttons[1].click(); buttons[1].click(); });
+    assert.equal(googleCalls, 1);
+    assert(buttons[2].disabled);
+    await act(async () => rejectGoogle(new Error("로그인 연결에 실패했습니다.")));
+    assert(document.querySelector('[role="alert"]').textContent.includes("로그인 연결에 실패"));
+    await act(async () => buttons[2].click());
+    assert.equal(appleCalls, 1);
+    await act(async () => document.querySelector("dialog").dispatchEvent(new dom.window.Event("cancel", { cancelable: true })));
+    assert.equal(document.querySelector("dialog"), null);
+    assert.equal(document.activeElement, trigger());
+    assert.equal(document.querySelector("textarea"), editor);
+    assert.equal(editor.value, "게스트 메모 보존");
+    assert.equal(document.body.style.position, "");
+    await open();
+    await act(async () => document.querySelector("dialog").click());
+    assert.equal(document.querySelector("dialog"), null);
+    authState.user = { id: "member", email: "member@example.test" };
+    await open();
+    await act(async () => [...document.querySelectorAll("dialog button")].find((button) => button.textContent === "로그아웃").click());
+    assert.equal(document.querySelector("dialog"), null);
+    assert.equal(editor.value, "게스트 메모 보존");
   } finally {
     await act(async () => root.unmount());
     dom.window.close();

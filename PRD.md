@@ -356,6 +356,11 @@ MemoOrbit는 스쳐 지나가는 아이디어를 가장 빠르고 편안하게 �
 - 사용자 인증(Supabase Google/Apple OAuth), Multi-tenant DB 연동, 공유용 카드 이미지 내보내기.
 
 ### Supabase 1단계: 지연 로그인 및 DB 스키마 기반
+- **회원가입 Phase 1 보완**: 기존 브라우저/서버 클라이언트·OAuth 콜백·SQL을 재사용한다. `components/auth/SocialAuthModal.tsx`에 명시적으로 여는 소셜 전용 모달을 분리하고 `AuthProvider`가 `isGuest`까지 전역 상태로 제공한다. 로그인 수단은 Google·Apple 두 개로 제한한다.
+- `.env.local`의 기존 설정은 보존하고 누락된 공개 환경 변수 항목만 추가한다. 실제 프로젝트 값이 없으면 빈 값으로 두고 게스트 기능을 정상 제공한다. 비밀 환경 파일은 Git에 포함하지 않는다.
+- 로그인 모달은 바깥 클릭·Escape·닫기 및 키보드 포커스 복원을 지원한다. 인증 요청 실패 문구는 한글로 표시하고 동일 요청의 중복 실행을 막는다. 인증 로딩·오류 중에도 자식 메모 화면을 계속 렌더링한다.
+- [x] 소셜 전용 모달 분리·Provider 전역 isGuest·브라우저 싱글톤 명시·한글 오류 처리 및 기존 환경 항목 확인 완료
+- [x] 본문 선택 입력을 위한 추가 SQL과 `docs/supabase-auth-phase1.md` 작성, 테스트 62개·ESLint·TypeScript·프로덕션 빌드 통과
 - IndexedDB를 메인 저장소로 유지한다. 인증 로딩·실패·로그아웃·환경 변수 누락은 메모 생성/수정/삭제와 전송 대기 큐를 차단하거나 초기화하지 않는다.
 - `@supabase/supabase-js`·`@supabase/ssr`와 브라우저/서버 클라이언트, 쿠키 기반 OAuth 콜백 및 세션 갱신 기반을 제공한다. 공개 환경 변수는 `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_ANON_KEY`이다.
 - AuthProvider와 useAuth는 session·user·isLoading·isGuest 및 Google/Apple 로그인·로그아웃을 제공한다. 인증 이벤트는 화면 상태만 갱신하며 자동 로그인 팝업을 열지 않는다.

@@ -8,6 +8,7 @@ import { getSupabaseConfig } from "@/lib/supabase/config";
 export interface AuthState {
   session: Session | null;
   user: User | null;
+  isGuest: boolean;
   isLoading: boolean;
   isConfigured: boolean;
   error: string | null;
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [state, setState] = useState<AuthState>({
     session: null,
     user: null,
+    isGuest: true,
     isLoading: Boolean(getSupabaseConfig()),
     isConfigured: Boolean(getSupabaseConfig()),
     error: null,
@@ -45,7 +47,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       window.history.replaceState(window.history.state, "", url);
     }
     const update = (session: Session | null, error: string | null = null) => {
-      if (active) setState({ session, user: session?.user ?? null, isLoading: false, isConfigured: Boolean(supabase), error });
+      if (active) setState({ session, user: session?.user ?? null, isGuest: !session?.user, isLoading: false, isConfigured: Boolean(supabase), error });
     };
     if (!supabase) {
       // 외부 시스템의 초기 결과를 비동기로 반영하며 자식 화면은 항상 렌더링합니다.
