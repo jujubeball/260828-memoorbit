@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { Memo } from "@/types/memo";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
 import {
@@ -11,6 +11,7 @@ import {
 import type { GeminiMemoLink } from "@/src/types/gemini";
 import {
   createOrbitLayout,
+  findOrbitNodeAtPoint,
   getOrbitClusterSummaries,
   stepOrbitLayout,
   zoomOrbitAt,
@@ -20,7 +21,12 @@ import {
 } from "@/src/lib/orbitClustering";
 import { drawOrbitCanvas } from "@/src/lib/orbitCanvas";
 
+import { MemoContextMenu, type MemoMenuPosition } from "@/src/components/MemoContextMenu";
+
 interface OrbitGraphViewProps {
+  onTogglePin: (id: string) => void;
+  onDelete: (memo: Memo) => void;
+  onEditTags: (memo: Memo) => void;
   memos: Memo[];
   onOpenMemo: (memo: Memo) => void;
   onHeaderVisibilityChange?: (isVisible: boolean) => void;
@@ -33,6 +39,11 @@ interface GestureState {
   moved: boolean;
 }
 
+interface OrbitContextMenuState {
+  id: string;
+  position: MemoMenuPosition;
+}
+
 const midpoint = (a: OrbitPoint, b: OrbitPoint): OrbitPoint => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const distance = (a: OrbitPoint, b: OrbitPoint): number => Math.hypot(a.x - b.x, a.y - b.y);
 const formatOrbitDate = (iso: string): string =>
@@ -42,7 +53,7 @@ const formatOrbitDate = (iso: string): string =>
     day: "numeric",
   }).format(new Date(iso));
 
-export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, onLinksAnalyzed }: OrbitGraphViewProps): React.JSX.Element {
+export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, onLinksAnalyzed, onTogglePin, onDelete, onEditTags }: OrbitGraphViewProps): React.JSX.Element {
   // 💡 [캔버스와 제스처 참조]
   // 프레임마다 바뀌는 좌표는 참조에 두고 선택 메모·안내 문구만 React 상태로 화면에 전달합니다.
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -56,6 +67,10 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
   const hoveredIdRef = useRef<string | null>(null);
   const hoveredClusterIdRef = useRef<string | null>(null);
   const panFrameRef = useRef(0);
+  // 우클릭한 노드 ID와 화면 좌표를 기억해 해당 메모의 공통 작업 메뉴를 띄웁니다.
+  const [contextMenu, setContextMenu] = useState<OrbitContextMenuState | null>(null);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+  const contextMemo = memos.find((memo) => memo.id === contextMenu?.id);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [orbitQuery, setOrbitQuery] = useState("");
   const [discoveryMemoIds, setDiscoveryMemoIds] = useState<string[]>([]);
@@ -68,9 +83,10 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
     links,
     tags,
     content,
+    title,
     isPinned,
     createdAt,
-  }) => ({ id, links, tags, content, isPinned, createdAt })));
+  }) => ({ id, links, tags, content, title, isPinned, createdAt })));
   const discoveryMemos = discoveryMemoIds
     .map((id) => memos.find((memo) => memo.id === id))
     .filter((memo): memo is Memo => memo !== undefined);
@@ -145,6 +161,9 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
     layoutRef.current = seedLayout();
     let frame = 0;
     let dirty = true;
+    let previousFocus = "";
+    let focusStartedAt = 0;
+    let previousFocusProgress = 1;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const fit = (): void => {
       const nodes = layoutRef.current.nodes;
@@ -169,22 +188,34 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
         : Math.min(1, (performance.now() - edgeRevealStartedAtRef.current) / 650);
       if (edgeRevealProgress < 1) dirty = true;
       else edgeRevealStartedAtRef.current = null;
-      if (dirty) {
+      // 💡 [제목 페이드인 프레임]
+      // 선택·호버 대상이 바뀐 순간부터 180ms 동안 제목을 밝히고, 마지막 완전 불투명 프레임까지 그립니다.
+      const focusKey = `${selectedIdRef.current ?? ""}:${hoveredIdRef.current ?? ""}`;
+      if (focusKey !== previousFocus) {
+        previousFocus = focusKey;
+        focusStartedAt = performance.now();
+      }
+      const focusProgress = reduceMotion ? 1 : Math.min(1, (performance.now() - focusStartedAt) / 180);
+      const shouldPulse = !reduceMotion && layoutRef.current.nodes.some((node) => node.isPinned);
+      if (dirty || focusProgress !== previousFocusProgress || shouldPulse) {
         drawOrbitCanvas(
           canvas,
           layoutRef.current,
           transformRef.current,
           edgeRevealProgress,
-          selectedIdRef.current ?? hoveredIdRef.current,
+          selectedIdRef.current,
           hoveredClusterIdRef.current,
+          hoveredIdRef.current,
+          focusProgress,
         );
         dirty = false;
       }
-      const shouldPulse = !reduceMotion
-        && layoutRef.current.nodes.some((node) => node.isPinned);
+      previousFocusProgress = focusProgress;
+
       if (
         (layoutRef.current.iteration < 180 && layoutRef.current.nodes.length > 0)
         || edgeRevealProgress < 1
+        || focusProgress < 1
         || shouldPulse
       ) frame = window.requestAnimationFrame(tick);
     };
@@ -229,17 +260,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
     return { x: event.clientX - rect.left - rect.width / 2, y: event.clientY - rect.top - rect.height / 2 };
   };
   const findNodeAtPoint = (point: OrbitPoint): string | null => {
-    const transform = transformRef.current;
-    const nearest = [...layoutRef.current.nodes].sort((a, b) =>
-      Math.hypot(a.x * transform.scale + transform.x - point.x, a.y * transform.scale + transform.y - point.y)
-      - Math.hypot(b.x * transform.scale + transform.x - point.x, b.y * transform.scale + transform.y - point.y))[0];
-    if (!nearest) return null;
-    const nodeDistance = Math.hypot(
-      nearest.x * transform.scale + transform.x - point.x,
-      nearest.y * transform.scale + transform.y - point.y,
-    );
-    const hitRadius = Math.max(16, nearest.radius * transform.scale + 8);
-    return nodeDistance <= hitRadius ? nearest.id : null;
+    return findOrbitNodeAtPoint(layoutRef.current, transformRef.current, point);
   };
   const findClusterAtPoint = (point: OrbitPoint): string | null => {
     const transform = transformRef.current;
@@ -274,7 +295,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
         const nextHoveredId = findNodeAtPoint(pointFromEvent(event));
         const nextHoveredClusterId = nextHoveredId
           ? layoutRef.current.nodes.find((node) => node.id === nextHoveredId)?.cluster ?? null
-          : findClusterAtPoint(pointFromEvent(event));
+          : null;
         if (hoveredIdRef.current !== nextHoveredId) {
           hoveredIdRef.current = nextHoveredId;
           redrawRef.current();
@@ -409,6 +430,16 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
       className="flex h-[calc(100dvh-3.5rem)] min-h-80 flex-col text-[#f3f4f6] xl:h-full"
       aria-labelledby="orbit-graph-title"
     >
+      {contextMenu && contextMemo && (
+        <MemoContextMenu
+          memo={contextMemo}
+          position={contextMenu.position}
+          onClose={closeContextMenu}
+          onTogglePin={onTogglePin}
+          onDelete={onDelete}
+          onEditTags={onEditTags}
+        />
+      )}
       <MainContentHeader
         id="orbit-graph-title"
         label="MEMO ORBIT"
@@ -419,6 +450,13 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
       <div className="relative min-h-0 flex-1 overflow-hidden bg-[radial-gradient(circle_at_50%_35%,#182033_0%,#0b0e16_45%,#07090f_100%)] xl:rounded-2xl xl:border xl:border-[#2a2e3d]">
         <canvas
           ref={canvasRef}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            const rect = event.currentTarget.getBoundingClientRect();
+            const id = findNodeAtPoint({ x: event.clientX - rect.left - rect.width / 2, y: event.clientY - rect.top - rect.height / 2 });
+            if (id) setContextMenu({ id, position: { left: event.clientX, top: event.clientY } });
+            else closeContextMenu();
+          }}
           className="h-full w-full touch-none cursor-grab active:cursor-grabbing"
           aria-label={`${memos.length}개 메모 성운. 상단 검색과 태그 칩 또는 성운의 별을 눌러 탐색할 수 있습니다.`}
           onPointerDown={pointerDown}

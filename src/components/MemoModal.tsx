@@ -39,6 +39,7 @@ export interface MemoDraft {
 
 // Home이 열림·저장 진행 상태와 편집 대상을 내려주고, 이 모달은 onSubmit 또는 onClose로 사용자 의도를 올려보냅니다.
 interface MemoModalProps {
+  openTagsInitially?: boolean;
   isSaving?: boolean;
   isOpen: boolean;
   editingMemo: Memo | null;
@@ -107,6 +108,7 @@ const formatDate = (iso?: string): string =>
 // 새 메모는 editingMemo가 null, 수정은 기존 Memo입니다. Home이 조건부로 마운트하여 한 번 열린 편집기의 초기값을 고정합니다.
 // 본문 HTML은 editorRef의 DOM, 화면에 표시할 텍스트·태그·패널은 State가 담당하고 저장 시 두 내용을 MemoDraft로 합칩니다.
 export function MemoModal({
+  openTagsInitially = false,
   isSaving = false,
   isOpen,
   editingMemo,
@@ -156,7 +158,7 @@ export function MemoModal({
   // 입력·요청 시작 때 켜고 완료 때 꺼서 분석 중 문구와 강조를 표시합니다. 네트워크 요청을 취소하는 값은 아닙니다.
   const [isAnalyzingTags, setIsAnalyzingTags] = useState(false);
   // 태그 버튼이 토글하며 패널 렌더링과 입력창 포커스 이펙트를 제어합니다. 본문 복귀·서식 열기에서는 닫습니다.
-  const [isTagsOpen, setIsTagsOpen] = useState(false);
+  const [isTagsOpen, setIsTagsOpen] = useState(openTagsInitially);
   // 별도 훅이 editor → waiting → format 전환을 관리합니다. waiting 동안도 본문을 읽기 상태로 두어 키보드 재진입을 막습니다.
   const formatSheet = useKeyboardFormatSheet(isOpen);
   const isFormatOpen = formatSheet.mode === "format";

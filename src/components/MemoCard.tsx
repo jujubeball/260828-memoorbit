@@ -4,17 +4,20 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
 import { MemoOrbitDefaultCover } from "@/src/components/MemoOrbitDefaultCover";
+import { MemoContextMenu } from "@/src/components/MemoContextMenu";
 import type { Memo } from "@/types/memo";
 
 interface MemoCardProps {
   memo: Memo;
   viewMode?: "list" | "gallery";
   onEdit: (memo: Memo) => void;
+  onEditTags: (memo: Memo) => void;
   onDelete: (memo: Memo) => void;
   onTogglePin: (id: string) => void;
   isSwipeOpen: boolean;
@@ -29,8 +32,8 @@ interface MenuPosition {
 type SwipeAxis = "horizontal" | "vertical" | null;
 
 // 💡 [스와이프 액션 너비]
-// 왼쪽 스와이프가 끝났을 때 더 보기와 삭제 버튼 두 개가 정확히 드러나는 전체 너비입니다.
-const ACTION_WIDTH = 148;
+// 왼쪽 스와이프가 끝났을 때 삭제 버튼 하나가 정확히 드러나는 너비입니다.
+const ACTION_WIDTH = 74;
 
 // 💡 [짧은 고정 스와이프 너비]
 // 사용자가 오른쪽으로 살짝 밀었을 때 고정 버튼 하나만 열린 채 기다리도록 맞춘 거리입니다.
@@ -54,6 +57,7 @@ export function MemoCard({
   memo,
   viewMode = "list",
   onEdit,
+  onEditTags,
   onDelete,
   onTogglePin,
   isSwipeOpen,
@@ -90,19 +94,11 @@ export function MemoCard({
     return () => document.removeEventListener("pointerdown", handleOutsidePointer);
   }, [isSwipeOpen, onSwipeOpenChange]);
 
-  useEffect(() => {
-    if (!menuPosition) return;
-    // PC 우클릭 메뉴가 열린 뒤 다른 곳을 클릭하거나 스크롤하면 메뉴를 닫습니다.
-    const closeMenu = (): void => setMenuPosition(null);
-    window.addEventListener("click", closeMenu);
-    window.addEventListener("scroll", closeMenu, true);
-    return () => {
-      window.removeEventListener("click", closeMenu);
-      window.removeEventListener("scroll", closeMenu, true);
-    };
-  }, [menuPosition]);
+  const closeMenu = useCallback(() => setMenuPosition(null), []);
 
   const handlePointerDown = (event: PointerEvent<HTMLElement>): void => {
+    if (event.pointerType !== "touch" || !event.isPrimary) return;
+    if ((event.target as HTMLElement).closest("button")) return;
     // 사용자가 카드를 누른 순간 포인터 좌표와 이미 열린 카드 위치를 함께 기억합니다.
     pointerStartX.current = event.clientX;
     pointerStartY.current = event.clientY;
@@ -144,6 +140,7 @@ export function MemoCard({
 
   const handlePointerEnd = (event: PointerEvent<HTMLElement>): void => {
     // 드래그 도중에는 메모 순서를 바꾸지 않고, 카드 너비의 80% 이상을 끝까지 당겨 손을 뗀 순간에만 고정 상태를 전환합니다.
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
     setIsDragging(false);
     if (swipeAxis.current === "horizontal") {
       const cardWidth = cardRef.current?.getBoundingClientRect().width ?? 0;
@@ -202,8 +199,8 @@ export function MemoCard({
     // PC에서 우클릭한 실제 화면 좌표를 메뉴가 화면 밖으로 나가지 않는 범위로 저장합니다.
     event.preventDefault();
     setMenuPosition({
-      left: Math.min(event.clientX, window.innerWidth - 190),
-      top: Math.min(event.clientY, window.innerHeight - 120),
+      left: event.clientX,
+      top: event.clientY,
     });
   };
 
@@ -227,33 +224,21 @@ export function MemoCard({
       <button
         type="button"
         onClick={togglePin}
-        className={`absolute inset-y-0 left-0 flex w-[74px] flex-col items-center justify-center bg-[#e5a93c] text-white xl:hidden ${offset < 0 ? "invisible pointer-events-none" : "visible"}`}
+        className={`absolute inset-y-0 left-0 flex w-[74px] flex-col items-center justify-center bg-[#e5a93c] text-white ${!(isSwipeOpen || isDragging) || offset <= 0 ? "invisible pointer-events-none" : "visible"}`}
         aria-label={
           memo.isPinned ? `${memo.title} 고정 해제` : `${memo.title} 고정`
         }
       >
         <span className="text-xl" aria-hidden="true">
-          ●
+          📌
         </span>
         <span className="text-[11px] font-semibold">
           {memo.isPinned ? "해제" : "고정"}
         </span>
       </button>
       <div
-        className={`absolute inset-y-0 right-0 flex w-[148px] xl:hidden ${offset > 0 ? "invisible pointer-events-none" : "visible"}`}
+        className={`absolute inset-y-0 right-0 flex w-[74px] ${!(isSwipeOpen || isDragging) || offset >= 0 ? "invisible pointer-events-none" : "visible"}`}
       >
-        <button
-          type="button"
-          onClick={() => {
-            currentOffset.current = 0;
-            setOffset(0);
-            onSwipeOpenChange(false);
-          }}
-          className="w-[74px] bg-[#8e8e93] text-xl text-white"
-          aria-label="더 보기"
-        >
-          •••
-        </button>
         <button
           type="button"
           onClick={() => {
@@ -266,7 +251,7 @@ export function MemoCard({
           aria-label={`${memo.title} 삭제`}
         >
           <span className="text-xl" aria-hidden="true">
-            ♜
+            🗑️
           </span>
           <span className="text-[11px] font-semibold">삭제</span>
         </button>
@@ -278,7 +263,11 @@ export function MemoCard({
         onClick={openMemo}
         onContextMenu={openContextMenu}
         onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
-          if (event.key === "Enter" || event.key === " ") openMemo();
+          if (event.target !== event.currentTarget) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openMemo();
+          }
         }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -332,9 +321,16 @@ export function MemoCard({
           >
             {memo.title}
           </h3>
-          <span className="shrink-0 rounded-full border border-[#2a2e3d] px-2 py-0.5 text-xs text-[#9ca3af]">
-            {memo.syncStatus === "synced" ? "동기화 완료" : memo.syncStatus === "failed" ? "전송 재시도" : "전송 대기"}
-          </span>
+          {memo.syncStatus === "failed" && (
+            <span
+              className="shrink-0 text-xs text-amber-200/60"
+              role="img"
+              aria-label="서버 동기화 실패. 메모는 이 기기에 저장되어 있습니다."
+              title="서버 동기화 실패. 메모는 이 기기에 저장되어 있습니다."
+            >
+              ⚠
+            </span>
+          )}
         </div>
         <p
           className={`min-w-0 ${viewMode === "gallery" ? "mt-1 grid gap-0.5 text-xs leading-4" : "mt-0.5 flex gap-2 text-sm leading-4 text-[#d1d5db] sm:leading-5 xl:text-[15px]"}`}
@@ -354,24 +350,14 @@ export function MemoCard({
       </article>
 
       {menuPosition && (
-        <div
-          className="fixed z-40 hidden w-44 overflow-hidden rounded-xl border border-[#2a2e3d] bg-[#1a1d26]/95 py-1 text-[#f3f4f6] shadow-xl backdrop-blur-md xl:block"
-          style={{ left: menuPosition.left, top: menuPosition.top }}
-          role="menu"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <button
-            type="button"
-            onClick={togglePin}
-            className="flex h-11 w-full items-center justify-between px-4 text-left text-sm hover:bg-[#f2f2f7]"
-            role="menuitem"
-          >
-            <span>{memo.isPinned ? "고정 해제" : "메모 고정"}</span>
-            <span className="text-[#b77912]" aria-hidden="true">
-              ●
-            </span>
-          </button>
-        </div>
+        <MemoContextMenu
+          memo={memo}
+          position={menuPosition}
+          onClose={closeMenu}
+          onTogglePin={onTogglePin}
+          onEditTags={onEditTags}
+          onDelete={onDelete}
+        />
       )}
     </div>
   );

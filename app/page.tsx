@@ -148,6 +148,8 @@ export default function Home(): React.JSX.Element {
   }, []);
   const [editingMemo, setEditingMemo] = useState<Memo | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  // 태그 변경 메뉴로 편집기를 열면 처음부터 태그 입력을 펼치도록 기억합니다.
+  const [openTagsInitially, setOpenTagsInitially] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Memo | null>(null);
   const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
   const [isPinnedOpen, setIsPinnedOpen] = useState(true);
@@ -378,12 +380,24 @@ export default function Home(): React.JSX.Element {
 
   // 편집기를 닫을 때 선택 메모도 비워 다음 새 메모가 이전 내용을 이어받지 않게 합니다.
   const closeEditor = (): void => {
+    setOpenTagsInitially(false);
     setIsEditorOpen(false);
     setEditingMemo(null);
   };
   const openMemo = (memo: Memo): void => {
+    setOpenTagsInitially(false);
     setEditingMemo(memo);
     setIsEditorOpen(true);
+  };
+  // 목록이나 성운 메뉴의 태그 변경 요청을 편집 대상과 태그 패널 초기 상태로 전달합니다.
+  const editMemoTags = (memo: Memo): void => {
+    openMemo(memo);
+    setOpenTagsInitially(true);
+  };
+  const toggleMemoPin = (id: string): void => {
+    // 같은 ID의 메모만 복사해 고정을 전환하면 기존 저장 이펙트가 IndexedDB와 전송 큐를 갱신합니다.
+    setMemos((current) => current.map((memo) =>
+      memo.id === id ? { ...memo, isPinned: !memo.isPinned, syncStatus: "pending" } : memo));
   };
   const selectNavigation = (section: NavigationSection): void => {
     setActiveSection(section);
@@ -492,18 +506,13 @@ export default function Home(): React.JSX.Element {
       memo={memo}
       viewMode={memoViewMode}
       onEdit={openMemo}
+      onEditTags={editMemoTags}
       onDelete={setDeleteTarget}
       isSwipeOpen={openSwipeId === memo.id}
       onSwipeOpenChange={(isOpen) => {
         setOpenSwipeId(isOpen ? memo.id : null);
       }}
-      onTogglePin={(id) =>
-        setMemos((current) =>
-          current.map((item) =>
-            item.id === id ? { ...item, isPinned: !item.isPinned, syncStatus: "pending" } : item,
-          ),
-        )
-      }
+      onTogglePin={toggleMemoPin}
     />
   );
 
@@ -748,6 +757,9 @@ export default function Home(): React.JSX.Element {
             memos={filteredMemos}
             onOpenMemo={openMemo}
             onLinksAnalyzed={applyAnalyzedLinks}
+            onTogglePin={toggleMemoPin}
+            onDelete={setDeleteTarget}
+            onEditTags={editMemoTags}
             onHeaderVisibilityChange={setIsContentHeaderVisible}
           />
         )}
@@ -809,6 +821,7 @@ export default function Home(): React.JSX.Element {
           key={editingMemo?.id ?? "new"}
           isOpen
           editingMemo={editingMemo}
+          openTagsInitially={openTagsInitially}
           onClose={closeEditor}
           onSubmit={submitMemo}
         />

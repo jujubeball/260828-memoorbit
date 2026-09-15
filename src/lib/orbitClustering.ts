@@ -172,7 +172,7 @@ export const createOrbitLayout = (memos: Memo[]): OrbitLayout => {
     const distance = Math.sqrt(groupIndex) * spacing;
     members.forEach((index, localIndex) => {
       const localAngle = localIndex * 2.3999632297;
-      const radius = Math.sqrt(localIndex) * 28;
+      const radius = Math.sqrt(localIndex) * 52;
       positions.set(index, { x: Math.cos(angle) * distance + Math.cos(localAngle) * radius,
         y: Math.sin(angle) * distance + Math.sin(localAngle) * radius });
     });
@@ -209,6 +209,12 @@ export const createOrbitLayout = (memos: Memo[]): OrbitLayout => {
 export const stepOrbitLayout = (layout: OrbitLayout): OrbitLayout => {
   const nodes = layout.nodes.map((node) => ({ ...node }));
   const forces = nodes.map(() => ({ x: 0, y: 0 }));
+  // 연결이 많은 성운도 스프링 수에 비례해 한 점으로 뭉치지 않도록 노드별 연결 수로 인력을 나눕니다.
+  const degrees = new Uint32Array(nodes.length);
+  layout.edges.forEach(({ source, target }) => {
+    degrees[source] += 1;
+    degrees[target] += 1;
+  });
   for (let i = 0; i < nodes.length; i += 1) {
     for (let j = i + 1; j < nodes.length; j += 1) {
       let dx = nodes[j].x - nodes[i].x;
@@ -217,10 +223,10 @@ export const stepOrbitLayout = (layout: OrbitLayout): OrbitLayout => {
       const distance = Math.max(1, Math.hypot(dx, dy));
       const firstRadius = Number.isFinite(nodes[i].radius) ? nodes[i].radius : 8;
       const secondRadius = Number.isFinite(nodes[j].radius) ? nodes[j].radius : 8;
-      const collisionDistance = firstRadius + secondRadius + 8;
+      const collisionDistance = firstRadius + secondRadius + 32;
       const repulsion = Math.min(
-        8,
-        450 / (distance * distance) + Math.max(0, collisionDistance - distance) * 0.2,
+        16,
+        1100 / (distance * distance) + Math.max(0, collisionDistance - distance) * 0.65,
       );
       const fx = dx / distance * repulsion;
       const fy = dy / distance * repulsion;
@@ -236,7 +242,8 @@ export const stepOrbitLayout = (layout: OrbitLayout): OrbitLayout => {
     const targetRadius = Number.isFinite(nodes[target].radius) ? nodes[target].radius : 8;
     const nodeDistance = sourceRadius + targetRadius;
     const force = weight >= 0.5
-      ? (distance - (nodeDistance + 16 + (1 - weight) * 130)) * weight * 0.025
+      ? (distance - (nodeDistance + 48 + (1 - weight) * 130)) * weight * 0.025
+        / Math.sqrt(Math.max(degrees[source], degrees[target], 1))
       : -(1 - weight) * Math.min(3, 120 / distance);
     const fx = dx / distance * force;
     const fy = dy / distance * force;
@@ -250,5 +257,44 @@ export const stepOrbitLayout = (layout: OrbitLayout): OrbitLayout => {
     node.x += Math.max(-8, Math.min(8, node.vx)) * cooling;
     node.y += Math.max(-8, Math.min(8, node.vy)) * cooling;
   });
+  // 💡 [최소 충돌 여백 보정]
+  // 여러 스프링이 동시에 당긴 뒤에도 가까운 원을 양쪽으로 밀어냅니다. 세 번으로 계산량을 제한하고 다음 프레임에서 나머지를 안정화합니다.
+  for (let pass = 0; pass < 3; pass += 1) {
+    for (let i = 0; i < nodes.length; i += 1) {
+      for (let j = i + 1; j < nodes.length; j += 1) {
+        const a = nodes[i];
+        const b = nodes[j];
+        const dx = b.x - a.x || 0.001;
+        const dy = b.y - a.y;
+        const minimum = (a.radius || 8) + (b.radius || 8) + 32;
+        const squared = dx * dx + dy * dy;
+        if (squared >= minimum * minimum) continue;
+        const distance = Math.sqrt(squared);
+        const correction = (minimum - distance) / (2 * distance);
+        a.x -= dx * correction;
+        a.y -= dy * correction;
+        b.x += dx * correction;
+        b.y += dy * correction;
+      }
+    }
+  }
   return { ...layout, nodes, iteration: layout.iteration + 1 };
+};
+
+// 💡 [객체 복사 없는 호버 탐색]
+// 마우스 화면 좌표와 노드의 제곱 거리를 비교해 가장 가까운 적중 노드를 찾습니다. 배열 복사와 정렬 없이 한 번 순회합니다.
+export const findOrbitNodeAtPoint = (layout: OrbitLayout, transform: OrbitTransform, point: OrbitPoint): string | null => {
+  let nearestId: string | null = null;
+  let nearestDistance = Infinity;
+  for (const node of layout.nodes) {
+    const dx = node.x * transform.scale + transform.x - point.x;
+    const dy = node.y * transform.scale + transform.y - point.y;
+    const squared = dx * dx + dy * dy;
+    const radius = Math.max(16, node.radius * transform.scale + 8);
+    if (squared <= radius * radius && squared < nearestDistance) {
+      nearestDistance = squared;
+      nearestId = node.id;
+    }
+  }
+  return nearestId;
 };
