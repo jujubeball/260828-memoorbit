@@ -22,8 +22,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
 1. Supabase 프로젝트의 인증 설정에서 Google·Apple 공급자를 활성화하고 각 공급자의 자격 증명을 등록한다. 이메일/비밀번호 로그인은 앱 UI에서 제공하지 않는다. 서버에서도 소셜 로그인만 허용하려면 사용하지 않는 Email 공급자를 비활성화한다.
 2. Google·Apple 개발자 설정에는 Supabase가 안내하는 공급자 콜백 주소를 등록한다. 앱의 `/auth/callback` 주소와 혼동하지 않는다.
-3. Supabase 인증 URL 설정의 허용 리디렉션 목록에 `http://localhost:3000/auth/callback`과 실제 배포 출처의 `/auth/callback`을 등록한다. Site URL도 실제 배포 출처로 지정한다.
-4. 사용자가 로그인 버튼을 누르면 `useAuth`가 현재 출처의 `/auth/callback`을 지정한다. 귀환 경로는 일회용 코드를 세션 쿠키로 교환한 뒤 같은 출처의 홈으로 이동한다.
+3. Supabase 인증 URL 설정의 허용 리디렉션 목록에 `http://localhost:3000`과 실제 배포 출처를 등록한다. 기존 `/auth/callback` 주소도 유지할 수 있다. Site URL도 실제 배포 출처로 지정한다.
+4. 사용자가 로그인 버튼을 누르면 `useAuth`가 현재 출처를 지정한다. 홈페이지에서 브라우저 SDK가 일회용 코드를 세션으로 교환하고 인증 구독에 전달한다.
 
 ## SQL Editor 실행 순서
 
@@ -44,3 +44,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 - 실제 프로젝트 환경 변수와 공급자 설정이 없어 원격 로그인과 SQL 적용은 아직 검증하지 않았다.
 
 공식 참고: [서버·브라우저 클라이언트 구성](https://supabase.com/docs/guides/auth/server-side/creating-a-client), [행 단위 보안 정책](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+## 소셜 버튼 활성화 및 임시 테스트 로그인
+
+- 설정이 없어도 Google·Apple 버튼을 누를 수 있습니다. 임시 계정은 메모리에만 유지되고 새로고침 또는 로그아웃하면 사라집니다. 인증 쿠키와 서버 접근 권한은 생성하지 않습니다.
+- `isTestSession`이 참이면 헤더와 모달에 테스트 계정이라고 표시합니다. 로컬 메모는 그대로 유지됩니다.
+- 실제 OAuth의 `redirectTo`는 `window.location.origin`입니다. Supabase 허용 리디렉션 목록에 `http://localhost:3000`과 배포 사이트의 출처를 추가하세요. 브라우저 SDK가 복귀 URL의 인증 코드를 교환하고 AuthProvider에 세션을 전달합니다. 기존 `/auth/callback` 경로도 유지합니다.
+- 콘솔에는 요청 공급자와 미설정 경고만 기록합니다. 미설정 테스트는 네트워크 인증 요청을 보내지 않습니다.
