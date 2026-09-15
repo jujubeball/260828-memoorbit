@@ -65,7 +65,7 @@ export function SearchFilterBar({
   // 💡 [모바일 필터 모달 판별]
   // 화면이 모바일 너비인지 추적해 전체 화면 필터가 열렸을 때만 문서 스크롤을 잠급니다.
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 639px)");
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
     const syncMobileFilter = (): void => setIsMobileFilter(mediaQuery.matches);
     syncMobileFilter();
     mediaQuery.addEventListener("change", syncMobileFilter);
@@ -171,12 +171,12 @@ export function SearchFilterBar({
 
   return (
     <section
-      className="sm:relative sm:z-40 sm:mb-6 sm:rounded-2xl sm:border sm:border-[#2a2e3d] sm:bg-[#1a1d26]/80 sm:p-4 sm:shadow-[0_14px_34px_rgb(0_0_0/0.16)] sm:backdrop-blur-md"
+      className="relative md:z-40 md:mb-6 md:rounded-2xl md:border md:border-[#2a2e3d] md:bg-[#1a1d26]/80 md:p-4 md:shadow-[0_14px_34px_rgb(0_0_0/0.16)] md:backdrop-blur-md"
       aria-label="메모 검색 필터"
     >
       {selectedTags.length > 0 && (
         <div
-          className="scrollbar-hidden flex w-full items-center gap-2 overflow-x-auto py-2 sm:hidden"
+          className="scrollbar-hidden flex w-full items-center gap-2 overflow-x-auto py-2 md:hidden"
           aria-label="선택한 태그 필터"
         >
           <span className="shrink-0 text-xs font-semibold text-[#9ca3af]">
@@ -195,7 +195,7 @@ export function SearchFilterBar({
           ))}
         </div>
       )}
-      <div className="fixed bottom-4 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-1.5 rounded-full border border-[#2a2e3d] bg-[#1a1d26]/95 p-1.5 shadow-2xl backdrop-blur-lg sm:static sm:w-auto sm:max-w-none sm:translate-x-0 sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+      <div className="relative mt-3 flex w-full items-center gap-1.5 rounded-full border border-[#2a2e3d] bg-[#1a1d26]/95 p-1.5 shadow-2xl backdrop-blur-lg md:static md:w-auto md:max-w-none md:translate-x-0 md:gap-2 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">메모 검색어</span>
           <span
@@ -209,7 +209,7 @@ export function SearchFilterBar({
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             placeholder="제목, 내용, 태그 또는 의미 검색..."
-            className="h-9 w-full rounded-full border-0 bg-transparent pl-9 pr-2 text-base text-[#f3f4f6] outline-none placeholder:text-[#6b7280] focus:ring-1 focus:ring-[#e5a93c] sm:h-11 sm:rounded-xl sm:border sm:border-[#2a2e3d] sm:bg-[#0f1117] sm:pl-10 sm:pr-3 sm:text-sm"
+            className="h-9 w-full rounded-full border-0 bg-transparent pl-9 pr-2 text-base text-[#f3f4f6] outline-none placeholder:text-[#6b7280] focus:ring-1 focus:ring-[#e5a93c] md:h-11 md:rounded-xl md:border md:border-[#2a2e3d] md:bg-[#0f1117] md:pl-10 md:pr-3 md:text-sm"
           />
         </label>
 
@@ -218,7 +218,7 @@ export function SearchFilterBar({
           onClick={() => setIsExpanded((current) => !current)}
           aria-expanded={isExpanded}
           aria-controls="advanced-search-filters"
-          className={`flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold transition-colors sm:h-11 sm:rounded-xl sm:px-3 ${isExpanded || activeFilterCount > 0 ? "border-[#ffc86b] bg-[#e5a93c] text-white" : "border-[#2a2e3d] bg-[#0f1117] text-[#d1d5db]"}`}
+          className={`flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold transition-colors md:h-11 md:rounded-xl md:px-3 ${isExpanded || activeFilterCount > 0 ? "border-[#ffc86b] bg-[#e5a93c] text-white" : "border-[#2a2e3d] bg-[#0f1117] text-[#d1d5db]"}`}
         >
           <span aria-hidden="true">⚙️</span>
           필터
@@ -231,7 +231,7 @@ export function SearchFilterBar({
         <button
           type="button"
           onClick={onCreateMemo}
-          className="flex h-9 shrink-0 items-center justify-center gap-1 rounded-full bg-[#e5a93c] px-3 text-xs font-bold text-white shadow-lg transition-colors hover:bg-[#ffc86b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffc86b] sm:hidden"
+          className="flex h-9 shrink-0 items-center justify-center gap-1 rounded-full bg-[#e5a93c] px-3 text-xs font-bold text-white shadow-lg transition-colors hover:bg-[#ffc86b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffc86b] md:hidden"
           aria-label="새 메모 작성"
         >
           <span aria-hidden="true">✏️</span>
@@ -247,9 +247,9 @@ export function SearchFilterBar({
             aria-modal="true"
             aria-label="상세 필터"
             onClick={(event) => event.stopPropagation()}
-            className="fixed inset-0 z-50 grid content-start gap-4 overflow-y-auto bg-[#121318] p-4 shadow-2xl sm:static sm:mt-4 sm:max-h-none sm:gap-5 sm:overflow-visible sm:rounded-none sm:border-x-0 sm:border-b-0 sm:bg-transparent sm:p-0 sm:pt-4 sm:shadow-none"
+            className="fixed inset-0 z-[70] grid content-start gap-4 overflow-y-auto bg-[#121318] p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(var(--mobile-nav-height)+1rem)] shadow-2xl md:static md:mt-4 md:max-h-none md:gap-5 md:overflow-visible md:rounded-none md:border-x-0 md:border-b-0 md:bg-transparent md:p-0 md:pt-4 md:shadow-none"
           >
-            <div className="flex items-center justify-between border-b border-[#2a2e3d] pb-3 sm:hidden">
+            <div className="flex items-center justify-between border-b border-[#2a2e3d] pb-3 md:hidden">
               <span className="text-sm font-bold text-[#e5a93c]">상세 필터</span>
               <div className="flex items-center gap-3">
                 <button
@@ -386,7 +386,7 @@ export function SearchFilterBar({
                   </button>
                 ))}
                 {options.timePreset === "custom" && (
-                  <div className="filter-range-enter inline-flex w-full min-w-0 items-center gap-1.5 border-t border-[#2a2e3d]/60 pt-2 sm:ml-2 sm:w-auto sm:border-t-0 sm:pt-0">
+                  <div className="filter-range-enter inline-flex w-full min-w-0 items-center gap-1.5 border-t border-[#2a2e3d]/60 pt-2 md:ml-2 md:w-auto md:border-t-0 md:pt-0">
                     <DateInputBox
                       id="search-filter-start-date"
                       label="시작일"

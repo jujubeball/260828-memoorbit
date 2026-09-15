@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { AnimatePresence } from "framer-motion";
+import { OrbitDetailSheet } from "@/src/components/orbit/OrbitDetailSheet";
+import { useVisualViewport } from "@/src/hooks/useVisualViewport";
 import type { Memo } from "@/types/memo";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
 import {
@@ -46,16 +49,10 @@ interface OrbitContextMenuState {
 
 const midpoint = (a: OrbitPoint, b: OrbitPoint): OrbitPoint => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const distance = (a: OrbitPoint, b: OrbitPoint): number => Math.hypot(a.x - b.x, a.y - b.y);
-const formatOrbitDate = (iso: string): string =>
-  new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(iso));
-
 export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, onLinksAnalyzed, onTogglePin, onDelete, onEditTags }: OrbitGraphViewProps): React.JSX.Element {
   // 💡 [캔버스와 제스처 참조]
   // 프레임마다 바뀌는 좌표는 참조에 두고 선택 메모·안내 문구만 React 상태로 화면에 전달합니다.
+  const viewport = useVisualViewport();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const layoutRef = useRef<OrbitLayout>({ nodes: [], edges: [], iteration: 0 });
   const transformRef = useRef<OrbitTransform>({ x: 0, y: 0, scale: 1 });
@@ -77,6 +74,11 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
   const [analysisState, setAnalysisState] = useState("저장된 AI 연결을 표시합니다.");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [retry, setRetry] = useState(0);
+  // 시트 닫기는 선택 상태만 비우고 캔버스 카메라와 포인터 추적은 유지합니다.
+  const closeDiscovery = useCallback(() => {
+    setSelectedId(null);
+    setDiscoveryMemoIds([]);
+  }, []);
   // 배지 변경은 물리 배치를 다시 시작하지 않도록 노드·연결 정보만 실행 기준으로 사용합니다.
   const layoutKey = JSON.stringify(memos.map(({
     id,
@@ -281,6 +283,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
   // 한 손가락 탭은 미리보기로, 이동이나 두 손가락 사용은 확대·이동으로 분리합니다.
   const pointerDown = (event: PointerEvent<HTMLCanvasElement>): void => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     event.currentTarget.setPointerCapture(event.pointerId);
     const gesture = gestureRef.current;
     const point = pointFromEvent(event);
@@ -427,7 +430,8 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
 
   return (
     <section
-      className="flex h-[calc(100dvh-3.5rem)] min-h-80 flex-col text-[#f3f4f6] xl:h-full"
+      className="orbit-shell flex min-h-0 flex-col text-[#f3f4f6]"
+      style={{ "--orbit-viewport-height": viewport.height === null ? "100dvh" : `${viewport.height}px` } as CSSProperties}
       aria-labelledby="orbit-graph-title"
     >
       {contextMenu && contextMemo && (
@@ -483,7 +487,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
               value={orbitQuery}
               onChange={(event) => setOrbitQuery(event.target.value)}
               placeholder="성운에서 제목, 내용, 태그 검색"
-              className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-sm text-white outline-none placeholder:text-[#7f8798]"
+              className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-base md:text-sm text-white outline-none placeholder:text-[#7f8798]"
             />
             <button
               type="submit"
@@ -536,66 +540,18 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
           </div>
         )}
 
-        <aside
-          aria-label="성운 메모 탐색 패널"
-          aria-hidden={discoveryMemos.length === 0}
-          inert={discoveryMemos.length === 0}
-          className={`absolute bottom-0 right-0 top-0 z-30 flex w-[min(88%,25rem)] flex-col border-l border-white/15 bg-[#11141d]/88 shadow-[-18px_0_55px_rgb(0_0_0/0.48)] backdrop-blur-2xl transition duration-300 ease-out ${discoveryMemos.length > 0 ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-full opacity-0"}`}
-        >
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
-            <div>
-              <p className="text-[11px] font-semibold tracking-[0.16em] text-[#e5a93c]">
-                DISCOVERY
-              </p>
-              <h3 className="mt-1 text-lg font-bold text-white">
-                이 성운의 메모 {discoveryMemos.length}개
-              </h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedId(null);
-                setDiscoveryMemoIds([]);
-              }}
-              className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-[#d1d5db]"
-            >
-              닫기
-            </button>
-          </div>
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-            {discoveryMemos.map((memo) => {
-              const image = memo.imageUrl ?? memo.images?.[0]?.url;
-              return (
-                <button
-                  key={memo.id}
-                  type="button"
-                  onClick={() => onOpenMemo(memo)}
-                  className={`flex w-full gap-3 rounded-xl border p-3 text-left transition hover:-translate-y-0.5 hover:border-[#e5a93c]/50 hover:bg-white/8 ${memo.id === selectedId ? "border-[#e5a93c]/55 bg-[#e5a93c]/10" : "border-white/10 bg-white/5"}`}
-                >
-                  {image && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={image}
-                      alt=""
-                      className="h-16 w-16 shrink-0 rounded-lg object-cover"
-                    />
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <strong className="block truncate text-sm text-white">
-                      {memo.title}
-                    </strong>
-                    <time className="mt-1 block text-xs text-[#9ca3af]">
-                      {formatOrbitDate(memo.createdAt)}
-                    </time>
-                    <span className="mt-2 block truncate text-xs text-[#ffc86b]">
-                      {memo.tags.length > 0 ? memo.tags.map((tag) => `#${tag}`).join(" ") : "태그 없음"}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </aside>
+        <AnimatePresence>
+          {discoveryMemos.length > 0 && (
+            <OrbitDetailSheet
+              key="orbit-detail"
+              memos={discoveryMemos}
+              selectedId={selectedId}
+              viewportHeight={viewport.height}
+              onOpenMemo={onOpenMemo}
+              onClose={closeDiscovery}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </section>
   );

@@ -23,6 +23,24 @@
 :root {
   --background: #0f1117;
   --foreground: #f3f4f6;
+  --mobile-header-height: calc(3.5rem + env(safe-area-inset-top));
+  --mobile-nav-height: calc(4rem + env(safe-area-inset-bottom));
+}
+
+/* 가시 높이에서 헤더와 하단 탭 공간을 한 번씩만 빼서 캔버스와 상세 시트를 같은 영역에 배치합니다. */
+.orbit-shell {
+  height: max(0px, calc(var(--orbit-viewport-height, 100dvh) - var(--mobile-header-height) - var(--mobile-nav-height)));
+}
+
+@media (min-width: 768px) {
+  :root {
+    --mobile-header-height: 0px;
+    --mobile-nav-height: 0px;
+  }
+
+  .orbit-shell {
+    height: 100%;
+  }
 }
 
 @theme inline {

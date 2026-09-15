@@ -16,6 +16,8 @@ import {
 } from "@/src/components/MemoryOrbitView";
 import { MemoModal, type MemoDraft } from "@/src/components/MemoModal";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
+import { Header } from "@/src/components/layout/Header";
+import { BottomNavigation, type NavigationSection } from "@/src/components/layout/BottomNavigation";
 import { AuthButton } from "@/src/components/AuthButton";
 import { OrbitGraphView } from "@/src/components/OrbitGraphView";
 import { SearchFilterBar } from "@/src/components/SearchFilterBar";
@@ -42,7 +44,6 @@ interface MemoGroup {
   memos: Memo[];
 }
 
-type NavigationSection = "memos" | "orbit" | "timeline";
 type MemoViewMode = "list" | "gallery";
 
 const MIN_PANEL_WIDTH = 280;
@@ -160,7 +161,6 @@ export default function Home(): React.JSX.Element {
     timePreset: "all",
   });
   const [filterResetKey, setFilterResetKey] = useState(0);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMemoToolbarStuck, setIsMemoToolbarStuck] = useState(false);
   // 💡 [PC 왼쪽 패널 너비 State]
   // panelWidth는 현재 LNB의 실제 너비를 기억하고, isPanelResizing은 사용자가 구분선을 잡고 있는 동안만 마우스 이동을 너비 변경으로 연결합니다.
@@ -183,7 +183,7 @@ export default function Home(): React.JSX.Element {
     };
   }, []);
 
-  usePageScrollLock(Boolean(deleteTarget) || isDrawerOpen);
+  usePageScrollLock(Boolean(deleteTarget));
 
   // 💡 [IndexedDB 비동기 초기화]
   // 첫 화면 뒤 IndexedDB를 먼저 읽고, 비어 있으면 예전 LocalStorage 메모를 한 번 옮긴 뒤 화면 State와 연결합니다.
@@ -402,7 +402,6 @@ export default function Home(): React.JSX.Element {
   const selectNavigation = (section: NavigationSection): void => {
     setActiveSection(section);
     setIsContentHeaderVisible(true);
-    setIsDrawerOpen(false);
     window.scrollTo({ top: 0, behavior: "auto" });
   };
   // MemoOrbit 로고는 어느 화면에서 눌러도 검색 조건과 열린 필터 UI를 비우고 전체 메모 목록의 맨 위로 돌아갑니다.
@@ -411,7 +410,6 @@ export default function Home(): React.JSX.Element {
     setFilterResetKey((current) => current + 1);
     setActiveSection("memos");
     setIsContentHeaderVisible(true);
-    setIsDrawerOpen(false);
     window.scrollTo({ top: 0, behavior: "auto" });
   };
   // 💡 [메모 저장과 자동 저장의 공통 입구]
@@ -519,14 +517,14 @@ export default function Home(): React.JSX.Element {
   return (
     <div
       style={{ "--panel-width": `${panelWidth}px` } as CSSProperties}
-      className={`min-h-dvh bg-[#0f1117] text-[#f3f4f6] xl:pl-[var(--panel-width)] ${activeSection === "orbit" ? "xl:h-screen xl:overflow-hidden" : ""}`}
+      className={`min-h-dvh bg-[#0f1117] text-[#f3f4f6] md:pl-[min(var(--panel-width),40vw)] ${activeSection === "orbit" ? "md:h-screen md:overflow-hidden" : ""}`}
     >
       {storageError && (
         <div role="alert" className="fixed inset-x-4 top-16 z-[150] rounded-xl border border-red-400 bg-[#121318] p-3 text-sm text-red-200">
           {storageError}
         </div>
       )}
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-[var(--panel-width)] min-w-[280px] max-w-[600px] border-r border-[#2a2e3d] bg-[#1a1d26]/80 p-5 backdrop-blur-md xl:flex xl:flex-col">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-[min(var(--panel-width),40vw)] min-w-[280px] max-w-[600px] border-r border-[#2a2e3d] bg-[#1a1d26]/80 p-5 backdrop-blur-md md:flex md:flex-col">
         <button
           type="button"
           onClick={resetFiltersAndOpenMemos}
@@ -574,7 +572,7 @@ export default function Home(): React.JSX.Element {
             </button>
           ))}
         </nav>
-        <div className="mt-auto hidden items-center gap-2 px-3 xl:flex">
+        <div className="mt-auto hidden items-center gap-2 px-3 md:flex">
           <AuthButton />
           <span className="text-xs text-[#8e8e93]">
             클라우드 계정
@@ -598,34 +596,14 @@ export default function Home(): React.JSX.Element {
         />
       </aside>
 
-      <header className="fixed inset-x-0 top-0 z-50 flex h-14 w-full items-center justify-between border-b border-slate-800/60 bg-slate-900/90 px-4 backdrop-blur-md xl:hidden">
-        <div className="mx-auto grid w-full max-w-5xl grid-cols-[44px_minmax(0,1fr)_44px] items-center">
-          <button
-            type="button"
-            onClick={() => setIsDrawerOpen(true)}
-            className="ios-tap flex h-11 w-11 items-center justify-center text-2xl"
-            aria-label="메뉴 열기"
-          >
-            ☰
-          </button>
-          <button
-            type="button"
-            onClick={resetFiltersAndOpenMemos}
-            className="min-w-0 truncate px-2 text-center text-[17px] font-semibold"
-            aria-label="MemoOrbit 메모 목록 홈"
-          >
-            MemoOrbit
-          </button>
-          <AuthButton />
-        </div>
-      </header>
+      <Header activeSection={activeSection} />
       <main
-        className={`mx-auto w-full max-w-full overflow-x-clip px-4 pt-14 xl:pt-0 ${activeSection === "timeline" ? "pb-8 xl:max-w-5xl" : "pb-28"} ${activeSection === "memos" ? "xl:max-w-5xl" : ""} ${activeSection === "orbit" ? "px-0 xl:h-dvh xl:overflow-hidden xl:pb-0" : ""}`}
+        className={`mx-auto w-full max-w-full overflow-x-clip px-4 pt-[var(--mobile-header-height)] md:pt-0 ${activeSection === "orbit" ? "pb-[var(--mobile-nav-height)]" : activeSection === "timeline" ? "pb-[calc(var(--mobile-nav-height)+2rem)] md:pb-8 md:max-w-5xl" : "pb-[calc(var(--mobile-nav-height)+1rem)] md:pb-28"} ${activeSection === "memos" ? "md:max-w-5xl" : ""} ${activeSection === "orbit" ? "px-0 md:h-dvh md:overflow-hidden md:pb-0" : ""}`}
       >
         {activeSection === "memos" && (
           <>
             <div
-              className={`sticky top-14 z-30 -mx-4 border-b border-[#2a2e3d]/80 bg-[#0f1117]/95 px-4 backdrop-blur-md transition-all duration-200 sm:mx-0 sm:border-transparent sm:bg-[#0f1117] sm:px-0 xl:top-0 xl:z-20 xl:py-4 ${isMemoToolbarStuck ? "xl:border-[#2a2e3d] xl:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
+              className={`hidden md:block sticky top-14 z-30 -mx-4 border-b border-[#2a2e3d]/80 bg-[#0f1117]/95 px-4 backdrop-blur-md transition-all duration-200 sm:mx-0 sm:border-transparent sm:bg-[#0f1117] sm:px-0 md:top-0 md:z-20 md:py-4 ${isMemoToolbarStuck ? "md:border-[#2a2e3d] md:shadow-[0_10px_24px_rgb(0_0_0/0.18)]" : ""}`}
             >
               <MainContentHeader
                 id="all-memos-title"
@@ -675,10 +653,12 @@ export default function Home(): React.JSX.Element {
               className="relative pt-2"
             >
             {memoViewMode === "gallery" && (
-              <MemoryOrbitView
-                candidates={memoryCandidates}
-                onOpenMemo={openMemo}
-              />
+              <div className="hidden md:block">
+                <MemoryOrbitView
+                  candidates={memoryCandidates}
+                  onOpenMemo={openMemo}
+                />
+              </div>
             )}
             {pinned.length > 0 && (
               <section className="mb-2 sm:mb-7" aria-labelledby="pinned-heading">
@@ -707,7 +687,7 @@ export default function Home(): React.JSX.Element {
                     id="pinned-list"
                     className={
                       memoViewMode === "gallery"
-                        ? "grid grid-cols-2 gap-3 lg:grid-cols-3"
+                        ? "grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
                         : "grid gap-1 bg-[#1a1d26]/80 backdrop-blur-md sm:block sm:overflow-hidden sm:rounded-xl sm:border sm:border-[#2a2e3d]"
                     }
                   >
@@ -731,7 +711,7 @@ export default function Home(): React.JSX.Element {
                 <div
                   className={
                     memoViewMode === "gallery"
-                      ? "grid grid-cols-2 gap-3 lg:grid-cols-3"
+                      ? "grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
                       : "grid gap-1 bg-[#1a1d26]/80 backdrop-blur-md sm:block sm:overflow-hidden sm:rounded-xl sm:border sm:border-[#2a2e3d]"
                   }
                 >
@@ -771,50 +751,11 @@ export default function Home(): React.JSX.Element {
           />
         )}
       </main>
-      {isDrawerOpen && (
-        <div role="dialog" aria-modal="true" aria-label="메뉴">
-          <button
-            type="button"
-            onClick={() => setIsDrawerOpen(false)}
-            className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-sm xl:hidden"
-            aria-label="메뉴 닫기"
-          />
-          <aside className="fixed inset-y-0 left-0 z-[100] flex w-[280px] flex-col border-r border-[#2a2e3d] bg-[#161922] p-5 text-[#f3f4f6] shadow-2xl animate-in slide-in-from-left duration-200 xl:hidden">
-            <div className="flex items-center justify-between">
-              <strong className="text-2xl">MemoOrbit</strong>
-              <button
-                type="button"
-                onClick={() => setIsDrawerOpen(false)}
-                className="ios-tap h-11 w-11 text-2xl"
-                aria-label="메뉴 닫기"
-              >
-                ×
-              </button>
-            </div>
-            <nav className="mt-7 grid gap-2" aria-label="모바일 주요 메뉴">
-              {NAVIGATION_ITEMS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => selectNavigation(item.id)}
-                  aria-current={activeSection === item.id ? "page" : undefined}
-                  className={`flex items-center gap-4 rounded-xl px-4 py-3 text-left ${activeSection === item.id ? "bg-[#e5a93c]" : ""}`}
-                >
-                  <span className="text-xl" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                  <span>
-                    <strong className="block text-sm">{item.label}</strong>
-                    <small className="text-xs opacity-60">
-                      {item.description}
-                    </small>
-                  </span>
-                </button>
-              ))}
-            </nav>
-          </aside>
-        </div>
-      )}
+      <BottomNavigation
+        activeSection={activeSection}
+        onSelect={selectNavigation}
+        hidden={isEditorOpen || Boolean(deleteTarget)}
+      />
       {isEditorOpen && (
         <MemoModal
           isSaving={isSavingMemo}

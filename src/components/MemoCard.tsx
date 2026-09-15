@@ -9,7 +9,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { MemoOrbitDefaultCover } from "@/src/components/MemoOrbitDefaultCover";
 import { MemoContextMenu } from "@/src/components/MemoContextMenu";
 import type { Memo } from "@/types/memo";
 
@@ -213,8 +212,8 @@ export function MemoCard({
     setMenuPosition(null);
   };
 
-  // 카드에는 본문 전체 대신 첫 본문 줄만 보여 주어 목록 높이가 지나치게 늘어나지 않게 합니다.
-  const preview = memo.content.trim().split("\n")[0] || "추가 텍스트 없음";
+  // 저장된 일반 본문을 공백으로 정리하고 화면에서는 최대 두 줄까지 읽을 수 있게 표시합니다.
+  const preview = memo.content.trim().replace(/\s+/g, " ") || "추가 텍스트 없음";
 
   return (
     <div
@@ -273,24 +272,18 @@ export function MemoCard({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerCancel}
-        className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 pb-3 pl-3 pr-3 pt-0" : "border-b border-[#2a2e3d] px-3 py-2 sm:py-3.5 sm:pl-4 sm:pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
+        className={`memo-row relative z-10 touch-pan-y bg-[#161922] opacity-100 ${viewMode === "gallery" ? "h-full border-0 p-3 md:pt-0" : "border-b border-[#2a2e3d] px-3 py-2 sm:py-3.5 sm:pl-4 sm:pr-14"} ${isDragging ? "" : "transition-transform duration-200 ease-out"}`}
         style={{ transform: `translateX(${isSwipeOpen || isDragging ? offset : 0}px)` }}
       >
-        {viewMode === "gallery" && (
-          // 갤러리의 두 열이 작은 화면에도 나란히 들어가도록 썸네일 비율과 안쪽 여백을 작게 유지합니다.
-          <div className="-ml-3 -mr-3 mb-3 aspect-video overflow-hidden bg-[#0f1117]">
-            {/* 💡 [메모 카드 기본 커버 분기]
-                사용자가 첨부한 imageUrl이 있으면 사진을 보여 주고, 없으면 같은 자리에 MemoOrbit 브랜드 궤도 그래픽을 채웁니다. */}
-            {memo.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={memo.imageUrl}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <MemoOrbitDefaultCover title={memo.title} />
-            )}
+        {viewMode === "gallery" && memo.imageUrl && (
+          <div className="-mx-3 mb-3 hidden aspect-video overflow-hidden bg-[#0f1117] md:block">
+            {/* PC 사진 갤러리에만 실제 첨부 사진을 표시하고 기본 커버는 만들지 않습니다. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={memo.imageUrl}
+              alt=""
+              className="h-full w-full object-cover"
+            />
           </div>
         )}
         <button
@@ -317,7 +310,7 @@ export function MemoCard({
             </span>
           )}
           <h3
-            className={`truncate font-bold ${viewMode === "gallery" ? "text-sm leading-5" : "text-[15px] leading-5 sm:text-base xl:text-[17px]"}`}
+            className="min-w-0 flex-1 truncate text-[15px] font-bold leading-5 md:text-base"
           >
             {memo.title}
           </h3>
@@ -332,21 +325,20 @@ export function MemoCard({
             </span>
           )}
         </div>
-        <p
-          className={`min-w-0 ${viewMode === "gallery" ? "mt-1 grid gap-0.5 text-xs leading-4" : "mt-0.5 flex gap-2 text-sm leading-4 text-[#d1d5db] sm:leading-5 xl:text-[15px]"}`}
-        >
-          <time
-            className={`shrink-0 text-[#9ca3af] ${viewMode === "gallery" ? "text-xs" : "text-sm xl:text-[15px]"}`}
-          >
-            {formatMemoDate(memo.updatedAt)}
-          </time>
-          <span className="truncate text-[#9ca3af]">{preview}</span>
+        <p className="mt-1 line-clamp-2 whitespace-normal break-words text-sm leading-5 text-gray-400">
+          {preview}
         </p>
-        {memo.tags.length > 0 && (
-          <p className="hidden truncate text-xs leading-4 text-[#9ca3af] sm:mt-0.5 sm:block sm:text-[13px]">
-            {memo.tags.map((tag) => `#${tag}`).join("  ")}
-          </p>
-        )}
+        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-[#9ca3af]">
+          <time dateTime={memo.createdAt} className="shrink-0">
+            {formatMemoDate(memo.createdAt)}
+          </time>
+          {/* 저장된 태그를 날짜 옆의 작은 칩으로 바꾸어 메모의 주제를 함께 보여 줍니다. */}
+          {memo.tags.map((tag) => (
+            <span key={tag} className="max-w-full truncate rounded-md border border-[#2a2e3d] bg-white/5 px-1.5 py-0.5">
+              #{tag}
+            </span>
+          ))}
+        </div>
       </article>
 
       {menuPosition && (

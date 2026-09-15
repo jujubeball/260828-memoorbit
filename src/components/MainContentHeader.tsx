@@ -43,8 +43,8 @@ export function MainContentHeader({
     <header
       ref={headerRef}
       className={flushBelowMobileHeader
-        ? "py-2 sm:py-0 xl:pt-6"
-        : "py-2 sm:pb-0 sm:pt-5 xl:pt-6"}
+        ? "hidden md:block md:py-0 xl:pt-6"
+        : "hidden md:block md:pb-0 md:pt-5 xl:pt-6"}
     >
       <p className="mb-1 hidden text-xs font-semibold uppercase tracking-wider text-[#e5a93c] sm:block">
         {label}

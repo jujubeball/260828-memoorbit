@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   description:
     "시간과 시기를 따라 생각과 메모들이 궤도를 그리며 연결되는 AI 지식 아카이브 웹 앱",
 };
+
+// iOS 홈 표시기 영역까지 배경을 그리고 실제 조작 여백은 각 하단 컴포넌트에서 확보합니다.
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 interface RootLayoutProps {
   children: ReactNode;
