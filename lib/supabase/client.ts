@@ -11,5 +11,10 @@ export function createClient() {
   if (typeof window === "undefined") return null;
   const config = getSupabaseConfig();
   if (!config) return null;
-  return createBrowserClient(config.url, config.anonKey, { isSingleton: true });
+  // 💡 [서버에서 인증 코드 교환]
+  // 검증값은 쿠키로 공유하고, 돌아온 코드는 서버 콜백에서만 세션으로 교환합니다.
+  return createBrowserClient(config.url, config.anonKey, {
+    isSingleton: true,
+    auth: { flowType: "pkce", detectSessionInUrl: false },
+  });
 }

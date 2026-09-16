@@ -11,19 +11,14 @@ export interface AuthState {
   isGuest: boolean;
   isLoading: boolean;
   isConfigured: boolean;
-  isTestSession: boolean;
   error: string | null;
-}
-
-interface AuthContextValue extends AuthState {
-  setTestSession: (session: Session | null) => void;
 }
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+export const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: AuthProviderProps) {
   // 개발 모드에서 구독을 다시 연결해도 이미 읽은 로그인 오류를 보존합니다.
@@ -35,7 +30,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isGuest: true,
     isLoading: Boolean(getSupabaseConfig()),
     isConfigured: Boolean(getSupabaseConfig()),
-    isTestSession: false,
     error: null,
   });
 
@@ -53,9 +47,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       window.history.replaceState(window.history.state, "", url);
     }
     const update = (session: Session | null, error: string | null = null) => {
-      if (active) setState((previous) => previous.isTestSession && !supabase ? previous : {
+      if (active) setState({
         session, user: session?.user ?? null, isGuest: !session?.user,
-        isLoading: false, isConfigured: Boolean(supabase), isTestSession: false, error,
+        isLoading: false, isConfigured: Boolean(supabase), error,
       });
     };
     if (!supabase) {
@@ -82,18 +76,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  // 💡 [임시 계정 상태 공유]
-  // 테스트 세션은 화면 상태에만 보관합니다. 실제 인증 설정이 있으면 이 경로로 계정을 바꿀 수 없습니다.
-  const setTestSession = (session: Session | null) => {
-    if (getSupabaseConfig()) return;
-    setState({
-      session, user: session?.user ?? null, isGuest: !session,
-      isLoading: false, isConfigured: false, isTestSession: Boolean(session), error: null,
-    });
-  };
-
   return (
-    <AuthContext.Provider value={{ ...state, setTestSession }}>
+    <AuthContext.Provider value={state}>
       {children}
     </AuthContext.Provider>
   );

@@ -62,7 +62,7 @@ test("인증 초기 응답이 새 로그인 이벤트를 덮어쓰지 않고 로
     await current.signInWithGoogle();
     await current.signInWithApple();
     assert.deepEqual(oauthCalls.map((call) => call.provider), ["google", "apple"]);
-    assert(oauthCalls.every((call) => call.options.redirectTo === "http://localhost:3000"));
+    assert(oauthCalls.every((call) => call.options.redirectTo === "http://localhost:3000/auth/callback"));
     // SDK가 영문 네트워크 예외를 던져도 화면으로는 한글 안내만 전달합니다.
     auth.signInWithOAuth = async () => { throw new Error("Failed to fetch"); };
     await assert.rejects(current.signInWithGoogle(), /로그인 연결에 실패/);
@@ -189,12 +189,19 @@ test("OAuth 콜백은 성공·실패·취소를 처리하고 외부 리디렉션
   for (const scenario of ["success", "failure", "cancel", "missing", "unconfigured", "throw"]) {
     let exchanges = 0;
     const { GET } = load("app/auth/callback/route.ts", {
-      "@/lib/supabase/server": {
-        createClient: async () => scenario === "unconfigured" ? null : ({ auth: {
+      "@/lib/supabase/config": {
+        getSupabaseConfig: () => scenario === "unconfigured" ? null : { url: "https://example.supabase.co", anonKey: "public-key" },
+      },
+      "@supabase/ssr": {
+        createServerClient: (_url, _key, { cookies }) => ({ auth: {
           exchangeCodeForSession: async (code) => {
             exchanges++;
             assert.equal(code, "test-code");
             if (scenario === "throw") throw new Error("offline");
+            assert.equal(cookies.getAll().find((cookie) => cookie.name === "verifier")?.value, "pkce-value");
+            if (scenario === "success") cookies.setAll([
+              { name: "session", value: "session-value", options: { path: "/", sameSite: "lax", secure: true } },
+            ], { Pragma: "no-cache" });
             return { error: scenario === "failure" ? new Error("invalid") : null };
           },
         } }),
@@ -203,7 +210,12 @@ test("OAuth 콜백은 성공·실패·취소를 처리하고 외부 리디렉션
     const url = new URL("http://localhost:3000/auth/callback?next=https://evil.example");
     if (scenario !== "missing") url.searchParams.set("code", "test-code");
     if (scenario === "cancel") url.searchParams.set("error", "access_denied");
-    const response = await GET(new NextRequest(url));
+    const response = await GET(new NextRequest(url, { headers: { Cookie: "verifier=pkce-value" } }));
+    assert.equal(response.cookies.get("session")?.value, scenario === "success" ? "session-value" : undefined);
+    if (scenario === "success") {
+      assert.match(response.headers.get("set-cookie"), /Secure/);
+      assert.equal(response.headers.get("pragma"), "no-cache");
+    }
     const destination = new URL(response.headers.get("location"));
     assert.equal(destination.origin, "http://localhost:3000");
     assert.equal(destination.pathname, "/");
@@ -214,7 +226,7 @@ test("OAuth 콜백은 성공·실패·취소를 처리하고 외부 리디렉션
 });
 
 
-test("미설정 소셜 로그인은 전역 테스트 계정을 만들고 로그아웃 시 메모를 보존한다", async () => {
+test("미설정 소셜 로그인은 실패 안내와 함께 게스트 상태와 메모를 보존한다", async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: "http://localhost:3000" });
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
@@ -237,21 +249,19 @@ test("미설정 소셜 로그인은 전역 테스트 계정을 만들고 로그�
     await act(async () => root.render(React.createElement(provider.AuthProvider, null, React.createElement(Editor))));
     const editor = document.querySelector("textarea");
     const initialClientCalls = clientCalls;
-    for (const [action, name] of [["signInWithGoogle", "google"], ["signInWithApple", "apple"]]) {
-      await act(async () => current[action]());
-      assert.equal(current.isTestSession, true);
-      assert.equal(current.isGuest, false);
-      assert.equal(current.user.app_metadata.provider, name);
-      assert.equal(current.session.access_token, "");
+    for (const action of ["signInWithGoogle", "signInWithApple"]) {
+      await act(async () => assert.rejects(current[action](), /로그인 연결이 설정되지 않았습니다/));
+      assert.equal(current.isGuest, true);
+      assert.equal(current.user, null);
+      assert.equal(current.session, null);
       assert.equal(current.isConfigured, false);
       await act(async () => current.signOut());
       assert.equal(current.session, null);
-      assert.equal(current.isTestSession, false);
       assert.equal(current.isGuest, true);
       assert.equal(document.querySelector("textarea"), editor);
       assert.equal(editor.value, "로컬 메모 보존");
     }
-    assert.equal(clientCalls, initialClientCalls);
+    assert.equal(clientCalls, initialClientCalls + 4);
     assert.equal(document.cookie, "");
     assert.equal(window.localStorage.length, 0);
   } finally {

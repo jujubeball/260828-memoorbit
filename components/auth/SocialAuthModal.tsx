@@ -10,7 +10,7 @@ interface SocialAuthModalProps {
 }
 
 export function SocialAuthModal({ onClose }: SocialAuthModalProps): React.JSX.Element {
-  const { user, isTestSession, isConfigured, error: authError, signInWithGoogle, signInWithApple, signOut } = useAuth();
+  const { user, isConfigured, error: authError, signInWithGoogle, signInWithApple, signOut } = useAuth();
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -71,7 +71,7 @@ export function SocialAuthModal({ onClose }: SocialAuthModalProps): React.JSX.El
       <div className="p-5">
         <div className="flex items-center justify-between gap-2">
           <h2 id={titleId} className="text-lg font-bold">
-            {isTestSession ? "테스트 계정" : user ? "클라우드 계정" : "백업 / 로그인"}
+            {user ? "클라우드 계정" : "백업 / 로그인"}
           </h2>
           <button type="button" onClick={onClose} aria-label="로그인 모달 닫기" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-white/10">
             ✕
@@ -107,7 +107,7 @@ export function SocialAuthModal({ onClose }: SocialAuthModalProps): React.JSX.El
         )}
         {!isConfigured && (
           <p className="mt-3 text-xs leading-5 text-[#ffc86b]">
-            임시 테스트 로그인 모드입니다. 실제 계정 연결이나 백업은 수행하지 않으며 새로고침하면 해제됩니다.
+            로그인 연결이 아직 설정되지 않았습니다. 메모는 이 기기에 계속 저장됩니다.
           </p>
         )}
         {(error || authError) && (
