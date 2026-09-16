@@ -38,7 +38,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     let active = true;
     let eventReceived = false;
-    const supabase = createClient();
+    // 💡 [초기 복원 실패 격리]
+    // SDK가 설정 오류를 던져도 메모 화면은 유지합니다. 버튼 클릭은 별도로 SDK 연결을 다시 시도합니다.
+    let supabase: ReturnType<typeof createClient> | null = null;
+    try {
+      supabase = createClient();
+    } catch (error) {
+      console.error("로그인 상태 복원 실패:", error);
+    }
     const url = new URL(window.location.href);
     const callbackError = url.searchParams.has("auth_error");
     if (callbackError) {

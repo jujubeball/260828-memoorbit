@@ -65,7 +65,7 @@ test("인증 초기 응답이 새 로그인 이벤트를 덮어쓰지 않고 로
     assert(oauthCalls.every((call) => call.options.redirectTo === "http://localhost:3000/auth/callback"));
     // SDK가 영문 네트워크 예외를 던져도 화면으로는 한글 안내만 전달합니다.
     auth.signInWithOAuth = async () => { throw new Error("Failed to fetch"); };
-    await assert.rejects(current.signInWithGoogle(), /로그인 연결에 실패/);
+    await assert.doesNotReject(current.signInWithGoogle());
     auth.signOut = async () => ({ error: new Error("Network unavailable") });
     await assert.rejects(current.signOut(), /로그아웃하지 못했습니다/);
   } finally {
@@ -107,7 +107,7 @@ test("Supabase 미설정과 OAuth 취소에도 게스트 화면이 렌더링되�
   }
 });
 
-test("소셜 모달은 클릭으로만 열리고 두 공급자·중복 방지·오류·닫기·포커스 복원을 지원한다", async () => {
+test("소셜 모달은 경고 없이 매 클릭마다 공급자를 호출하고 닫기·포커스를 복원한다", async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: "http://localhost:3000", pretendToBeVisual: true });
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
@@ -119,14 +119,13 @@ test("소셜 모달은 클릭으로만 열리고 두 공급자·중복 방지·�
     this.querySelector("button")?.focus();
   };
   dom.window.HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
-  let rejectGoogle;
   let googleCalls = 0;
   let appleCalls = 0;
   const authState = {
     user: null, isLoading: false, isConfigured: false, error: null,
     signInWithGoogle: () => {
       googleCalls += 1;
-      return new Promise((_resolve, reject) => { rejectGoogle = reject; });
+      return new Promise(() => {});
     },
     signInWithApple: async () => { appleCalls += 1; },
     signOut: async () => { authState.user = null; },
@@ -157,11 +156,11 @@ test("소셜 모달은 클릭으로만 열리고 두 공급자·중복 방지·�
     await act(async () => render());
     buttons = [...document.querySelectorAll("dialog button")];
     await act(async () => { buttons[1].click(); buttons[1].click(); });
-    assert.equal(googleCalls, 1);
-    assert(buttons[2].disabled);
-    assert.match(document.querySelector('[role="status"]').textContent, /처리 중/);
-    await act(async () => rejectGoogle(new Error("로그인 연결에 실패했습니다.")));
-    assert(document.querySelector('[role="alert"]').textContent.includes("로그인 연결에 실패"));
+    assert.equal(googleCalls, 2);
+    assert(buttons.slice(1).every((button) => !button.hasAttribute("disabled")));
+    assert.equal(document.querySelector('[role="alert"]'), null);
+    assert.equal(document.querySelector('[role="status"]'), null);
+    assert(!document.querySelector("dialog").textContent.includes("설정되지"));
     await act(async () => buttons[2].click());
     assert.equal(appleCalls, 1);
     await act(async () => document.querySelector("dialog").dispatchEvent(new dom.window.Event("cancel", { cancelable: true })));
@@ -226,14 +225,14 @@ test("OAuth 콜백은 성공·실패·취소를 처리하고 외부 리디렉션
 });
 
 
-test("미설정 소셜 로그인은 실패 안내와 함께 게스트 상태와 메모를 보존한다", async () => {
+test("SDK 생성 실패에도 매 클릭마다 연결을 시도하고 게스트 메모를 보존한다", async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: "http://localhost:3000" });
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   let clientCalls = 0;
   const mocks = {
-    "@/lib/supabase/client": { isSupabaseConfigured: false, createClient: () => { clientCalls++; return null; } },
+    "@/lib/supabase/client": { createClient: () => { clientCalls++; throw new Error("SDK configuration error"); } },
     "@/lib/supabase/config": { getSupabaseConfig: () => null },
   };
   const provider = load("components/providers/AuthProvider.tsx", mocks);
@@ -250,12 +249,12 @@ test("미설정 소셜 로그인은 실패 안내와 함께 게스트 상태와 
     const editor = document.querySelector("textarea");
     const initialClientCalls = clientCalls;
     for (const action of ["signInWithGoogle", "signInWithApple"]) {
-      await act(async () => assert.rejects(current[action](), /로그인 연결이 설정되지 않았습니다/));
+      await act(async () => assert.doesNotReject(current[action]()));
       assert.equal(current.isGuest, true);
       assert.equal(current.user, null);
       assert.equal(current.session, null);
       assert.equal(current.isConfigured, false);
-      await act(async () => current.signOut());
+      await act(async () => assert.rejects(current.signOut(), /로그아웃하지 못했습니다/));
       assert.equal(current.session, null);
       assert.equal(current.isGuest, true);
       assert.equal(document.querySelector("textarea"), editor);
@@ -270,20 +269,24 @@ test("미설정 소셜 로그인은 실패 안내와 함께 게스트 상태와 
   }
 });
 
-test("공개 설정이 비어 있거나 잘못되면 브라우저 클라이언트를 생성하지 않는다", () => {
+test("공개 설정 값은 사전 검사 없이 그대로 SDK 생성 함수에 전달한다", () => {
   const previousUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const previousKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   try {
     for (const [url, key] of [["", ""], ["  ", "key"], ["invalid", "key"], ["https://example.supabase.co", " "]]) {
       process.env.NEXT_PUBLIC_SUPABASE_URL = url;
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = key;
-      const config = load("lib/supabase/config.ts", {});
+      const expected = {};
       const client = load("lib/supabase/client.ts", {
-        "./config": config,
-        "@supabase/ssr": { createBrowserClient() { assert.fail("잘못된 설정으로 생성하면 안 됩니다."); } },
+        "@supabase/ssr": { createBrowserClient(actualUrl, actualKey, options) {
+          assert.equal(actualUrl, url);
+          assert.equal(actualKey, key);
+          assert.equal(options.auth.flowType, "pkce");
+          assert.equal(options.auth.detectSessionInUrl, false);
+          return expected;
+        } },
       });
-      assert.equal(client.isSupabaseConfigured, false);
-      assert.equal(client.createClient(), null);
+      assert.equal(client.createClient(), expected);
     }
   } finally {
     if (previousUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
