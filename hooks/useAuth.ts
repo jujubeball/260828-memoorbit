@@ -8,9 +8,9 @@ export function useAuth() {
   const state = useContext(AuthContext);
   if (!state) throw new Error("useAuth는 AuthProvider 안에서 사용해야 합니다.");
 
-  // 사용자가 로그인 버튼을 누른 시점에만 공급자로 이동합니다.
+  // 💡 [실제 소셜 인증 시작]
+  // 모달 클릭을 SDK에 전달해 공급자로 이동하고, 인증 후 서버 콜백에서 세션 쿠키를 받습니다.
   const signIn = async (provider: "google" | "apple") => {
-    console.info("소셜 로그인 요청 시작:", provider);
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({
@@ -21,7 +21,8 @@ export function useAuth() {
     } catch (error) {
       // 💡 [직접 연결한 클릭의 오류 처리]
       // SDK 생성·요청 실패는 콘솔에 기록해 직접 연결한 비동기 이벤트에 미처리 오류가 남지 않게 합니다.
-      console.error("소셜 로그인 실패:", error);
+      const message = error instanceof Error ? error.message : "로그인 요청을 완료하지 못했습니다.";
+      console.error(provider === "google" ? "구글 로그인 실패:" : "애플 로그인 실패:", message);
     }
   };
 

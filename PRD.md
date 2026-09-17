@@ -356,6 +356,9 @@ MemoOrbit는 스쳐 지나가는 아이디어를 가장 빠르고 편안하게 �
 - 사용자 인증(Supabase Google/Apple OAuth), Multi-tenant DB 연동, 공유용 카드 이미지 내보내기.
 
 ### Supabase 1단계: 지연 로그인 및 DB 스키마 기반
+- **실제 Google Auth 명세 재확인 (2026-09-17)**: 실행 코드에서 `isMock`·임시 테스트 계정·가짜 세션 생성 분기를 사용하지 않는다. Google 버튼 → `useAuth.signInWithGoogle` → Supabase `signInWithOAuth` → `/auth/callback`의 `exchangeCodeForSession` → 응답 쿠키 → AuthProvider 상태 복원 흐름을 유지한다.
+- Google 로그인 실패는 `구글 로그인 실패:`와 오류 메시지로 콘솔에 기록한다. 자동 테스트의 격리용 SDK 대역은 실행 앱의 Mock Auth와 구분하며 회귀 검증에 사용한다.
+- [x] 이번 명세의 인증 회귀 테스트 6개·ESLint·TypeScript 재검증 통과 (2026-09-17). 실행 코드에 임시 인증 분기가 없음을 확인했다. `.env.local`의 공개 URL·anon 키가 모두 비어 있어 실계정 검증은 실제 환경 변수와 공급자 설정 후 별도로 진행한다.
 - **소셜 버튼 직접 연결**: Google/Apple 버튼은 항상 활성화하며 클릭을 로그인 함수에 직접 연결한다. 환경 검사·요청 중 중복 차단·소셜 버튼의 disabled 속성을 제거한다.
 - 모달의 설정 경고와 노란색/주황색 오류 문구를 제거한다. 로그인 함수는 설정 유무를 검사하지 않고 SDK 클라이언트 생성과 OAuth 호출을 시도한다. SDK 오류는 콘솔에 기록하며 임시 계정은 만들지 않는다.
 - 클라이언트 생성에 필요한 실제 URL과 키는 여전히 필수다. 초기 세션 복원 중 SDK 생성이 실패해도 게스트 화면은 유지한다.
