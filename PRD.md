@@ -356,6 +356,10 @@ MemoOrbit는 스쳐 지나가는 아이디어를 가장 빠르고 편안하게 �
 - 사용자 인증(Supabase Google/Apple OAuth), Multi-tenant DB 연동, 공유용 카드 이미지 내보내기.
 
 ### Supabase 1단계: 지연 로그인 및 DB 스키마 기반
+- **Header 인증 토글 (2026-09-18)**: Header와 PC 메뉴의 `클라우드 계정` 글자까지 하나의 로그인 버튼으로 묶는다. 비로그인은 소셜 모달을 열고, 로그인하면 이메일(없으면 계정 표시)과 직접 로그아웃 버튼으로 전환한다. 인증 상태는 기존 AuthProvider의 세션 구독을 공유하며 별도 사용자 State를 중복 생성하지 않는다. 로그아웃 요청 중 중복 클릭을 막고 실패 안내를 표시한다.
+- OAuth 귀환 주소는 `${window.location.origin}/auth/callback`을 유지하고 로컬·HTTPS 배포 출처를 검증한다. Supabase 허용 리디렉션에는 각 앱 콜백을, Google 승인 리디렉션에는 Supabase 공급자 콜백을 등록해야 하며 앱 코드만으로 외부 설정 불일치를 해결할 수는 없다.
+- [x] Header/PC 계정 글자 클릭·이메일/직접 로그아웃 전환·중복 로그아웃 방지·실패 재시도·외부 세션 변경 시 모달 닫힘 구현. 인증 테스트 7개, ESLint, TypeScript, 프로덕션 빌드 통과 (2026-09-18).
+- [ ] 실제 Google/Vercel 콘솔 설정과 실계정 로그인·로그아웃의 브라우저 세션 쿠키 생성/삭제 검수는 연결 가능한 브라우저가 없어 미완료다.
 - **Google OAuth 요청 경로 정리 (2026-09-18)**: 브라우저 싱글톤 구현을 `src/lib/supabase/client.ts`에 두고 로그인 훅과 AuthProvider에서 공유한다. 기존 `lib/supabase/client.ts`는 호환용 재내보내기로 유지한다. 프로젝트의 활성 App Router는 루트 `app/`이므로 콜백은 `app/auth/callback/route.ts`에서 제공한다.
 - Google 버튼의 공급자·현재 출처 콜백 주소, 서버 코드 교환·응답 쿠키, 초기 세션 복원·인증 이벤트·구독 해제를 회귀 검증한다. 실제 계정 선택과 Network/Application의 세션 쿠키 확인은 환경 설정 후 별도로 기록한다.
 - [x] 2026-09-18 인증 테스트 6개·ESLint·TypeScript·프로덕션 빌드 통과. 실행 서버에서 홈 200 및 코드 누락/취소 콜백의 홈 오류 리디렉션 307을 확인했다. 현재 `.env.local`의 URL·anon 키는 입력되어 있다.

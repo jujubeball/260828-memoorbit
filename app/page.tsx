@@ -574,9 +574,6 @@ export default function Home(): React.JSX.Element {
         </nav>
         <div className="mt-auto hidden items-center gap-2 px-3 md:flex">
           <AuthButton />
-          <span className="text-xs text-[#8e8e93]">
-            클라우드 계정
-          </span>
         </div>
         <p className="px-3 text-xs text-[#8e8e93]">
           생각의 궤도를 기록하고 다시 발견하세요.

@@ -20,6 +20,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
 ## 소셜 공급자와 귀환 주소
 
+Header와 PC 메뉴의 `클라우드 계정`은 글자와 아이콘 전체가 로그인 버튼이다. 로그인 이벤트가 오면 이메일과 직접 로그아웃 버튼으로 바뀐다. 로그아웃은 현재 브라우저 세션만 해제하며, 요청 실패 시 계정 표시를 유지하고 재시도 안내를 표시한다.
+
+### 로컬·Vercel 주소 구분
+
+- 앱이 Supabase에 보내는 `redirectTo`는 `${window.location.origin}/auth/callback`이다. 로컬 포트, Vercel 프로덕션 도메인, 커스텀 도메인 각각 실제 접속 주소의 콜백을 Supabase Authentication → URL Configuration → Redirect URLs에 등록한다. Site URL은 실제 프로덕션 주소로 설정한다.
+- Google Cloud OAuth 클라이언트의 Authorized redirect URIs에는 Supabase Google 공급자 화면에 표시되는 `https://<프로젝트 참조>.supabase.co/auth/v1/callback`을 정확히 등록한다. 커스텀 인증 도메인을 사용하면 공급자 화면의 해당 주소를 따른다. 이 값은 앱의 `/auth/callback`과 다르다.
+- `redirect_uri_mismatch`가 Google 화면에서 발생하면 Google에 등록된 공급자 콜백을 먼저 확인한다. 로그인이 엉뚱한 앱 도메인으로 돌아오면 Supabase의 허용 목록과 Site URL을 확인한다. 로컬과 Vercel에 동일 프로젝트의 공개 환경 변수를 설정하고 변경 후 재시작·재배포한다.
+- 현재 자동 테스트의 Vercel 주소는 검증용 예시이며 실제 배포 설정을 확인하거나 변경한 것은 아니다.
+
+공식 참고: [Google 공급자 설정](https://supabase.com/docs/guides/auth/social-login/auth-google), [리디렉션 허용 목록](https://supabase.com/docs/guides/auth/redirect-urls).
+
 1. Supabase 프로젝트의 인증 설정에서 Google·Apple 공급자를 활성화하고 각 공급자의 자격 증명을 등록한다. 이메일/비밀번호 로그인은 앱 UI에서 제공하지 않는다. 서버에서도 소셜 로그인만 허용하려면 사용하지 않는 Email 공급자를 비활성화한다.
 2. Google·Apple 개발자 설정에는 Supabase가 안내하는 공급자 콜백 주소를 등록한다. 앱의 `/auth/callback` 주소와 혼동하지 않는다.
 3. Supabase 인증 URL 설정의 허용 리디렉션 목록에 `http://localhost:3000/auth/callback`과 `https://배포도메인/auth/callback`을 등록한다. Site URL은 실제 배포 출처로 지정한다.

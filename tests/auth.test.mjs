@@ -37,10 +37,15 @@ test("인증 초기 응답이 새 로그인 이벤트를 덮어쓰지 않고 로
   };
   const provider = load("components/providers/AuthProvider.tsx", mocks);
   const { useAuth } = load("hooks/useAuth.ts", { ...mocks, "@/components/providers/AuthProvider": provider });
+  const { AuthButton } = load("src/components/AuthButton.tsx", {
+    "@/hooks/useAuth": { useAuth },
+    "@/components/auth/SocialAuthModal": { SocialAuthModal: () => null },
+  });
   let current;
   function Editor() {
     current = useAuth();
-    return React.createElement("textarea", { defaultValue: "게스트 작성 중" });
+    return React.createElement(React.Fragment, null,
+      React.createElement("textarea", { defaultValue: "게스트 작성 중" }), React.createElement(AuthButton));
   }
   const { createRoot } = await import("react-dom/client");
   const root = createRoot(document.getElementById("root"));
@@ -49,20 +54,25 @@ test("인증 초기 응답이 새 로그인 이벤트를 덮어쓰지 않고 로
     const editor = document.querySelector("textarea");
     assert.equal(oauthCalls.length, 0);
     assert.equal(current.isLoading, true);
-    const session = { user: { id: "member-1" } };
+    const session = { user: { id: "member-1", email: "member@example.test" } };
     await act(async () => callback("SIGNED_IN", session));
     await act(async () => resolveSession({ data: { session: null }, error: null }));
     assert.equal(current.user.id, "member-1");
     assert.equal(current.isGuest, false);
+    assert(document.getElementById("root").textContent.includes("member@example.test"));
     assert.equal(document.querySelector("textarea"), editor);
-    await act(async () => current.signOut());
+    await act(async () => document.querySelector("button").click());
     assert.equal(current.isGuest, true);
+    assert.equal(document.querySelector("button").getAttribute("aria-label"), "클라우드 계정 로그인");
     assert.equal(editor.value, "게스트 작성 중");
     assert.equal(document.querySelector("textarea"), editor);
     await current.signInWithGoogle();
     await current.signInWithApple();
     assert.deepEqual(oauthCalls.map((call) => call.provider), ["google", "apple"]);
     assert(oauthCalls.every((call) => call.options.redirectTo === "http://localhost:3000/auth/callback"));
+    dom.reconfigure({ url: "https://memoorbit-test.vercel.app/" });
+    await current.signInWithGoogle();
+    assert.equal(oauthCalls.at(-1).options.redirectTo, "https://memoorbit-test.vercel.app/auth/callback");
     // SDK가 영문 네트워크 예외를 던져도 화면으로는 한글 안내만 전달합니다.
     auth.signInWithOAuth = async () => { throw new Error("Failed to fetch"); };
     await assert.doesNotReject(current.signInWithGoogle());
@@ -147,7 +157,10 @@ test("소셜 모달은 경고 없이 매 클릭마다 공급자를 호출하고 
     const editor = document.querySelector("textarea");
     assert.equal(document.querySelector("dialog"), null);
     assert.equal(googleCalls + appleCalls, 0);
-    await open();
+    await act(async () => {
+      trigger().focus();
+      trigger().querySelector("span").click();
+    });
     assert.equal(document.querySelectorAll("dialog input, dialog textarea").length, 0);
     let buttons = [...document.querySelectorAll("dialog button")];
     assert.deepEqual(buttons.slice(1).map((button) => button.textContent), ["Google 로그인", "Apple 로그인"]);
@@ -173,9 +186,11 @@ test("소셜 모달은 경고 없이 매 클릭마다 공급자를 호출하고 
     await act(async () => document.querySelector("dialog").click());
     assert.equal(document.querySelector("dialog"), null);
     authState.user = { id: "member", email: "member@example.test" };
-    await open();
-    assert(document.querySelector("dialog").textContent.includes("member@example.test"));
-    await act(async () => [...document.querySelectorAll("dialog button")].find((button) => button.textContent === "로그아웃").click());
+    await act(async () => render());
+    assert(document.getElementById("root").textContent.includes("member@example.test"));
+    assert.equal(trigger(), null);
+    await act(async () => [...document.querySelectorAll("button")].find((button) => button.textContent === "로그아웃").click());
+    assert(trigger());
     assert.equal(document.querySelector("dialog"), null);
     assert.equal(editor.value, "게스트 메모 보존");
   } finally {
@@ -184,8 +199,58 @@ test("소셜 모달은 경고 없이 매 클릭마다 공급자를 호출하고 
   }
 });
 
+test("Header 로그아웃은 중복 요청을 막고 실패 후 재시도하며 외부 로그아웃에 모달을 다시 열지 않는다", async () => {
+  const dom = new JSDOM('<div id="root"></div>', { url: "http://localhost:3000" });
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  let rejectSignOut;
+  let calls = 0;
+  const authState = {
+    user: { email: "member@example.test" },
+    signOut: () => { calls++; return new Promise((_resolve, reject) => { rejectSignOut = reject; }); },
+  };
+  const { AuthButton } = load("src/components/AuthButton.tsx", {
+    "@/hooks/useAuth": { useAuth: () => authState },
+    "@/components/auth/SocialAuthModal": {
+      SocialAuthModal: () => React.createElement("div", { role: "dialog" }, "로그인"),
+    },
+  });
+  const { createRoot } = await import("react-dom/client");
+  const root = createRoot(document.getElementById("root"));
+  const render = () => root.render(React.createElement(AuthButton));
+  try {
+    await act(async () => render());
+    await act(async () => { document.querySelector("button").click(); document.querySelector("button").click(); });
+    assert.equal(calls, 1);
+    assert.equal(document.querySelector("button").disabled, true);
+    await act(async () => rejectSignOut(new Error("offline")));
+    assert.match(document.querySelector('[role="alert"]').textContent, /다시 시도/);
+    assert(document.getElementById("root").textContent.includes("member@example.test"));
+    authState.signOut = async () => { calls++; authState.user = null; };
+    await act(async () => render());
+    await act(async () => document.querySelector("button").click());
+    await act(async () => render());
+    assert.equal(calls, 2);
+    assert.equal(document.querySelector('[role="alert"]'), null);
+    await act(async () => document.querySelector("button").click());
+    assert(document.querySelector('[role="dialog"]'));
+    authState.user = { email: "member@example.test" };
+    await act(async () => render());
+    assert.equal(document.querySelector('[role="dialog"]'), null);
+    authState.user = null;
+    await act(async () => render());
+    assert.equal(document.querySelector('[role="dialog"]'), null);
+    assert.equal(document.querySelector("button").getAttribute("aria-expanded"), "false");
+  } finally {
+    await act(async () => root.unmount());
+    dom.window.close();
+  }
+});
+
 test("OAuth 콜백은 성공·실패·취소를 처리하고 외부 리디렉션을 허용하지 않는다", async () => {
   const { NextRequest } = require("next/server");
+  for (const origin of ["http://localhost:3000", "https://memoorbit-test.vercel.app"]) {
   for (const scenario of ["success", "failure", "cancel", "missing", "unconfigured", "throw"]) {
     let exchanges = 0;
     const { GET } = load("app/auth/callback/route.ts", {
@@ -207,7 +272,7 @@ test("OAuth 콜백은 성공·실패·취소를 처리하고 외부 리디렉션
         } }),
       },
     });
-    const url = new URL("http://localhost:3000/auth/callback?next=https://evil.example");
+    const url = new URL(`${origin}/auth/callback?next=https://evil.example`);
     if (scenario !== "missing") url.searchParams.set("code", "test-code");
     if (scenario === "cancel") url.searchParams.set("error", "access_denied");
     const response = await GET(new NextRequest(url, { headers: { Cookie: "verifier=pkce-value" } }));
@@ -217,11 +282,12 @@ test("OAuth 콜백은 성공·실패·취소를 처리하고 외부 리디렉션
       assert.equal(response.headers.get("pragma"), "no-cache");
     }
     const destination = new URL(response.headers.get("location"));
-    assert.equal(destination.origin, "http://localhost:3000");
+    assert.equal(destination.origin, origin);
     assert.equal(destination.pathname, "/");
     assert.equal(destination.searchParams.has("auth_error"), scenario !== "success");
     assert.equal(response.headers.get("cache-control"), "private, no-store");
     assert.equal(exchanges, ["cancel", "missing", "unconfigured"].includes(scenario) ? 0 : 1);
+  }
   }
 });
 
