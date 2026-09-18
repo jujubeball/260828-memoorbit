@@ -63,7 +63,7 @@ test("인증 초기 응답이 새 로그인 이벤트를 덮어쓰지 않고 로
     assert.equal(document.querySelector("textarea"), editor);
     await act(async () => document.querySelector("button").click());
     assert.equal(current.isGuest, true);
-    assert.equal(document.querySelector("button").getAttribute("aria-label"), "클라우드 계정 로그인");
+    assert.equal(document.querySelector("button").getAttribute("aria-label"), "클라우드 동기화 로그인");
     assert.equal(editor.value, "게스트 작성 중");
     assert.equal(document.querySelector("textarea"), editor);
     await current.signInWithGoogle();
@@ -330,6 +330,51 @@ test("SDK 생성 실패에도 매 클릭마다 연결을 시도하고 게스트 
     assert.equal(clientCalls, initialClientCalls + 4);
     assert.equal(document.cookie, "");
     assert.equal(window.localStorage.length, 0);
+  } finally {
+    await act(async () => root.unmount());
+    dom.window.close();
+  }
+});
+
+test("계정 팝오버는 전체 이메일·아바타 대체·Escape·바깥 클릭·로그아웃을 처리한다", async () => {
+  const dom = new JSDOM('<div id="root"></div><button id="outside">외부</button>', { url: "http://localhost:3000" });
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  const email = `${"long.account".repeat(8)}@example.test`;
+  const authState = {
+    user: { email, user_metadata: { avatar_url: "https://example.test/avatar.png" } },
+    signOut: async () => { authState.user = null; },
+  };
+  const { AuthButton } = load("src/components/AuthButton.tsx", {
+    "@/hooks/useAuth": { useAuth: () => authState },
+    "@/components/auth/SocialAuthModal": { SocialAuthModal: () => null },
+  });
+  const { createRoot } = await import("react-dom/client");
+  const root = createRoot(document.getElementById("root"));
+  const render = () => root.render(React.createElement(AuthButton));
+  const trigger = () => document.querySelector('[aria-label="내 계정 정보"]');
+  const panel = () => document.querySelector('[aria-label="계정 정보"]');
+  try {
+    await act(async () => render());
+    assert.equal(document.querySelector("img").getAttribute("src"), authState.user.user_metadata.avatar_url);
+    await act(async () => document.querySelector("img").dispatchEvent(new dom.window.Event("error")));
+    assert.equal(document.querySelector("img"), null);
+    assert.match(trigger().textContent, /L/);
+    await act(async () => trigger().click());
+    assert.equal(panel().querySelectorAll("p")[1].textContent, email);
+    assert.equal(trigger().getAttribute("aria-expanded"), "true");
+    await act(async () => document.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape" })));
+    assert.equal(panel(), null);
+    assert.equal(document.activeElement, trigger());
+    await act(async () => trigger().click());
+    await act(async () => document.getElementById("outside").dispatchEvent(new dom.window.Event("pointerdown", { bubbles: true })));
+    assert.equal(panel(), null);
+    await act(async () => trigger().click());
+    await act(async () => panel().querySelector("button").click());
+    await act(async () => render());
+    assert.equal(panel(), null);
+    assert(document.querySelector('[aria-label="클라우드 동기화 로그인"]'));
   } finally {
     await act(async () => root.unmount());
     dom.window.close();

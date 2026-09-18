@@ -533,6 +533,9 @@ export default function Home(): React.JSX.Element {
         >
           MemoOrbit
         </button>
+        <div className="mb-3 px-3">
+          <AuthButton />
+        </div>
         <div className="group/new relative px-2">
           <button
             type="button"
@@ -572,10 +575,7 @@ export default function Home(): React.JSX.Element {
             </button>
           ))}
         </nav>
-        <div className="mt-auto hidden items-center gap-2 px-3 md:flex">
-          <AuthButton />
-        </div>
-        <p className="px-3 text-xs text-[#8e8e93]">
+        <p className="mt-auto px-3 text-xs text-[#8e8e93]">
           생각의 궤도를 기록하고 다시 발견하세요.
         </p>
         {/* 마우스와 키보드가 함께 사용할 수 있는 PC LNB 너비 조절 구분선입니다. */}
