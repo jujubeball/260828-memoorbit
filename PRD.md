@@ -356,6 +356,10 @@ MemoOrbit는 스쳐 지나가는 아이디어를 가장 빠르고 편안하게 �
 - 사용자 인증(Supabase Google/Apple OAuth), Multi-tenant DB 연동, 공유용 카드 이미지 내보내기.
 
 ### Supabase 1단계: 지연 로그인 및 DB 스키마 기반
+- **Google OAuth 요청 경로 정리 (2026-09-18)**: 브라우저 싱글톤 구현을 `src/lib/supabase/client.ts`에 두고 로그인 훅과 AuthProvider에서 공유한다. 기존 `lib/supabase/client.ts`는 호환용 재내보내기로 유지한다. 프로젝트의 활성 App Router는 루트 `app/`이므로 콜백은 `app/auth/callback/route.ts`에서 제공한다.
+- Google 버튼의 공급자·현재 출처 콜백 주소, 서버 코드 교환·응답 쿠키, 초기 세션 복원·인증 이벤트·구독 해제를 회귀 검증한다. 실제 계정 선택과 Network/Application의 세션 쿠키 확인은 환경 설정 후 별도로 기록한다.
+- [x] 2026-09-18 인증 테스트 6개·ESLint·TypeScript·프로덕션 빌드 통과. 실행 서버에서 홈 200 및 코드 누락/취소 콜백의 홈 오류 리디렉션 307을 확인했다. 현재 `.env.local`의 URL·anon 키는 입력되어 있다.
+- [ ] 2026-09-18 연결 가능한 브라우저가 없어 실제 Google 계정 선택 → 성공 콜백 → 홈 복귀 및 Application 세션 쿠키 생성 검수는 미완료다.
 - **실제 Google Auth 명세 재확인 (2026-09-17)**: 실행 코드에서 `isMock`·임시 테스트 계정·가짜 세션 생성 분기를 사용하지 않는다. Google 버튼 → `useAuth.signInWithGoogle` → Supabase `signInWithOAuth` → `/auth/callback`의 `exchangeCodeForSession` → 응답 쿠키 → AuthProvider 상태 복원 흐름을 유지한다.
 - Google 로그인 실패는 `구글 로그인 실패:`와 오류 메시지로 콘솔에 기록한다. 자동 테스트의 격리용 SDK 대역은 실행 앱의 Mock Auth와 구분하며 회귀 검증에 사용한다.
 - [x] 이번 명세의 인증 회귀 테스트 6개·ESLint·TypeScript 재검증 통과 (2026-09-17). 실행 코드에 임시 인증 분기가 없음을 확인했다. `.env.local`의 공개 URL·anon 키가 모두 비어 있어 실계정 검증은 실제 환경 변수와 공급자 설정 후 별도로 진행한다.

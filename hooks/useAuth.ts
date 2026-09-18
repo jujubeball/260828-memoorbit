@@ -2,7 +2,7 @@
 
 import { useContext } from "react";
 import { AuthContext } from "@/components/providers/AuthProvider";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/src/lib/supabase/client";
 
 export function useAuth() {
   const state = useContext(AuthContext);

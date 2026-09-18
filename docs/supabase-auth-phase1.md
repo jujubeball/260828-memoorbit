@@ -16,7 +16,7 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
-이 두 항목은 현재 파일에 존재하지만 값은 비어 있다. 공개 URL과 브라우저용 anon 키를 입력한 뒤 개발 서버를 다시 시작한다. 배포 환경에도 같은 이름의 변수를 설정하고 다시 배포한다. `.env.local`은 Git 제외 대상이며 공유용 양식은 `.env.example`이다.
+2026-09-18 로컬 확인 시 두 항목에 값이 입력되어 있다. 값을 변경하면 개발 서버를 다시 시작한다. 배포 환경에도 같은 이름의 변수를 설정하고 다시 배포한다. `.env.local`은 Git 제외 대상이며 공유용 양식은 `.env.example`이다.
 
 ## 소셜 공급자와 귀환 주소
 
@@ -38,10 +38,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
 ## 검증 범위
 
+- 브라우저 클라이언트 구현은 `src/lib/supabase/client.ts`이며 기존 `lib/supabase/client.ts`는 같은 함수를 재내보낸다. 로그인 훅과 AuthProvider는 새 경로를 사용한다.
+- 활성 라우터가 루트 `app/`에 있으므로 콜백 구현은 `app/auth/callback/route.ts`에 둔다. `src/app/`에 중복 라우트를 만들지 않는다.
+- 실계정 검수 시 Network의 Preserve log를 켜고 Google 로그인을 누른다. Google 이동 후 `/auth/callback?code=...` 응답의 홈 리디렉션과 `Set-Cookie`를 확인한다. Application의 현재 앱 출처 Cookies에서 `sb-...-auth-token`(분할 시 `.0`, `.1`) 생성과 새로고침 후 계정 이메일 표시를 확인한다. 코드 교환은 서버에서 수행되므로 브라우저 Network에 토큰 교환 요청이 직접 보이지 않을 수 있다. 토큰 값은 기록하거나 공유하지 않는다.
+
 - 자동 검증: 세션 초기 응답 경합, 구독 해제, OAuth 공급자·귀환 주소, 실패·취소, 게스트 화면 유지, 로그인 모달의 직접 클릭 연결·연속 호출·경고 제거·닫기.
 - 실제 프로젝트 연결 후 검증: Google·Apple 로그인 성공/취소, 새로고침 후 세션 복원, 두 계정 사이 RLS 격리, 계정 삭제 시 메모 삭제.
 - 모바일 실기기 검증: 짧은 화면에서 모달 스크롤·닫기, 배경 스크롤 복원, 앱 복귀.
-- 실제 프로젝트 환경 변수와 공급자 설정이 없어 원격 로그인과 SQL 적용은 아직 검증하지 않았다.
+- 2026-09-18 환경 변수 입력은 확인했다. 연결 가능한 브라우저가 없어 Google 계정 선택·로그인 완료·실제 세션 쿠키 생성은 검증하지 못했다. 공급자 설정과 SQL 원격 적용 상태도 별도 확인이 필요하다.
 
 공식 참고: [서버·브라우저 클라이언트 구성](https://supabase.com/docs/guides/auth/server-side/creating-a-client), [행 단위 보안 정책](https://supabase.com/docs/guides/database/postgres/row-level-security).
 

@@ -32,7 +32,7 @@ test("인증 초기 응답이 새 로그인 이벤트를 덮어쓰지 않고 로
     signOut: async (options) => { assert.equal(options.scope, "local"); callback("SIGNED_OUT", null); return { error: null }; },
   };
   const mocks = {
-    "@/lib/supabase/client": { isSupabaseConfigured: true, createClient: () => ({ auth }) },
+    "@/src/lib/supabase/client": { createClient: () => ({ auth }) },
     "@/lib/supabase/config": { getSupabaseConfig: () => ({ url: "http://localhost" }) },
   };
   const provider = load("components/providers/AuthProvider.tsx", mocks);
@@ -81,7 +81,7 @@ test("Supabase 미설정과 OAuth 취소에도 게스트 화면이 렌더링되�
   globalThis.document = dom.window.document;
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   const { AuthProvider, AuthContext } = load("components/providers/AuthProvider.tsx", {
-    "@/lib/supabase/client": { createClient: () => null },
+    "@/src/lib/supabase/client": { createClient: () => null },
     "@/lib/supabase/config": { getSupabaseConfig: () => null },
   });
   let state;
@@ -174,6 +174,7 @@ test("소셜 모달은 경고 없이 매 클릭마다 공급자를 호출하고 
     assert.equal(document.querySelector("dialog"), null);
     authState.user = { id: "member", email: "member@example.test" };
     await open();
+    assert(document.querySelector("dialog").textContent.includes("member@example.test"));
     await act(async () => [...document.querySelectorAll("dialog button")].find((button) => button.textContent === "로그아웃").click());
     assert.equal(document.querySelector("dialog"), null);
     assert.equal(editor.value, "게스트 메모 보존");
@@ -232,7 +233,7 @@ test("SDK 생성 실패에도 매 클릭마다 연결을 시도하고 게스트 
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   let clientCalls = 0;
   const mocks = {
-    "@/lib/supabase/client": { createClient: () => { clientCalls++; throw new Error("SDK configuration error"); } },
+    "@/src/lib/supabase/client": { createClient: () => { clientCalls++; throw new Error("SDK configuration error"); } },
     "@/lib/supabase/config": { getSupabaseConfig: () => null },
   };
   const provider = load("components/providers/AuthProvider.tsx", mocks);
@@ -277,10 +278,11 @@ test("공개 설정 값은 사전 검사 없이 그대로 SDK 생성 함수에 �
       process.env.NEXT_PUBLIC_SUPABASE_URL = url;
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = key;
       const expected = {};
-      const client = load("lib/supabase/client.ts", {
+      const client = load("src/lib/supabase/client.ts", {
         "@supabase/ssr": { createBrowserClient(actualUrl, actualKey, options) {
           assert.equal(actualUrl, url);
           assert.equal(actualKey, key);
+          assert.equal(options.isSingleton, true);
           assert.equal(options.auth.flowType, "pkce");
           assert.equal(options.auth.detectSessionInUrl, false);
           return expected;
