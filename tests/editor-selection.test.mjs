@@ -287,3 +287,24 @@ test("대시 목록은 점 목록으로 전환·해제되고 선택 텍스트가
   assert.equal(selected.toString(), "안녕");
   dom.window.close();
 });
+
+test("형광펜은 선택 부분만 토글하고 웹 링크만 허용한다", () => {
+  const { editor, range, dom } = setup("<p>안녕 테스트</p>");
+  range.setStart(editor.firstChild.firstChild, 0);
+  range.setEnd(editor.firstChild.firstChild, 2);
+  let selected = formatEditorRange(editor, range, "highlight");
+  assert.equal(readEditorFormat(editor, selected).highlight, true);
+  selected = formatEditorRange(editor, selected, "highlight");
+  assert.equal(readEditorFormat(editor, selected).highlight, false);
+  const before = editor.innerHTML;
+  assert.equal(formatEditorRange(editor, selected, "createLink", "javascript:alert(1)"), null);
+  assert.equal(editor.innerHTML, before);
+  selected = formatEditorRange(editor, selected, "createLink", "https://example.com/one");
+  selected = formatEditorRange(editor, selected, "createLink", "https://example.com/two");
+  assert.equal(editor.querySelectorAll("a").length, 1, editor.innerHTML);
+  assert.equal(readEditorFormat(editor, selected).link, "https://example.com/two");
+  selected = formatEditorRange(editor, selected, "createLink");
+  assert.equal(editor.querySelector("a"), null);
+  assert.equal(selected.toString(), "안녕");
+  dom.window.close();
+});

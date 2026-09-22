@@ -8,6 +8,7 @@ interface BottomNavigationProps {
   activeSection: NavigationSection;
   onSelect: (section: NavigationSection) => void;
   hidden?: boolean;
+  inline?: boolean;
 }
 
 interface NavigationItem {
@@ -22,7 +23,7 @@ const items: NavigationItem[] = [
   { id: "timeline", label: "시간 뷰", icon: "◷" },
 ];
 
-export function BottomNavigation({ activeSection, onSelect, hidden = false }: BottomNavigationProps): React.JSX.Element | null {
+export function BottomNavigation({ activeSection, onSelect, hidden = false, inline = false }: BottomNavigationProps): React.JSX.Element | null {
   // 입력 시작부터 포커스 해제까지 탭을 숨겨 가상 키보드 위에서 콘텐츠를 가리지 않게 합니다.
   const [isEditing, setIsEditing] = useState(false);
   useEffect(() => {
@@ -51,10 +52,10 @@ export function BottomNavigation({ activeSection, onSelect, hidden = false }: Bo
   if (hidden || isEditing) return null;
   return (
     <nav
-      aria-label="하단 주요 메뉴"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-[#2a2e3d] bg-[#0f1117]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
+      aria-label={inline ? "화면 선택" : "하단 주요 메뉴"}
+      className={inline ? "mb-2 border-b border-slate-800 md:hidden" : "fixed inset-x-0 bottom-0 z-50 border-t border-[#2a2e3d] bg-[#0f1117]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"}
     >
-      <div className="grid h-16 grid-cols-3">
+      <div className={`grid grid-cols-3 ${inline ? "h-11" : "h-16"}`}>
         {items.map((item) => (
           <button
             key={item.id}
@@ -63,9 +64,11 @@ export function BottomNavigation({ activeSection, onSelect, hidden = false }: Bo
             onClick={() => onSelect(item.id)}
             className={`flex min-w-0 flex-col items-center justify-center gap-1 text-xs font-semibold ${activeSection === item.id ? "text-[#ffc86b]" : "text-[#9ca3af]"}`}
           >
-            <span aria-hidden="true" className="text-2xl leading-6">
-              {item.icon}
-            </span>
+            {!inline && (
+              <span aria-hidden="true" className="text-2xl leading-6">
+                {item.icon}
+              </span>
+            )}
             <span>
               {item.label}
             </span>

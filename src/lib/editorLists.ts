@@ -4,7 +4,7 @@ import { isEditorRange } from "@/src/lib/editorSelection";
 // 선택 범위의 문단만 옮겨 목록과 들여쓰기를 적용하고 새 선택 범위를 작성 모달로 돌려줍니다.
 export function formatEditorList(editor: HTMLElement, range: Range, command: string): Range | null {
   if (!isEditorRange(editor, range)) return null;
-  if (!["insertUnorderedList", "insertOrderedList", "insertDashedList", "indent", "outdent"].includes(command)) return null;
+  if (!["insertUnorderedList", "insertOrderedList", "insertDashedList", "inset", "indent", "outdent"].includes(command)) return null;
   const document = editor.ownerDocument;
   const collapsed = range.collapsed;
   const blocks = new Set<HTMLElement>();
@@ -64,6 +64,7 @@ export function formatEditorList(editor: HTMLElement, range: Range, command: str
   // 상위 문단을 통째로 옮길 때 그 안의 중첩 목록을 다시 처리하지 않습니다.
   const targets = [...blocks].filter((block) => ![...blocks].some((other) => other !== block && other.contains(block)));
   const tag = command === "insertOrderedList" ? "OL" : "UL";
+  const removeInset = targets.every((block) => block.classList.contains("editor-inset"));
   const dashed = command === "insertDashedList";
   const removeList = targets.every((block) => block.tagName === "LI" && block.parentElement?.tagName === tag
     && block.parentElement.classList.contains("dashed-list") === dashed);
@@ -81,6 +82,10 @@ export function formatEditorList(editor: HTMLElement, range: Range, command: str
   };
   targets.forEach((block) => {
     caretTarget = block;
+    if (command === "inset") {
+      block.classList.toggle("editor-inset", !removeInset);
+      return;
+    }
     if (command === "indent") {
       const previous = block.previousElementSibling;
       if (block.tagName === "LI" && previous?.tagName === "LI") {

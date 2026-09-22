@@ -49,9 +49,9 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
   const root = createRoot(document.getElementById("root"));
   const initial = { id: "test", title: "안녕 테스트", richContent: "<p>안녕 테스트</p>", content: "본문", tags: [], isPinned: false, syncStatus: "pending", createdAt: "2026-09-08T00:00:00Z", updatedAt: "2026-09-08T00:00:00Z", images: [{ url: "data:image/png;base64,AA==", name: "사진" }] };
   const submissions = [];
-  let newRequests = 0;
+  let closeRequests = 0;
   try {
-    await act(async () => { root.render(React.createElement(MemoModal, { isOpen: true, editingMemo: initial, onClose() {}, onSubmit(draft, startNew) { submissions.push({ draft, startNew }); }, onNewMemo() { newRequests += 1; } })); });
+    await act(async () => { root.render(React.createElement(MemoModal, { isOpen: true, editingMemo: initial, onClose() { closeRequests += 1; }, onSubmit(draft) { submissions.push({ draft }); } })); });
     const editor = document.querySelector('[aria-label="메모 내용"]');
     const node = editor.firstChild.firstChild;
     const button = (label) => [...document.querySelectorAll("button")].find((item) => item.getAttribute("aria-label") === label || item.textContent.trim() === label);
@@ -72,7 +72,7 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     range.setEnd(node, 2);
     document.getSelection().removeAllRanges();
     document.getSelection().addRange(range);
-    document.dispatchEvent(new dom.window.Event("selectionchange"));
+    await act(async () => document.dispatchEvent(new dom.window.Event("selectionchange")));
     viewport.height = 350;
     await click(button("텍스트 서식"));
     assert.equal(editor.firstChild.firstChild, node);
@@ -89,8 +89,8 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     const sheet = document.getElementById("memo-format-sheet");
     assert.equal(document.querySelectorAll('[aria-label="서식 도구"]').length, 1);
     assert.equal(sheet.querySelectorAll('[role="group"]').length, 4);
-    assert.equal(sheet.querySelectorAll('button').length, 14);
-    assert.equal(sheet.querySelector('[aria-label="문단 스타일"]').textContent.includes("고정 폭"), true);
+    assert.equal(sheet.querySelectorAll('button').length, 18);
+    assert.equal(sheet.querySelector('[aria-label="문단 스타일"]').textContent.includes("모노스페이스"), true);
     assert.equal(sheet.closest("form").id, "memo-form");
     await click(button("굵게"));
     assert.equal(document.activeElement, editor);
@@ -127,7 +127,7 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     });
     assert.equal(editor.innerHTML, formatted);
     const shell = document.querySelector('[role="dialog"]');
-    assert(shell.classList.contains("touch-none"));
+    assert(shell.classList.contains("touch-auto"));
     assert(shell.querySelector("header").classList.contains("shrink-0"));
     assert(!shell.querySelector("header").classList.contains("sticky"));
     assert(editor.parentElement.classList.contains("overflow-y-auto"));
@@ -144,16 +144,14 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     assert.equal(shell.style.getPropertyValue("--viewport-height"), "350px");
     assert(shell.classList.contains("overscroll-none"));
     const toolbar = shell.querySelector('[role="toolbar"]');
-    assert(!toolbar.classList.contains("overflow-x-auto"));
-    assert.equal(toolbar.textContent.trim(), "");
+    assert(toolbar.classList.contains("overflow-x-auto"));
+    assert.match(toolbar.textContent, /BIUS/);
     assert.equal(toolbar.querySelectorAll("svg").length, 5);
-    assert.equal(toolbar.querySelectorAll("button").length, 5);
-    assert.deepEqual([...toolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), [
-      "텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "새 메모",
-    ]);
-    assert.deepEqual([...shell.querySelector("header").children].map((item) => item.tagName), ["BUTTON", "H2", "BUTTON"]);
-    assert.equal(shell.querySelector("header").firstElementChild.textContent, "저장");
-    assert.equal(shell.querySelector("header").lastElementChild.textContent, "닫기");
+    assert.equal(toolbar.querySelectorAll("button").length, 9);
+    assert.equal(toolbar.querySelector('[aria-label="새 메모"]'), null);
+    assert(toolbar.querySelector('[aria-label="텍스트 서식"]'));
+    assert.deepEqual([...shell.querySelector("header").children].map((item) => item.tagName), ["BUTTON", "DIV"]);
+    assert.equal(shell.querySelector("header").textContent.trim(), "");
     assert([...toolbar.querySelectorAll("button")].every((item) => item.classList.contains("shrink-0")));
     editor.parentElement.scrollTop = 80;
     toolbar.scrollLeft = 90;
@@ -182,14 +180,23 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
       await new Promise((resolve) => setTimeout(resolve, 380));
     });
     assert.equal(document.getElementById("memo-format-sheet"), null);
-    // 새 메모는 기존 내용을 저장 요청에 담고, 부모 저장이 끝나기 전에는 본문을 지우지 않습니다.
-    const beforeNew = editor.innerHTML;
-    await click(button("새 메모"));
+    // 완료는 현재 내용을 저장 요청에 담고 포커스를 해제하며 저장 실패에 대비해 본문을 유지합니다.
+    const beforeDone = editor.innerHTML;
+    await click(button("편집 완료"));
     assert.equal(submissions.length, 1);
-    assert.equal(submissions[0].startNew, true);
-    assert.equal(submissions[0].draft.richContent, beforeNew);
-    assert.equal(editor.innerHTML, beforeNew);
-    assert.equal(newRequests, 0);
+    assert.equal(submissions[0].draft.richContent, beforeDone);
+    assert.equal(editor.innerHTML, beforeDone);
+    assert.notEqual(document.activeElement, editor);
+    assert.equal(closeRequests, 0);
+    await act(async () => {
+      editor.focus();
+      const caret = document.createRange();
+      caret.selectNodeContents(editor);
+      caret.collapse(false);
+      document.getSelection().removeAllRanges();
+      document.getSelection().addRange(caret);
+      document.dispatchEvent(new dom.window.Event("selectionchange"));
+    });
     const image = document.querySelector("figure img");
     assert(image.classList.contains("w-full"));
     assert(image.classList.contains("h-auto"));
@@ -288,21 +295,22 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     assert.equal(editor.querySelectorAll("table")[1].textContent, "");
     editor.innerHTML = "<p>앞문장 뒷문장</p>";
     selectCaret(editor.firstChild.firstChild, 4);
+    await act(async () => document.dispatchEvent(new dom.window.Event("selectionchange")));
     await click(button("표 삽입"));
     assert.equal(editor.firstElementChild.textContent, "앞문장 ");
     assert.equal(editor.querySelector("table").nextElementSibling.outerHTML, "<p><br></p>");
     assert.equal(editor.lastElementChild.textContent, "뒷문장");
-    // 사진만 있는 메모도 저장에 포함하고, 완전히 빈 편집기는 저장 없이 새로 엽니다.
+    // 사진만 있는 메모도 저장에 포함하고, 완전히 빈 편집기는 저장 없이 닫습니다.
     editor.innerHTML = "";
-    await click(button("새 메모"));
+    await click(button("편집 완료"));
     assert.equal(submissions.at(-1).draft.images.length, 1);
     assert.equal(submissions.at(-1).draft.title, "제목 없는 메모");
-    assert.equal(newRequests, 0);
+    assert.equal(closeRequests, 0);
     await click([...document.querySelectorAll("figure button")][0]);
     const savedCount = submissions.length;
-    await click(button("새 메모"));
+    await click(button("편집 완료"));
     assert.equal(submissions.length, savedCount);
-    assert.equal(newRequests, 1);
+    assert.equal(closeRequests, 1);
   } finally {
     await act(async () => root.unmount());
     assert.equal(dom.window.scrollY, 240);

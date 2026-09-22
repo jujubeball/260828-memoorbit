@@ -435,3 +435,15 @@ button:disabled {
 .format-color-button[data-color="#ff453a"] { background-color: #ff453a; }
 .format-color-button[data-color="#0a84ff"] { background-color: #0a84ff; }
 .format-color-button[data-color="#30d158"] { background-color: #30d158; }
+
+/* 선택 글자의 형광펜과 문단 인셋은 저장된 본문에서도 같은 모양으로 표시합니다. */
+.rich-editor mark, .rich-content mark {
+  background: #fbbf24;
+  color: #111827;
+}
+.rich-editor .editor-inset, .rich-content .editor-inset {
+  border-left: 3px solid #e5a93c;
+  padding: 0.5rem 0.75rem;
+  background: rgb(148 163 184 / 0.1);
+  border-radius: 0.5rem;
+}

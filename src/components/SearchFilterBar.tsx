@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
+import { ListSearchDock } from "@/src/components/ListSearchDock";
 import { DateInputBox } from "@/src/components/DateInputBox";
 import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
 import type { MemoFilterOptions } from "@/src/lib/filterMemos";
@@ -10,6 +11,7 @@ interface SearchFilterBarProps {
   availableTags: string[];
   onOptionsChange: (options: MemoFilterOptions) => void;
   onCreateMemo: () => void;
+  hideMobileDock?: boolean;
 }
 
 const TIME_PRESETS: Array<{
@@ -35,6 +37,7 @@ export function SearchFilterBar({
   availableTags,
   onOptionsChange,
   onCreateMemo,
+  hideMobileDock = false,
 }: SearchFilterBarProps): React.JSX.Element {
   // 검색 입력은 로컬 상태에서 즉시 표시하고 부모에는 타이핑이 멈춘 뒤 전달합니다.
   const [keyword, setKeyword] = useState(options.keyword ?? "");
@@ -173,8 +176,8 @@ export function SearchFilterBar({
           ))}
         </div>
       )}
-      <div className="relative mt-3 flex w-full items-center gap-1.5 rounded-full border border-[#2a2e3d] bg-[#1a1d26]/95 p-1.5 shadow-2xl backdrop-blur-lg md:static md:w-auto md:max-w-none md:translate-x-0 md:gap-2 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
-        <label className="relative min-w-0 flex-1">
+      <div className="relative mt-3 flex w-full items-center justify-end gap-1.5 md:static md:w-auto md:max-w-none md:translate-x-0 md:gap-2 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+        <label className="relative hidden min-w-0 flex-1 md:block">
           <span className="sr-only">메모 검색어</span>
           <span
             className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-[#9ca3af]"
@@ -206,16 +209,11 @@ export function SearchFilterBar({
             </span>
           )}
         </button>
-        <button
-          type="button"
-          onClick={onCreateMemo}
-          className="flex h-9 shrink-0 items-center justify-center gap-1 rounded-full bg-[#e5a93c] px-3 text-xs font-bold text-white shadow-lg transition-colors hover:bg-[#ffc86b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffc86b] md:hidden"
-          aria-label="새 메모 작성"
-        >
-          <span aria-hidden="true">✏️</span>
-          작성
-        </button>
       </div>
+
+      {!hideMobileDock && !isExpanded && (
+        <ListSearchDock keyword={keyword} onKeywordChange={setKeyword} onCreate={onCreateMemo} />
+      )}
 
       {isExpanded && (
         <>

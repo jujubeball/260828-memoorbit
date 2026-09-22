@@ -2,7 +2,7 @@
 export const CARET_PLACEHOLDER = String.fromCharCode(8203);
 
 interface InlineFormat {
-  tag: "strong" | "em" | "u" | "s" | "span";
+  tag: "strong" | "em" | "u" | "s" | "span" | "mark" | "a";
   className?: string;
 }
 
@@ -13,14 +13,18 @@ export interface EditorFormatState {
   strikeThrough: boolean;
   block: string | null;
   color: string | null;
+  highlight: boolean;
+  link: string | null;
+  list: string | null;
+  inset: boolean;
 }
 
 export const EMPTY_EDITOR_FORMAT: EditorFormatState = {
-  bold: false, italic: false, underline: false, strikeThrough: false, block: null, color: null,
+  bold: false, italic: false, underline: false, strikeThrough: false, block: null, color: null, highlight: false, link: null, list: null, inset: false,
 };
 
 const SIMPLE_TAGS: Record<string, string[]> = {
-  bold: ["STRONG", "B"], italic: ["EM", "I"], underline: ["U"], strikeThrough: ["S", "STRIKE", "DEL"],
+  highlight: ["MARK"], createLink: ["A"], bold: ["STRONG", "B"], italic: ["EM", "I"], underline: ["U"], strikeThrough: ["S", "STRIKE", "DEL"],
 };
 
 const BLOCK_STYLES: Record<string, string> = {
@@ -53,7 +57,7 @@ const formatAtNode = (editor: HTMLElement, node: Node): EditorFormatState => {
   const found = new Set<string>();
   let element = node.nodeType === 1 ? node as HTMLElement : node.parentElement;
   while (element && element !== editor) {
-    for (const command of ["bold", "italic", "underline", "strikeThrough"] as const) {
+    for (const command of ["bold", "italic", "underline", "strikeThrough", "highlight"] as const) {
       if (found.has(command)) continue;
       const disabled = element.dataset[`off${command}`] === "true"
         || (command === "bold" && element.classList.contains("font-normal"));
@@ -66,6 +70,12 @@ const formatAtNode = (editor: HTMLElement, node: Node): EditorFormatState => {
       const block = element.dataset.formatBlock ?? legacyBlock ?? (/^(H[1-3]|PRE)$/.test(element.tagName) ? element.tagName.toLowerCase() : undefined);
       if (block !== undefined) { result.block = block === "none" ? null : block; found.add("block"); }
     }
+    if (element.tagName === "A" && result.link === null) result.link = element.getAttribute("href");
+    if (element.tagName === "LI" && result.list === null) {
+      result.list = element.parentElement?.tagName === "OL" ? "insertOrderedList"
+        : element.parentElement?.classList.contains("dashed-list") ? "insertDashedList" : "insertUnorderedList";
+    }
+    if (element.classList.contains("editor-inset")) result.inset = true;
     const color = element.dataset.formatColor ?? Object.entries(COLOR_STYLES).find(([, name]) => element!.classList.contains(name))?.[0];
     if (!found.has("color") && color !== undefined) {
       result.color = color || null;
@@ -91,6 +101,10 @@ export const readEditorFormat = (editor: HTMLElement, range: Range | null): Edit
     bold: states.every((state) => state.bold), italic: states.every((state) => state.italic),
     underline: states.every((state) => state.underline), strikeThrough: states.every((state) => state.strikeThrough),
     block: states.every((state) => state.block === states[0].block) ? states[0].block : null,
+    highlight: states.every((state) => state.highlight),
+    inset: states.every((state) => state.inset),
+    link: states.every((state) => state.link === states[0].link) ? states[0].link : null,
+    list: states.every((state) => state.list === states[0].list) ? states[0].list : null,
     color: states.every((state) => state.color === states[0].color) ? states[0].color : null,
   };
 };
@@ -113,12 +127,12 @@ const stripFormat = (editor: HTMLElement, text: Text, command: string): void => 
       after.selectNodeContents(element);
       after.setStartAfter(text);
       const suffix = after.extractContents();
-      if (prefix.hasChildNodes()) {
+      if (prefix.hasChildNodes() && (command !== "createLink" || prefix.textContent || prefix.querySelector("img"))) {
         const copy = element.cloneNode(false);
         copy.appendChild(prefix);
         element.before(copy);
       }
-      if (suffix.hasChildNodes()) {
+      if (suffix.hasChildNodes() && (command !== "createLink" || suffix.textContent || suffix.querySelector("img"))) {
         const copy = element.cloneNode(false);
         copy.appendChild(suffix);
         element.after(copy);
@@ -132,6 +146,12 @@ const stripFormat = (editor: HTMLElement, text: Text, command: string): void => 
       if (command === "foreColor") {
         delete replacement.dataset.formatColor;
         replacement.classList.remove(...Object.values(COLOR_STYLES));
+      }
+      if (command === "createLink") {
+        replacement.removeAttribute("href");
+        replacement.removeAttribute("rel");
+        replacement.removeAttribute("target");
+        replacement.classList.remove("underline", "text-sky-400");
       }
       replacement.append(...element.childNodes);
       if (replacement.getAttribute("class") === "") replacement.removeAttribute("class");
@@ -173,8 +193,14 @@ export const restoreEditorRange = (editor: HTMLElement, saved: Range | null, foc
 // 선택이 접혀 있으면 빈 서식 안에 임시 커서를 만들고 이후 입력할 글자부터 서식을 적용합니다.
 export const formatEditorRange = (editor: HTMLElement, range: Range, command: string, value?: string): Range | null => {
   if (!isEditorRange(editor, range)) return null;
+  // 링크 입력은 웹 주소만 허용하여 실행 가능한 주소가 본문에 저장되지 않게 합니다.
+  if (command === "createLink" && value) {
+    try {
+      if (!["http:", "https:"].includes(new URL(value).protocol)) return null;
+    } catch { return null; }
+  }
   const simple: Record<string, InlineFormat> = {
-    bold: { tag: "strong" }, italic: { tag: "em" }, underline: { tag: "u" }, strikeThrough: { tag: "s" },
+    highlight: { tag: "mark" }, createLink: { tag: "a" }, bold: { tag: "strong" }, italic: { tag: "em" }, underline: { tag: "u" }, strikeThrough: { tag: "s" },
   };
   const format = command === "formatBlock" && value && BLOCK_STYLES[value]
     ? { tag: "span" as const, className: BLOCK_STYLES[value] }
@@ -183,9 +209,9 @@ export const formatEditorRange = (editor: HTMLElement, range: Range, command: st
       : simple[command];
   if (!format) return null;
   const state = readEditorFormat(editor, range);
-  const active = command === "formatBlock" ? state.block === value
+  const active = command === "createLink" ? !value : command === "formatBlock" ? state.block === value
     : command === "foreColor" ? state.color === value
-      : state[command as "bold" | "italic" | "underline" | "strikeThrough"];
+      : state[command as "bold" | "italic" | "underline" | "strikeThrough" | "highlight"];
   const document = editor.ownerDocument;
   const makeWrapper = (): HTMLElement => {
     const wrapper = document.createElement(active ? "span" : format.tag);
@@ -194,6 +220,11 @@ export const formatEditorRange = (editor: HTMLElement, range: Range, command: st
       else if (command === "foreColor") { wrapper.dataset.formatColor = ""; wrapper.className = "text-white"; }
       else { wrapper.dataset[`off${command}`] = "true"; if (command === "bold") wrapper.className = "font-normal"; }
       return wrapper;
+    }
+    if (command === "createLink" && value) {
+      wrapper.setAttribute("href", value);
+      wrapper.setAttribute("rel", "noopener noreferrer");
+      wrapper.className = "underline text-sky-400";
     }
     if (format.className) wrapper.className = format.className;
     if (command === "formatBlock") wrapper.dataset.formatBlock = value;
@@ -218,6 +249,7 @@ export const formatEditorRange = (editor: HTMLElement, range: Range, command: st
       fragmentRange.setEnd(node, end);
       const wrapper = makeWrapper();
       fragmentRange.surroundContents(wrapper);
+      if (command === "createLink" && !active) stripFormat(editor, wrapper.firstChild as Text, command);
       if (active) {
         // 새 중립 래퍼는 잠시 표시를 빼서 기존 서식 부모만 분리합니다.
         const block = wrapper.dataset.formatBlock;
