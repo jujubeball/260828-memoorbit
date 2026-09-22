@@ -9,6 +9,7 @@ interface DateInputBoxProps {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  expanded?: boolean;
   placeholder?: string;
   popoverAlign?: "left" | "right";
 }
@@ -19,6 +20,7 @@ export function DateInputBox({
   value,
   onChange,
   disabled = false,
+  expanded = false,
   placeholder = "년-월-일",
   popoverAlign = "left",
 }: DateInputBoxProps): React.JSX.Element {
@@ -56,7 +58,7 @@ export function DateInputBox({
   return (
     <div
       ref={containerRef}
-      className={`relative inline-flex h-9 w-[8.5rem] min-w-0 shrink items-center overflow-visible rounded-xl border border-[#2a2e3d] bg-[#161922] text-sm transition-colors sm:w-36 sm:text-xs ${disabled ? "pointer-events-none cursor-not-allowed opacity-40" : "cursor-pointer hover:border-[#3b4054]"}`}
+      className={`relative inline-flex h-9 ${expanded ? "w-[12rem] min-w-[12rem] shrink-0 sm:text-sm" : "w-[8.5rem] min-w-0 shrink sm:w-36 sm:text-xs"} items-center overflow-visible rounded-xl border border-[#2a2e3d] bg-[#161922] text-sm transition-colors ${disabled ? "pointer-events-none cursor-not-allowed opacity-40" : "cursor-pointer hover:border-[#3b4054]"}`}
     >
       <label htmlFor={id} className="sr-only">
         {label}
@@ -75,7 +77,7 @@ export function DateInputBox({
         type="button"
         onClick={openCalendar}
         disabled={disabled}
-        className="min-w-0 flex-1 truncate px-2 text-left disabled:cursor-not-allowed sm:px-3"
+        className={`min-w-0 flex-1 px-2 text-left disabled:cursor-not-allowed sm:px-3 ${expanded ? "whitespace-nowrap" : "truncate"}`}
         aria-label={`${label} 달력 열기`}
       >
         <span className={value ? "font-medium text-white" : "text-[#6b7280]"}>

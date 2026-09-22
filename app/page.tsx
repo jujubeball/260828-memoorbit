@@ -336,11 +336,12 @@ export default function Home(): React.JSX.Element {
     () => filterMemos(memos, filterOptions),
     [filterOptions, memos],
   );
-  const availableTags = useMemo(
-    () => [...new Set(memos.flatMap((memo) => memo.tags))]
-      .sort((left, right) => left.localeCompare(right, "ko")),
-    [memos],
-  );
+  // 메모마다 같은 태그는 한 번만 세고 사용 빈도순, 동률은 한글 이름순으로 정렬합니다.
+  const availableTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    memos.forEach((memo) => new Set(memo.tags).forEach((tag) => counts.set(tag, (counts.get(tag) ?? 0) + 1)));
+    return [...counts.keys()].sort((left, right) => (counts.get(right)! - counts.get(left)!) || left.localeCompare(right, "ko"));
+  }, [memos]);
   const pinned = filteredMemos.filter((memo) => memo.isPinned);
   const groups = filteredMemos
     .filter((memo) => !memo.isPinned)

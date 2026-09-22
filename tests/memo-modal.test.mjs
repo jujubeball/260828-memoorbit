@@ -58,7 +58,11 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     const click = async (target) => {
       assert(target);
       await act(async () => {
-        target.dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true }));
+        const press = new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true });
+        target.dispatchEvent(press);
+        if (target.getAttribute("aria-label") === "텍스트 서식" || target.closest("#memo-format-sheet")) {
+          assert.equal(press.defaultPrevented, true);
+        }
         target.click();
       });
     };
@@ -72,28 +76,28 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     viewport.height = 350;
     await click(button("텍스트 서식"));
     assert.equal(editor.firstChild.firstChild, node);
-    assert.notEqual(document.activeElement, editor);
-    assert.equal(editor.getAttribute("contenteditable"), "false");
-    assert.equal(document.getElementById("memo-format-sheet"), null);
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 380)); });
-    assert.equal(document.getElementById("memo-format-sheet"), null);
-    // 키보드가 내려오면서 높이가 복원된 뒤에도 안정화 시간을 기다려 시트를 엽니다.
-    viewport.height = 700;
+    assert.equal(document.activeElement, editor);
+    assert.equal(editor.getAttribute("contenteditable"), "true");
+    assert.equal(document.getSelection().toString(), "안녕");
+    assert(document.getElementById("memo-format-sheet"));
+    // 키보드 높이를 그대로 둔 상태에서도 패널과 선택 범위가 유지됩니다.
     await act(async () => {
       viewport.dispatchEvent(new dom.window.Event("resize"));
-      await new Promise((resolve) => setTimeout(resolve, 190));
+      await new Promise((resolve) => setTimeout(resolve, 30));
     });
+    assert.equal(viewport.height, 350);
     const sheet = document.getElementById("memo-format-sheet");
     assert.equal(document.querySelectorAll('[aria-label="서식 도구"]').length, 1);
-    assert.equal(sheet.querySelectorAll('[role="group"]').length, 2);
-    assert.equal(sheet.querySelectorAll('button').length, 13);
-    assert.equal(sheet.querySelector('[aria-label="문단 스타일"]').textContent.includes("모노스페이스"), true);
+    assert.equal(sheet.querySelectorAll('[role="group"]').length, 4);
+    assert.equal(sheet.querySelectorAll('button').length, 14);
+    assert.equal(sheet.querySelector('[aria-label="문단 스타일"]').textContent.includes("고정 폭"), true);
     assert.equal(sheet.closest("form").id, "memo-form");
     await click(button("굵게"));
-    assert.notEqual(document.activeElement, editor);
-    assert.equal(editor.getAttribute("contenteditable"), "false");
+    assert.equal(document.activeElement, editor);
+    assert.equal(editor.getAttribute("contenteditable"), "true");
     assert.equal(button("굵게").getAttribute("aria-pressed"), "true");
     assert.equal(editor.querySelector("strong").textContent, "안녕");
+    assert.equal(document.getSelection().toString(), "안녕");
     assert.equal(editor.firstChild.textContent, "안녕 테스트");
     await click(button("굵게"));
     assert.equal(button("굵게").getAttribute("aria-pressed"), "false");

@@ -30,17 +30,6 @@ const chipClass = (isActive: boolean): string =>
       : "border-[#2a2e3d] bg-[#1a1d26] text-[#9ca3af] hover:border-[#ffc86b] hover:text-[#f3f4f6]"
   }`;
 
-interface ActiveFilter {
-  id: string;
-  label: string;
-  clear: Partial<MemoFilterOptions>;
-}
-
-const formatFilterDate = (value: string | undefined): string => {
-  if (!value) return "날짜 미지정";
-  return `${value.replaceAll("-", ".")}.`;
-};
-
 export function SearchFilterBar({
   options,
   availableTags,
@@ -51,6 +40,9 @@ export function SearchFilterBar({
   const [keyword, setKeyword] = useState(options.keyword ?? "");
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobileFilter, setIsMobileFilter] = useState(false);
+  // 태그 검색어와 날짜 교정 안내를 화면 상태로 보관합니다.
+  const [tagQuery, setTagQuery] = useState("");
+  const [dateNotice, setDateNotice] = useState("");
   const selectedTags = options.tags ?? [];
   const areAllTagsSelected = selectedTags.length === 0;
   const areAllMediaFiltersSelected = options.hasImage === true
@@ -87,31 +79,16 @@ export function SearchFilterBar({
 
   usePageScrollLock(isExpanded && isMobileFilter);
 
-  const activeFilters: ActiveFilter[] = [
-    ...selectedTags.map((tag) => ({
-      id: `tag-${tag}`,
-      label: `#${tag}`,
-      clear: { tags: selectedTags.filter((selectedTag) => selectedTag !== tag) },
-    })),
-    ...((options.timePreset ?? "all") !== "all"
-      ? [{
-          id: "time",
-          label: options.timePreset === "custom"
-            ? `기간: ${formatFilterDate(options.customDateRange?.start)} ~ ${formatFilterDate(options.customDateRange?.end)}`
-            : `기간: ${TIME_PRESETS.find((preset) => preset.value === options.timePreset)?.label ?? "전체"}`,
-          clear: { timePreset: "all" as const, customDateRange: undefined },
-        }]
-      : []),
-    ...(options.hasImage === true
-      ? [{ id: "image", label: "사진 포함", clear: { hasImage: undefined } }]
-      : []),
-    ...(options.hasTable === true
-      ? [{ id: "table", label: "표 포함", clear: { hasTable: undefined } }]
-      : []),
-    ...(options.isPinned === true
-      ? [{ id: "pinned", label: "고정됨", clear: { isPinned: undefined } }]
-      : []),
-  ];
+  // 부모에서 사용 빈도순으로 받은 태그를 검색하고 기본 화면에는 상위 다섯 개만 표시합니다.
+  const matchingTags = availableTags.filter((tag) => tag.toLocaleLowerCase().includes(tagQuery.trim().toLocaleLowerCase()));
+  const visibleTags = tagQuery.trim() ? matchingTags : availableTags.slice(0, 5);
+  const filterSummary = [
+    selectedTags.length ? `태그 ${selectedTags.length}개` : "",
+    options.hasImage ? "사진 포함" : "",
+    options.hasTable ? "표 포함" : "",
+    options.isPinned ? "고정됨" : "",
+    (options.timePreset ?? "all") !== "all" ? "기간 지정" : "",
+  ].filter(Boolean).join(", ") || "선택한 조건 없음";
 
   // 사용자가 입력하거나 칩을 누를 때 기존 조건을 복사하고 바뀐 값만 덮어써서 부모의 filterOptions State로 돌려보냅니다.
   const updateOptions = (changes: Partial<MemoFilterOptions>): void => {
@@ -148,17 +125,18 @@ export function SearchFilterBar({
     key: "start" | "end",
     value: string,
   ): void => {
-    updateOptions({
-      timePreset: "custom",
-      customDateRange: {
-        ...options.customDateRange,
-        [key]: value || undefined,
-      },
-    });
+    // 역전된 날짜 범위는 시작일과 같은 날 끝나도록 교정하고 이유를 알려 줍니다.
+    const range = { ...options.customDateRange, [key]: value || undefined };
+    const reversed = !!(range.start && range.end && range.start > range.end);
+    if (reversed) range.end = range.start;
+    setDateNotice(reversed ? "종료일을 시작일과 같은 날짜로 맞췄습니다." : "");
+    updateOptions({ timePreset: "custom", customDateRange: range });
   };
 
   // 검색어는 그대로 두고 상세 필터에서 선택한 태그·기간·미디어·상태 조건만 처음 상태로 되돌립니다.
   const resetDetailedFilters = (): void => {
+    setTagQuery("");
+    setDateNotice("");
     updateOptions({
       tags: [],
       timePreset: "all",
@@ -254,14 +232,6 @@ export function SearchFilterBar({
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={resetDetailedFilters}
-                  disabled={activeFilters.length === 0}
-                  className="text-xs font-semibold text-[#ffc86b] disabled:cursor-not-allowed disabled:text-[#6b7280]"
-                >
-                  초기화
-                </button>
-                <button
-                  type="button"
                   onClick={() => setIsExpanded(false)}
                   className="text-xs text-[#9ca3af] hover:text-white"
                 >
@@ -269,30 +239,21 @@ export function SearchFilterBar({
                 </button>
               </div>
             </div>
-            <section aria-label="선택한 필터">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-bold text-[#f3f4f6]">
-                  선택한 필터
+            <section aria-label="선택한 필터" className="flex items-start justify-between gap-3 border-b border-[#2a2e3d] pb-3">
+              <div className="min-w-0" aria-live="polite">
+                <h3 className="inline-block rounded-full bg-white/5 px-2 py-1 text-xs font-bold text-[#f3f4f6]">
+                  선택된 필터 ({activeFilterCount}개)
                 </h3>
-                <span className="rounded-full bg-[#e5a93c] px-2 py-0.5 text-xs font-bold text-white">
-                  {activeFilters.length}개
-                </span>
+                <p className="mt-1 text-xs text-[#9ca3af]">{filterSummary}</p>
               </div>
-              {activeFilters.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {activeFilters.map((filter) => (
-                    <button
-                      key={filter.id}
-                      type="button"
-                      onClick={() => updateOptions(filter.clear)}
-                      className="rounded-full border border-[#e5a93c] bg-[#e5a93c]/15 px-2.5 py-1 text-xs text-[#ffc86b]"
-                      aria-label={`${filter.label} 필터 해제`}
-                    >
-                      {filter.label} ✕
-                    </button>
-                  ))}
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={resetDetailedFilters}
+                disabled={activeFilterCount === 0}
+                className="shrink-0 text-xs font-semibold text-[#ffc86b] disabled:text-[#6b7280]"
+              >
+                전체 초기화
+              </button>
             </section>
             <p className="rounded-lg border border-[#2a2e3d] bg-[#1a1d26]/50 p-2 text-xs leading-relaxed text-[#9ca3af]">
               ✨ 단어가 정확히 일치하지 않아도 문맥과 의미를 분석하여 메모를 찾습니다.
@@ -304,7 +265,21 @@ export function SearchFilterBar({
               <span className="block text-xs font-bold text-[#f3f4f6]">
                 태그 선택
               </span>
-              <div className="mt-3 flex max-h-28 flex-wrap gap-2 overflow-y-auto">
+              <label className="mt-3 block">
+                <span className="sr-only">태그 검색</span>
+                <input
+                  type="search"
+                  value={tagQuery}
+                  onChange={(event) => setTagQuery(event.target.value)}
+                  placeholder="태그 검색"
+                  aria-controls="filter-tag-results"
+                  className="h-11 w-full rounded-xl border border-[#2a2e3d] bg-[#0f1117] px-3 text-base outline-none focus:ring-1 focus:ring-[#e5a93c]"
+                />
+              </label>
+              <p className="mt-2 text-xs text-[#9ca3af]" aria-live="polite">
+                {tagQuery.trim() ? `검색 결과 ${matchingTags.length}개 · 다시 누르면 선택 해제` : "자주 사용하는 태그 Top 5"}
+              </p>
+              <div id="filter-tag-results" className={`mt-2 max-h-48 overflow-y-auto overscroll-contain ${tagQuery.trim() ? "grid gap-1 rounded-xl border border-[#2a2e3d] bg-[#1a1d26] p-2" : "flex flex-wrap gap-2"}`}>
                 <button
                   type="button"
                   onClick={clearSelectedTags}
@@ -313,7 +288,7 @@ export function SearchFilterBar({
                 >
                   전체
                 </button>
-                {availableTags.map((tag) => (
+                {visibleTags.map((tag) => (
                   <button
                     key={tag}
                     type="button"
@@ -386,8 +361,9 @@ export function SearchFilterBar({
                   </button>
                 ))}
                 {options.timePreset === "custom" && (
-                  <div className="filter-range-enter inline-flex w-full min-w-0 items-center gap-1.5 border-t border-[#2a2e3d]/60 pt-2 md:ml-2 md:w-auto md:border-t-0 md:pt-0">
+                  <div className="filter-range-enter flex w-full min-w-0 flex-wrap items-center gap-2 border-t border-[#2a2e3d]/60 pt-2">
                     <DateInputBox
+                      expanded
                       id="search-filter-start-date"
                       label="시작일"
                       value={options.customDateRange?.start ?? ""}
@@ -401,6 +377,7 @@ export function SearchFilterBar({
                       ~
                     </span>
                     <DateInputBox
+                      expanded
                       id="search-filter-end-date"
                       label="종료일"
                       value={options.customDateRange?.end ?? ""}
@@ -410,6 +387,9 @@ export function SearchFilterBar({
                   </div>
                 )}
               </div>
+              {options.timePreset === "custom" && dateNotice && (
+                <p role="status" className="mt-2 text-xs text-[#ffc86b]">{dateNotice}</p>
+              )}
             </fieldset>
           </div>
         </>

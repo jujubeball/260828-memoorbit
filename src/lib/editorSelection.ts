@@ -160,7 +160,7 @@ export const restoreEditorRange = (editor: HTMLElement, saved: Range | null, foc
     range.selectNodeContents(editor);
     range.collapse(false);
   }
-  // 시트에서 서식을 고를 때는 읽기 상태의 본문 범위만 복원하여 키보드를 다시 열지 않습니다.
+  // 요청된 경우 본문에 포커스를 유지하고 복사한 범위를 실제 화면 선택으로 복원합니다.
   if (focus) editor.focus({ preventScroll: true });
   const selection = editor.ownerDocument.getSelection();
   selection?.removeAllRanges();

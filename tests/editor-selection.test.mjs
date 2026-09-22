@@ -270,3 +270,20 @@ test("제목과 색상도 다시 누르면 선택 범위의 활성 상태가 해
   assert.equal(editor.textContent, "안녕 테스트");
   dom.window.close();
 });
+
+test("대시 목록은 점 목록으로 전환·해제되고 선택 텍스트가 유지된다", () => {
+  const { editor, range, dom } = setup("<p>안녕 테스트</p>");
+  range.setStart(editor.firstChild.firstChild, 0);
+  range.setEnd(editor.firstChild.firstChild, 2);
+  let selected = formatEditorList(editor, range, "insertDashedList");
+  assert.equal(editor.querySelector("ul").className, "dashed-list");
+  assert.equal(selected.toString(), "안녕");
+  selected = formatEditorList(editor, selected, "insertUnorderedList");
+  assert.equal(editor.querySelector("ul").classList.contains("dashed-list"), false);
+  selected = formatEditorList(editor, selected, "insertDashedList");
+  selected = formatEditorList(editor, selected, "insertDashedList");
+  assert.equal(editor.querySelector("ul"), null);
+  assert.equal(editor.textContent, "안녕 테스트");
+  assert.equal(selected.toString(), "안녕");
+  dom.window.close();
+});

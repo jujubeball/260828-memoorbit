@@ -162,7 +162,7 @@ export function MemoModal({
   const [isAnalyzingTags, setIsAnalyzingTags] = useState(false);
   // 태그 버튼이 토글하며 패널 렌더링과 입력창 포커스 이펙트를 제어합니다. 본문 복귀·서식 열기에서는 닫습니다.
   const [isTagsOpen, setIsTagsOpen] = useState(openTagsInitially);
-  // 별도 훅이 editor → waiting → format 전환을 관리합니다. waiting 동안도 본문을 읽기 상태로 두어 키보드 재진입을 막습니다.
+  // 서식 패널 열림만 관리하며 본문 포커스와 편집 가능 상태는 유지합니다.
   const formatSheet = useKeyboardFormatSheet(isOpen);
   const isFormatOpen = formatSheet.mode === "format";
   // 선택 위치의 굵게·크기 등을 담아 IOSFormatSheet의 황금색 선택 표시와 aria-pressed로 전달합니다.
@@ -184,13 +184,13 @@ export function MemoModal({
 
   // 💡 [모바일 선택 핸들 추적]
   // 손가락으로 선택 경계를 바꾸는 동안 Range를 복사하고, 태그 입력창의 선택은 본문 선택을 덮어쓰지 않습니다.
-  // isOpen·서식 모드가 바뀌면 구독을 교체하고 해제 시 같은 함수를 제거합니다. 읽기 모드에서는 보관한 선택을 유지합니다.
+  // 본문에 포커스가 있는 동안 서식 패널 열림과 관계없이 최신 선택을 보관합니다.
   useEffect(() => {
     if (!isOpen) return;
     // 문서 전체 선택 이벤트 중 현재 편집기 안의 선택만 받아 savedRange와 서식 버튼 상태를 함께 갱신합니다.
     const trackSelection = (): void => {
       const editor = editorRef.current;
-      if (!editor || formatSheet.mode !== "editor" || !editor.contains(document.activeElement)) return;
+      if (!editor || !editor.contains(document.activeElement)) return;
       const range = readEditorRange(editor);
       if (range) {
         savedRange.current = range;
@@ -199,7 +199,7 @@ export function MemoModal({
     };
     document.addEventListener("selectionchange", trackSelection);
     return () => document.removeEventListener("selectionchange", trackSelection);
-  }, [isOpen, updateFormatState, formatSheet.mode]);
+  }, [isOpen, updateFormatState]);
 
   // 💡 [모바일 키보드의 문단 삽입]
   // keydown 없이 전달되는 모바일 Enter도 처리하며 한글 조합 확정은 브라우저에 맡깁니다.
@@ -288,9 +288,9 @@ export function MemoModal({
   if (!isOpen) return null;
 
   // 사용자가 본문을 드래그하면 현재 선택 범위를 복사해 서식 버튼을 누른 뒤에도 잃지 않게 합니다.
-  // 포인터 누름·선택·키 입력에서 호출하며 편집 모드에서만 savedRange와 activeFormat을 갱신합니다.
+  // 포인터 누름·선택·키 입력에서 호출하여 savedRange와 activeFormat을 갱신합니다.
   const rememberSelection = (): void => {
-    if (!editorRef.current || formatSheet.mode !== "editor") return;
+    if (!editorRef.current) return;
     const range = readEditorRange(editorRef.current);
     if (range) {
       savedRange.current = range;
@@ -298,8 +298,8 @@ export function MemoModal({
     }
   };
   // 저장해 둔 선택 범위를 본문에 다시 올리고 적용 가능한 Range를 서식 함수에 돌려줍니다.
-  // 서식 시트에서는 focus=false가 되어 선택만 복원합니다. 편집 도구가 true를 전달하면 키보드 입력도 재개합니다.
-  const restoreSelection = (focus = formatSheet.mode === "editor"): Range | null => editorRef.current
+  // 서식 시트에서도 본문 포커스를 유지하여 키보드와 선택 범위를 함께 보존합니다.
+  const restoreSelection = (focus = true): Range | null => editorRef.current
     ? restoreEditorRange(editorRef.current, savedRange.current, focus)
     : null;
   // 체크리스트나 표처럼 DOM이 직접 바뀐 뒤 현재 글자를 plainText State와 다시 맞춥니다.
@@ -307,7 +307,7 @@ export function MemoModal({
   const syncText = (): void => setPlainText((editorRef.current?.innerText ?? "").replaceAll(CARET_PLACEHOLDER, ""));
 
   // 에디터의 여백을 눌렀을 때 마지막 글자 뒤에 새 커서를 만들어 바로 이어 쓸 수 있게 합니다.
-  // 저장 중이면 동작하지 않으며 resumeEditor로 읽기 모드부터 풀고, 표 밖 마지막 문단을 선택하여 savedRange에 보관합니다.
+  // 저장 중이면 동작하지 않으며 resumeEditor로 패널을 닫고, 표 밖 마지막 문단을 선택하여 savedRange에 보관합니다.
   const focusEditorEnd = (): void => {
     const editor = editorRef.current;
     if (!editor || isSaving) return;
@@ -416,7 +416,7 @@ export function MemoModal({
     const formatted = formatEditorRange(editor, range, command, value)
       ?? formatEditorList(editor, range, command);
     if (formatted) {
-      savedRange.current = formatted;
+      savedRange.current = restoreEditorRange(editor, formatted, true);
       updateFormatState(formatted);
     }
     syncText();
@@ -658,26 +658,22 @@ export function MemoModal({
     selectedCell.innerText = await navigator.clipboard.readText();
     syncText();
   };
-  // 시트와 키보드 닫힘 대기를 함께 취소해 늦은 예약이 화면을 덮지 않게 합니다.
-  // formatSheet.close가 모드를 editor로 바꾸면 훅의 정리 함수가 시트 표시 타이머를 해제합니다.
+  // 패널만 닫고 본문의 포커스나 선택은 변경하지 않습니다.
   const closeFormatLayer = (): void => {
     formatSheet.close();
   };
   // 💡 [본문으로 돌아가기]
-  // 사용자 터치 안에서 편집을 즉시 활성화한 뒤 포커스를 주어 iOS가 키보드를 다시 열 수 있게 합니다.
-  // State 반영을 기다리기 전에 contentEditable을 직접 켜는 이유는 사용자 입력 이벤트 안에서 포커스를 요청해야 하기 때문입니다.
+  // 사용자 터치 안에서 본문에 포커스를 돌려 태그 입력 등 다른 작업 이후에도 바로 이어 씁니다.
   const resumeEditor = (): void => {
     if (isSaving) return;
     closeFormatLayer();
     setIsTagsOpen(false);
     const editor = editorRef.current;
     if (!editor) return;
-    editor.contentEditable = "true";
     editor.focus({ preventScroll: true });
   };
-  // 💡 [가가 버튼의 키보드 교체]
-  // 선택 범위를 먼저 복사하고 현재 입력창을 흐리게 한 뒤 높이가 복원될 때까지 시트 표시를 기다립니다.
-  // 이미 대기·표시 중이면 close로 취소합니다. 새로 열 때에는 태그 패널을 닫아 서로 다른 입력 패널이 겹치지 않게 합니다.
+  // 💡 [가가 버튼의 포커스 보존]
+  // 선택 범위를 복사하고 본문 포커스를 유지한 채 패널을 엽니다. 태그 입력 중이라면 저장한 본문 선택으로 돌아갑니다.
   const toggleFormatLayer = (): void => {
     if (formatSheet.mode !== "editor") {
       closeFormatLayer();
@@ -686,8 +682,7 @@ export function MemoModal({
     rememberSelection();
     setIsTagsOpen(false);
     formatSheet.open();
-    const active = document.activeElement;
-    if (active instanceof HTMLElement) active.blur();
+    restoreSelection();
   };
 
   // 태그 버튼 하나가 직접 입력과 추천 칩을 함께 열고 서식 패널은 접습니다.
@@ -814,13 +809,10 @@ export function MemoModal({
             )}
             <div
               ref={mountEditor}
-              contentEditable={!isSaving && formatSheet.mode === "editor"}
+              contentEditable={!isSaving}
               data-memo-editor
               onPointerDown={() => {
                 if (formatSheet.mode !== "editor" || isTagsOpen) resumeEditor();
-              }}
-              onFocus={() => {
-                if (formatSheet.mode !== "editor") closeFormatLayer();
               }}
               suppressContentEditableWarning
               role="textbox"
@@ -851,7 +843,7 @@ export function MemoModal({
           </div>
 
           {/* 💡 [키보드 도킹 툴바]
-              다섯 아이콘을 한 화면에 두고 키보드가 내려간 뒤 서식 패널을 펼칩니다. */}
+              다섯 아이콘과 패널을 가시 화면 하단에 두어 키보드 위에 함께 표시합니다. */}
           <div
             className="z-20 box-border w-full max-w-full shrink-0 touch-none overscroll-none bg-transparent pb-[max(0.5rem,env(safe-area-inset-bottom))]"
           >
@@ -928,7 +920,6 @@ export function MemoModal({
                 aria-label="텍스트 서식"
                 title="텍스트 서식"
                 aria-expanded={isFormatOpen}
-                aria-busy={formatSheet.mode === "waiting"}
                 aria-controls="memo-format-sheet"
               >
                 <EditorIcon name="format" />

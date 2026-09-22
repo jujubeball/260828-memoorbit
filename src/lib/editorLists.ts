@@ -1,10 +1,10 @@
 import { isEditorRange } from "@/src/lib/editorSelection";
 
-// 💡 [키보드 없이 문단 명령 적용]
-// 읽기 상태에서도 선택한 문단의 DOM을 직접 옮겨 목록과 들여쓰기를 적용합니다. 포커스가 필요한 브라우저 편집 명령은 사용하지 않습니다.
+// 💡 [선택한 문단에 목록 적용]
+// 선택 범위의 문단만 옮겨 목록과 들여쓰기를 적용하고 새 선택 범위를 작성 모달로 돌려줍니다.
 export function formatEditorList(editor: HTMLElement, range: Range, command: string): Range | null {
   if (!isEditorRange(editor, range)) return null;
-  if (!["insertUnorderedList", "insertOrderedList", "indent", "outdent"].includes(command)) return null;
+  if (!["insertUnorderedList", "insertOrderedList", "insertDashedList", "indent", "outdent"].includes(command)) return null;
   const document = editor.ownerDocument;
   const collapsed = range.collapsed;
   const blocks = new Set<HTMLElement>();
@@ -64,7 +64,9 @@ export function formatEditorList(editor: HTMLElement, range: Range, command: str
   // 상위 문단을 통째로 옮길 때 그 안의 중첩 목록을 다시 처리하지 않습니다.
   const targets = [...blocks].filter((block) => ![...blocks].some((other) => other !== block && other.contains(block)));
   const tag = command === "insertOrderedList" ? "OL" : "UL";
-  const removeList = targets.every((block) => block.tagName === "LI" && block.parentElement?.tagName === tag);
+  const dashed = command === "insertDashedList";
+  const removeList = targets.every((block) => block.tagName === "LI" && block.parentElement?.tagName === tag
+    && block.parentElement.classList.contains("dashed-list") === dashed);
   let caretTarget: HTMLElement = editor;
   const outdentTails = new Map<HTMLElement, HTMLElement>();
   // 선택된 항목만 기존 목록에서 분리해 앞뒤의 선택되지 않은 목록을 유지합니다.
@@ -86,6 +88,7 @@ export function formatEditorList(editor: HTMLElement, range: Range, command: str
         const nested = previous.lastElementChild?.tagName === listTag
           ? previous.lastElementChild
           : previous.appendChild(document.createElement(listTag.toLowerCase()));
+        nested.classList.toggle("dashed-list", block.parentElement!.classList.contains("dashed-list"));
         nested.append(block);
       } else if (block.tagName !== "LI") block.classList.add("ml-6");
       return;
@@ -110,6 +113,7 @@ export function formatEditorList(editor: HTMLElement, range: Range, command: str
       return;
     }
     const list = document.createElement(tag.toLowerCase());
+    list.classList.toggle("dashed-list", dashed);
     const item = document.createElement("li");
     item.append(...block.childNodes);
     list.append(item);
@@ -117,7 +121,7 @@ export function formatEditorList(editor: HTMLElement, range: Range, command: str
     if (block.tagName === "LI") detachItem(block, list);
     else block.replaceWith(list);
     const previous = list.previousElementSibling;
-    if (previous?.tagName === tag) {
+    if (previous?.tagName === tag && previous.classList.contains("dashed-list") === dashed) {
       previous.append(...list.childNodes);
       list.remove();
     }
