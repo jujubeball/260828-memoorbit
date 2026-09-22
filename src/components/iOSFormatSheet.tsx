@@ -1,4 +1,4 @@
-import type { PointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { InlineFormatTools } from "@/src/components/InlineFormatTools";
 import { EditorIcon } from "@/src/components/EditorIcon";
 import type { EditorFormatState } from "@/src/lib/editorSelection";
@@ -8,27 +8,83 @@ interface IOSFormatSheetProps {
   disabled: boolean;
   onClose: () => void;
   onLink: () => void;
+  onRestoreSelection: () => void;
   onKeepSelection: (event: PointerEvent<HTMLButtonElement>) => void;
   onFormat: (command: string, value?: string) => void;
 }
 
 // 네 그룹은 선택 상태와 명령만 전달받고, 실제 본문과 선택 범위는 작성 모달이 관리합니다.
-export function IOSFormatSheet({ activeFormat, disabled, onKeepSelection, onFormat, onClose, onLink }: IOSFormatSheetProps): React.JSX.Element {
+export function IOSFormatSheet({
+  activeFormat,
+  disabled,
+  onKeepSelection,
+  onFormat,
+  onClose,
+  onLink,
+  onRestoreSelection,
+}: IOSFormatSheetProps): React.JSX.Element {
+  const dragStartY = useRef<number | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
   const buttonClass = (active: boolean): string =>
     `flex h-11 min-w-11 shrink-0 transition-transform duration-150 active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-[#e5a93c] items-center justify-center rounded-lg px-1 text-xs font-semibold disabled:opacity-40 ${active ? "bg-amber-500 text-black" : "text-[#f3f4f6] hover:bg-white/10"}`;
 
+  useEffect(() => {
+    const closeWithEscape = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      if (document.querySelector('[aria-label="글자색 선택"], [aria-label="링크 주소 입력"]')) return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", closeWithEscape);
+    return () => window.removeEventListener("keydown", closeWithEscape);
+  }, [onClose]);
+
   return (
-    <section
-      id="memo-format-sheet"
-      aria-label="서식 도구"
-      className="max-h-[max(8rem,calc(var(--viewport-height)-10rem))] shrink-0 overflow-y-auto touch-pan-y rounded-t-3xl border-t border-white/10 bg-slate-900 p-3 shadow-xl backdrop-blur-md animate-[format-sheet-in_180ms_ease-out] motion-reduce:animate-none"
+    <div
+      className="fixed inset-0 z-[130] flex items-end bg-black/35"
+      role="presentation"
+      onPointerDown={(event) => {
+        event.preventDefault();
+        if (event.target === event.currentTarget) onClose();
+      }}
     >
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-lg font-semibold">포맷</h3>
-        <button type="button" onPointerDown={onKeepSelection} onClick={onClose} aria-label="포맷 닫기" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-slate-300">
-          <EditorIcon name="close" className="h-5 w-5" />
+      <section
+        id="memo-format-sheet"
+        aria-label="서식 도구"
+        className="max-h-[max(8rem,calc(var(--viewport-height)-10rem))] w-full shrink-0 overflow-y-auto touch-pan-y rounded-t-3xl border-t border-white/10 bg-slate-900 p-3 shadow-xl backdrop-blur-md animate-[format-sheet-in_180ms_ease-out] transition-transform motion-reduce:animate-none"
+        style={{ transform: `translateY(${dragOffset}px)` }}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          aria-label="포맷 시트 내리기"
+          className="mx-auto mb-1 flex h-6 w-20 touch-none items-center justify-center"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            dragStartY.current = event.clientY;
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            if (dragStartY.current === null) return;
+            event.preventDefault();
+            setDragOffset(Math.max(0, event.clientY - dragStartY.current));
+          }}
+          onPointerUp={(event) => {
+            event.preventDefault();
+            const shouldClose = dragOffset > 70;
+            dragStartY.current = null;
+            setDragOffset(0);
+            if (shouldClose) onClose();
+          }}
+        >
+          <span className="h-1.5 w-10 rounded-full bg-slate-500" />
         </button>
-      </div>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">포맷</h3>
+          <button type="button" onPointerDown={onKeepSelection} onClick={onClose} aria-label="포맷 닫기" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-slate-300">
+            <EditorIcon name="close" className="h-5 w-5" />
+          </button>
+        </div>
       <div
         className="flex items-center gap-x-4 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide px-2 py-1 overscroll-x-contain rounded-lg bg-white/5 touch-pan-x"
         role="group"
@@ -54,7 +110,14 @@ export function IOSFormatSheet({ activeFormat, disabled, onKeepSelection, onForm
         role="group"
         aria-label="인라인 서식"
       >
-        <InlineFormatTools activeFormat={activeFormat} disabled={disabled} onKeepSelection={onKeepSelection} onFormat={onFormat} onLink={onLink} />
+        <InlineFormatTools
+          activeFormat={activeFormat}
+          disabled={disabled}
+          onKeepSelection={onKeepSelection}
+          onFormat={onFormat}
+          onLink={onLink}
+          onRestoreSelection={onRestoreSelection}
+        />
 
       </div>
       <div className="flex items-center gap-x-4 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide px-2 py-1 mt-2 border-t border-white/10 pt-2 touch-pan-x overscroll-x-contain">
@@ -102,6 +165,7 @@ export function IOSFormatSheet({ activeFormat, disabled, onKeepSelection, onForm
           ))}
         </div>
       </div>
-    </section>
+      </section>
+    </div>
   );
 }

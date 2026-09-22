@@ -93,13 +93,13 @@ export function formatEditorList(editor: HTMLElement, range: Range, command: str
         const nested = previous.lastElementChild?.tagName === listTag
           ? previous.lastElementChild
           : previous.appendChild(document.createElement(listTag.toLowerCase()));
-        nested.classList.toggle("dashed-list", block.parentElement!.classList.contains("dashed-list"));
+        nested.className = block.parentElement!.className;
         nested.append(block);
-      } else if (block.tagName !== "LI") block.classList.add("ml-6");
+      } else if (block.tagName !== "LI") block.classList.add("ml-4");
       return;
     }
     if (command === "outdent" && block.tagName !== "LI") {
-      block.classList.remove("ml-6");
+      block.classList.remove("ml-4");
       return;
     }
     if (command === "outdent" && block.parentElement?.parentElement?.tagName === "LI") {
@@ -118,7 +118,11 @@ export function formatEditorList(editor: HTMLElement, range: Range, command: str
       return;
     }
     const list = document.createElement(tag.toLowerCase());
-    list.classList.toggle("dashed-list", dashed);
+    list.className = command === "insertOrderedList"
+      ? "list-decimal pl-5"
+      : dashed
+        ? "dashed-list list-[dash] pl-5"
+        : "list-disc pl-5";
     const item = document.createElement("li");
     item.append(...block.childNodes);
     list.append(item);

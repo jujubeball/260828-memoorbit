@@ -424,7 +424,7 @@ export default function Home(): React.JSX.Element {
   };
   // 💡 [메모 저장과 자동 저장의 공통 입구]
   // 완료 버튼과 뒤로가기 자동 저장이 모두 이 함수를 사용하며, 기존 메모는 교체하고 새 메모는 목록 맨 앞에 추가합니다.
-  const submitMemo = async (draft: MemoDraft, startNew = false): Promise<void> => {
+  const submitMemo = async (draft: MemoDraft): Promise<void> => {
     if (!hasHydratedStorage) {
       setStorageError("기존 메모를 불러오는 중입니다. 잠시 후 다시 저장해 주세요.");
       return;
@@ -505,11 +505,7 @@ export default function Home(): React.JSX.Element {
         });
     }
     setIsSavingMemo(false);
-    if (startNew) {
-      startNewMemo();
-    } else {
-      closeEditor();
-    }
+    closeEditor();
   };
   // 고정·날짜별 목록이 같은 그룹 외형을 공유하고, 사진 갤러리도 모바일에서는 한 열 그룹으로 표시합니다.
   const memoGroupClass = `min-w-0 overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/60 ${memoViewMode === "gallery" ? "md:grid md:grid-cols-2 md:gap-3 md:overflow-visible md:rounded-none md:border-0 md:bg-transparent lg:grid-cols-3" : ""}`;
@@ -764,7 +760,6 @@ export default function Home(): React.JSX.Element {
           openTagsInitially={openTagsInitially}
           onClose={closeEditor}
           onSubmit={submitMemo}
-          onNewMemo={startNewMemo}
         />
       )}
       {deleteTarget && (

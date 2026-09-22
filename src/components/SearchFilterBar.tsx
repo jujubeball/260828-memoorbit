@@ -72,6 +72,19 @@ export function SearchFilterBar({
 
   usePageScrollLock(isExpanded);
 
+  // 💡 [검색 레이어 키보드 닫기]
+  // ESC는 검색 조건을 지우지 않고 전체 화면 레이어만 닫아 목록으로 자연스럽게 돌아갑니다.
+  useEffect(() => {
+    if (!isExpanded) return;
+    const closeWithEscape = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setIsExpanded(false);
+    };
+    window.addEventListener("keydown", closeWithEscape);
+    return () => window.removeEventListener("keydown", closeWithEscape);
+  }, [isExpanded]);
+
   // 💡 [통합 검색 레이어 진입]
   // 하단 검색창과 데스크톱 진입점은 같은 레이어를 열고, 음성 결과가 있으면 검색어에 먼저 반영합니다.
   const openSearchLayer = (nextKeyword?: string): void => {
@@ -194,12 +207,17 @@ export function SearchFilterBar({
             role="dialog"
             aria-modal="true"
             aria-label="통합 검색 및 필터"
-            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => {
+              if (event.target !== event.currentTarget) return;
+              event.preventDefault();
+              setIsExpanded(false);
+            }}
             className="fixed inset-0 z-50 bg-slate-950 p-4 overflow-y-auto pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]"
           >
             <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-2 border-b border-slate-800 bg-slate-950/95 px-4 pb-3 backdrop-blur-md">
               <button
                 type="button"
+                onPointerDown={(event) => event.preventDefault()}
                 onClick={() => setIsExpanded(false)}
                 className="flex h-11 shrink-0 items-center text-sm font-semibold text-amber-400"
                 aria-label="검색 닫기"

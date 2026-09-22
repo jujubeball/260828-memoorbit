@@ -28,8 +28,8 @@ const SIMPLE_TAGS: Record<string, string[]> = {
 };
 
 const BLOCK_STYLES: Record<string, string> = {
-  h1: "text-2xl font-bold", h2: "text-xl font-bold", h3: "text-lg font-semibold",
-  p: "text-base font-normal", pre: "font-mono text-base font-normal",
+  h1: "text-2xl font-bold text-white", h2: "text-xl font-bold text-white", h3: "text-[17px] font-semibold text-white",
+  p: "text-[15px] font-normal text-white", pre: "font-mono text-[15px] font-normal text-white",
 };
 const COLOR_STYLES: Record<string, string> = {
   "#ffffff": "text-white", "#e5a93c": "text-[#e5a93c]", "#ff453a": "text-[#ff453a]",
@@ -151,7 +151,7 @@ const stripFormat = (editor: HTMLElement, text: Text, command: string): void => 
         replacement.removeAttribute("href");
         replacement.removeAttribute("rel");
         replacement.removeAttribute("target");
-        replacement.classList.remove("underline", "text-sky-400");
+        replacement.classList.remove("underline", "text-sky-400", "text-amber-400");
       }
       replacement.append(...element.childNodes);
       if (replacement.getAttribute("class") === "") replacement.removeAttribute("class");
@@ -188,11 +188,71 @@ export const restoreEditorRange = (editor: HTMLElement, saved: Range | null, foc
   return range;
 };
 
+// 💡 [행 전체 문단 스타일 변환]
+// 선택 양 끝에 임시 표식을 꽂아 DOM 태그를 바꾸는 동안에도 같은 글자 위치를 찾고, 현재 행 전체를 실제 블록 요소로 교체합니다.
+const formatEditorBlock = (editor: HTMLElement, range: Range, value: string): Range | null => {
+  const classes = BLOCK_STYLES[value];
+  if (!classes || !["h1", "h2", "h3", "p", "pre"].includes(value)) return null;
+  const document = editor.ownerDocument;
+  const startMarker = document.createElement("span");
+  const endMarker = document.createElement("span");
+  startMarker.dataset.selectionStart = "true";
+  endMarker.dataset.selectionEnd = "true";
+  const end = range.cloneRange();
+  end.collapse(false);
+  end.insertNode(endMarker);
+  const start = range.cloneRange();
+  start.collapse(true);
+  start.insertNode(startMarker);
+  const markerRange = document.createRange();
+  markerRange.setStartBefore(startMarker);
+  markerRange.setEndAfter(endMarker);
+  const candidates = [...editor.querySelectorAll<HTMLElement>("p, h1, h2, h3, pre, li")]
+    .filter((block) => markerRange.intersectsNode(block) && !block.parentElement?.closest("p, h1, h2, h3, pre, li"));
+  let targets = candidates.length ? candidates : [startMarker.closest<HTMLElement>("p, h1, h2, h3, pre")].filter(Boolean) as HTMLElement[];
+  if (!targets.length) {
+    const paragraph = document.createElement("p");
+    paragraph.append(...editor.childNodes);
+    editor.append(paragraph);
+    targets = [paragraph];
+  }
+  targets.forEach((block) => {
+    if (block.tagName === "LI") {
+      block.dataset.formatBlock = value;
+      block.className = classes;
+      return;
+    }
+    const replacement = document.createElement(value);
+    replacement.dataset.formatBlock = value;
+    replacement.className = classes;
+    const source = block.tagName === "PRE" && block.firstElementChild?.tagName === "CODE"
+      ? block.firstElementChild
+      : block;
+    if (value === "pre") {
+      const code = document.createElement("code");
+      code.className = "font-mono";
+      code.append(...source.childNodes);
+      replacement.append(code);
+    } else {
+      replacement.append(...source.childNodes);
+    }
+    block.replaceWith(replacement);
+  });
+  if (!editor.contains(startMarker) || !editor.contains(endMarker)) return null;
+  const restored = document.createRange();
+  restored.setStartAfter(startMarker);
+  restored.setEndBefore(endMarker);
+  startMarker.remove();
+  endMarker.remove();
+  return restored;
+};
+
 // 💡 [선택한 글자에만 서식 적용]
 // 문단과 기존 태그 경계를 그대로 두고 선택에 걸친 텍스트 노드의 해당 부분만 감쌉니다.
 // 선택이 접혀 있으면 빈 서식 안에 임시 커서를 만들고 이후 입력할 글자부터 서식을 적용합니다.
 export const formatEditorRange = (editor: HTMLElement, range: Range, command: string, value?: string): Range | null => {
   if (!isEditorRange(editor, range)) return null;
+  if (command === "formatBlock" && value) return formatEditorBlock(editor, range, value);
   // 링크 입력은 웹 주소만 허용하여 실행 가능한 주소가 본문에 저장되지 않게 합니다.
   if (command === "createLink" && value) {
     try {
@@ -202,15 +262,12 @@ export const formatEditorRange = (editor: HTMLElement, range: Range, command: st
   const simple: Record<string, InlineFormat> = {
     highlight: { tag: "mark" }, createLink: { tag: "a" }, bold: { tag: "strong" }, italic: { tag: "em" }, underline: { tag: "u" }, strikeThrough: { tag: "s" },
   };
-  const format = command === "formatBlock" && value && BLOCK_STYLES[value]
-    ? { tag: "span" as const, className: BLOCK_STYLES[value] }
-    : command === "foreColor" && value && COLOR_STYLES[value]
+  const format = command === "foreColor" && value && COLOR_STYLES[value]
       ? { tag: "span" as const, className: COLOR_STYLES[value] }
       : simple[command];
   if (!format) return null;
   const state = readEditorFormat(editor, range);
-  const active = command === "createLink" ? !value : command === "formatBlock" ? state.block === value
-    : command === "foreColor" ? state.color === value
+  const active = command === "createLink" ? !value : command === "foreColor" ? state.color === value
       : state[command as "bold" | "italic" | "underline" | "strikeThrough" | "highlight"];
   const document = editor.ownerDocument;
   const makeWrapper = (): HTMLElement => {
@@ -224,8 +281,10 @@ export const formatEditorRange = (editor: HTMLElement, range: Range, command: st
     if (command === "createLink" && value) {
       wrapper.setAttribute("href", value);
       wrapper.setAttribute("rel", "noopener noreferrer");
-      wrapper.className = "underline text-sky-400";
+      wrapper.setAttribute("target", "_blank");
+      wrapper.className = "text-amber-400 underline";
     }
+    if (command === "highlight") wrapper.className = "bg-yellow-500/30";
     if (format.className) wrapper.className = format.className;
     if (command === "formatBlock") wrapper.dataset.formatBlock = value;
     if (command === "foreColor") wrapper.dataset.formatColor = value;

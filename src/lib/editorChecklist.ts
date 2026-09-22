@@ -12,9 +12,11 @@ const placeCaret = (editor: HTMLElement, target: HTMLElement): Range => {
   return range.cloneRange();
 };
 
-const makeChecklistItem = (document: Document): { item: HTMLDivElement; text: HTMLSpanElement } => {
-  const item = document.createElement("div");
-  item.className = "memo-check-item";
+const makeChecklistItem = (document: Document): { list: HTMLUListElement; item: HTMLLIElement; text: HTMLSpanElement } => {
+  const list = document.createElement("ul");
+  list.className = "list-none";
+  const item = document.createElement("li");
+  item.className = "memo-check-item flex items-center gap-2";
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.setAttribute("contenteditable", "false");
@@ -22,14 +24,15 @@ const makeChecklistItem = (document: Document): { item: HTMLDivElement; text: HT
   const text = document.createElement("span");
   text.className = "memo-check-text";
   item.append(checkbox, text);
-  return { item, text };
+  list.append(item);
+  return { list, item, text };
 };
 
 // 💡 [커서 위치의 체크리스트 생성]
 // 현재 문단을 커서 앞뒤로 나눠 체크 항목을 같은 본문 수준에 넣고 선택한 내용은 항목 안으로 옮깁니다.
 export const insertEditorChecklist = (editor: HTMLElement, range: Range): Range | null => {
   if (!isEditorRange(editor, range)) return null;
-  const { item, text } = makeChecklistItem(editor.ownerDocument);
+  const { list, text } = makeChecklistItem(editor.ownerDocument);
   text.append(range.extractContents());
   const start = range.startContainer.nodeType === 1 ? range.startContainer as Element : range.startContainer.parentElement;
   const block = start?.closest("p, h1, h2, h3, pre, .memo-check-item");
@@ -38,14 +41,14 @@ export const insertEditorChecklist = (editor: HTMLElement, range: Range): Range 
     tail.selectNodeContents(block);
     tail.setStart(range.startContainer, range.startOffset);
     const suffix = tail.extractContents();
-    block.after(item);
+    block.after(list);
     if (suffix.textContent?.replaceAll(CARET_PLACEHOLDER, "").trim()) {
       const paragraph = editor.ownerDocument.createElement("p");
       paragraph.append(suffix);
-      item.after(paragraph);
+      list.after(paragraph);
     }
     if (!block.textContent?.replaceAll(CARET_PLACEHOLDER, "").trim()) block.remove();
-  } else range.insertNode(item);
+  } else range.insertNode(list);
   return placeCaret(editor, text);
 };
 
@@ -60,7 +63,12 @@ export const enterEditorChecklist = (editor: HTMLElement, range: Range): Range |
   range.deleteContents();
   if (!text.textContent?.replaceAll(CARET_PLACEHOLDER, "").trim()) {
     const paragraph = editor.ownerDocument.createElement("p");
-    item.replaceWith(paragraph);
+    const list = item.closest("ul");
+    if (list && list.children.length > 1) {
+      list.after(paragraph);
+      item.remove();
+    } else if (list) list.replaceWith(paragraph);
+    else item.replaceWith(paragraph);
     return placeCaret(editor, paragraph);
   }
   const next = makeChecklistItem(editor.ownerDocument);

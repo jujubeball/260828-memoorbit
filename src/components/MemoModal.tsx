@@ -15,7 +15,6 @@ import {
 import { enterEditorChecklist, insertEditorChecklist } from "@/src/lib/editorChecklist";
 import { EditorIcon } from "@/src/components/EditorIcon";
 import { InlineFormatTools } from "@/src/components/InlineFormatTools";
-import { MarkupPad } from "@/src/components/MarkupPad";
 import { useEditorHistory } from "@/src/hooks/useEditorHistory";
 import { IOSFormatSheet } from "@/src/components/iOSFormatSheet";
 import { useVisualViewport } from "@/src/hooks/useVisualViewport";
@@ -48,8 +47,7 @@ interface MemoModalProps {
   isOpen: boolean;
   editingMemo: Memo | null;
   onClose: () => void;
-  onSubmit: (draft: MemoDraft, startNew?: boolean) => void;
-  onNewMemo: () => void;
+  onSubmit: (draft: MemoDraft) => void;
 }
 
 interface TableMenuPosition {
@@ -119,7 +117,6 @@ export function MemoModal({
   editingMemo,
   onClose,
   onSubmit,
-  onNewMemo,
 }: MemoModalProps): React.JSX.Element | null {
   // 💡 [편집기 DOM 참조 모음]
   // 화면에 그려진 본문, 파일 입력, 선택 범위, 표 셀을 React 코드에서 안전하게 찾아가기 위한 책갈피입니다.
@@ -179,21 +176,16 @@ export function MemoModal({
   // 서식 패널 열림만 관리하며 본문 포커스와 편집 가능 상태는 유지합니다.
   const formatSheet = useKeyboardFormatSheet(isOpen);
   const isFormatOpen = formatSheet.mode === "format";
-  // 선택 위치의 굵게·크기 등을 담아 IOSFormatSheet의 황금색 선택 표시와 aria-pressed로 전달합니다.
-  // 선택이 있으면 퀵 서식으로 전환하고, 보조 도구는 사용자가 요청할 때만 엽니다.
-  const [hasTextSelection, setHasTextSelection] = useState(false);
-  const [isMoreOpen, setIsMoreOpen] = useState(false);
-  const [isMarkupOpen, setIsMarkupOpen] = useState(false);
+  // 선택 위치의 굵게·크기 등을 담아 툴바와 IOSFormatSheet의 황금색 선택 표시와 aria-pressed로 함께 전달합니다.
   const [isLinkOpen, setIsLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [actionNotice, setActionNotice] = useState("");
-  const { record: recordHistory, travel: travelHistory, availability: historyAvailability } = useEditorHistory(editorRef, initialHtml);
+  const { record: recordHistory, travel: travelHistory } = useEditorHistory(editorRef, initialHtml);
   const [activeFormat, setActiveFormat] = useState(EMPTY_EDITOR_FORMAT);
   // 선택 위치의 서식이 달라진 경우에만 버튼 상태를 갱신해 드래그 중 불필요한 렌더링을 줄입니다.
   const updateFormatState = useCallback((range: Range | null): void => {
     const editor = editorRef.current;
     if (!editor) return;
-    setHasTextSelection(Boolean(range && !range.collapsed && range.toString().length));
     const next = readEditorFormat(editor, range);
     setActiveFormat((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next);
   }, []);
@@ -318,6 +310,20 @@ export function MemoModal({
     () => selectRepresentativeImage(plainText, selectedTags, images),
     [images, plainText, selectedTags],
   );
+
+  // 태그 팝오버에서 ESC를 누르면 저장한 본문 Range를 복원하고 팝오버만 닫습니다.
+  useEffect(() => {
+    if (!isTagsOpen) return;
+    const closeWithEscape = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setIsTagsOpen(false);
+      const editor = editorRef.current;
+      if (editor) savedRange.current = restoreEditorRange(editor, savedRange.current, true);
+    };
+    window.addEventListener("keydown", closeWithEscape);
+    return () => window.removeEventListener("keydown", closeWithEscape);
+  }, [isTagsOpen]);
 
   if (!isOpen) return null;
 
@@ -496,6 +502,7 @@ export function MemoModal({
     const range = restoreSelection(true);
     if (!range) return;
     const table = document.createElement("table");
+    table.className = "border-collapse border border-slate-700";
     table.innerHTML = "<tbody><tr><td><br></td><td><br></td></tr><tr><td><br></td><td><br></td></tr></tbody>";
     range.deleteContents();
     const start = range.startContainer.nodeType === 1 ? range.startContainer as Element : range.startContainer.parentElement;
@@ -553,23 +560,20 @@ export function MemoModal({
   // 본문에 한 글자라도 있으면 현재 DOM의 제목·본문·서식을 MemoDraft로 묶어 page.tsx의 공통 저장 함수로 전달합니다.
   // 첫 줄은 title, 나머지는 content입니다. 반환값 true는 저장 요청을 맡겼거나 저장 중이라는 뜻이지 DB 저장 성공 확인이 아닙니다.
   // 실제 로컬 저장 완료와 화면 전환은 부모 submitMemo가 책임집니다. 사진·표만 있어도 새 메모 전환 중 잃지 않도록 저장합니다.
-  const saveCurrentMemo = (startNew = false): boolean => {
+  const saveCurrentMemo = (): boolean => {
     if (isSaving) return true;
     const editor = editorRef.current;
     const text = editor?.innerText.replaceAll(CARET_PLACEHOLDER, "");
     if (!editor || (!text?.trim() && images.length === 0 && !editor.querySelector("table, img"))) return false;
     const [title, ...body] = (text ?? "").split("\n");
-    onSubmit(
-      {
-        title: title.trim() || "제목 없는 메모",
-        content: body.join("\n").trim(),
-        richContent: sanitizeEditorHtml(editor.innerHTML.replaceAll(CARET_PLACEHOLDER, "")),
-        tags,
-        imageUrl,
-        images,
-      },
-      startNew,
-    );
+    onSubmit({
+      title: title.trim() || "제목 없는 메모",
+      content: body.join("\n").trim(),
+      richContent: sanitizeEditorHtml(editor.innerHTML.replaceAll(CARET_PLACEHOLDER, "")),
+      tags,
+      imageUrl,
+      images,
+    });
     return true;
   };
   // 뒤로가기나 딤드를 누르면 내용이 있으면 먼저 자동 저장하고, 빈 메모라면 저장 없이 닫습니다.
@@ -584,11 +588,6 @@ export function MemoModal({
     editorRef.current?.blur();
     closeEditor();
   };
-  // 새 메모 버튼은 현재 내용이 있으면 먼저 저장하고, 빈 캔버스라면 곧바로 새 제목 문단을 준비합니다.
-  const createAnotherMemo = (): void => {
-    if (saveCurrentMemo(true)) return;
-    onNewMemo();
-  };
   // 본문 이력을 복원한 뒤 React의 글자·선택 상태도 같은 내용으로 맞춥니다.
   const undoEditor = (direction: -1 | 1): void => {
     if (isSaving) return;
@@ -597,21 +596,6 @@ export function MemoModal({
     savedRange.current = range;
     updateFormatState(range);
     setPlainText(editorRef.current?.innerText ?? "");
-    setIsMoreOpen(false);
-  };
-  // 사용자가 공유를 요청한 경우에만 시스템 공유창을 열고, 미지원 환경은 복사로 대체합니다.
-  const shareMemo = async (copyOnly = false): Promise<void> => {
-    const text = (editorRef.current?.innerText ?? "").replaceAll(CARET_PLACEHOLDER, "");
-    try {
-      if (!copyOnly && navigator.share) await navigator.share({ title: text.split("\n")[0] || "메모", text });
-      else {
-        await navigator.clipboard.writeText(text);
-        setActionNotice("메모 내용을 복사했습니다.");
-      }
-    } catch (error) {
-      if (!(error instanceof Error && error.name === "AbortError")) setActionNotice("공유하지 못했습니다. 본문을 선택해 복사하거나 다시 시도해 주세요.");
-    }
-    setIsMoreOpen(false);
   };
   // 링크 입력창에 포커스를 옮기기 전에 본문 책갈피를 보관합니다. 적용 후 본문 선택으로 돌아갑니다.
   const openLink = (): void => {
@@ -619,6 +603,10 @@ export function MemoModal({
     setLinkUrl(activeFormat.link ?? "");
     setIsLinkOpen(true);
     setActionNotice("");
+  };
+  const closeLink = (): void => {
+    setIsLinkOpen(false);
+    restoreSelection();
   };
   const applyLink = (): void => {
     const value = linkUrl.trim();
@@ -754,6 +742,7 @@ export function MemoModal({
   // 패널만 닫고 본문의 포커스나 선택은 변경하지 않습니다.
   const closeFormatLayer = (): void => {
     formatSheet.close();
+    restoreSelection();
   };
   // 💡 [본문으로 돌아가기]
   // 사용자 터치 안에서 본문에 포커스를 돌려 태그 입력 등 다른 작업 이후에도 바로 이어 씁니다.
@@ -774,7 +763,6 @@ export function MemoModal({
     }
     rememberSelection();
     setIsTagsOpen(false);
-    setIsMarkupOpen(false);
     formatSheet.open();
     restoreSelection();
   };
@@ -785,6 +773,10 @@ export function MemoModal({
     rememberSelection();
     closeFormatLayer();
     setIsTagsOpen((current) => !current);
+  };
+  const closeTags = (): void => {
+    setIsTagsOpen(false);
+    restoreSelection();
   };
   // 다섯 아이콘은 44px 터치 영역을 유지하고 남은 너비를 균등한 간격으로 나눕니다.
   const bottomButton =
@@ -818,39 +810,16 @@ export function MemoModal({
           data-scroll-locked
           id="memo-form"
           onSubmit={submit}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (event.target instanceof Element && !event.target.closest('#memo-more-menu, [aria-controls="memo-more-menu"]')) setIsMoreOpen(false);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") setIsMoreOpen(false);
-          }}
+          onClick={(event) => event.stopPropagation()}
           className="box-border flex h-full min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#121318] xl:mx-auto xl:h-[75vh] xl:max-h-[80vh] xl:max-w-2xl xl:flex-none xl:rounded-3xl xl:border xl:border-[#2a2e3d] xl:shadow-2xl"
         >
           <header className="relative z-20 flex h-14 w-full shrink-0 items-center justify-between bg-[#121318] px-3">
             <button type="button" onClick={closeEditor} disabled={isSaving} className={bottomButton} aria-label="목록으로 돌아가기">
               <EditorIcon name="back" />
             </button>
-            <div className="flex items-center gap-1">
-              <button type="button" onPointerDown={keepSelection} onClick={() => void shareMemo()} disabled={isSaving} className={bottomButton} aria-label="공유">
-                <EditorIcon name="share" />
-              </button>
-              <button type="button" onPointerDown={keepSelection} onClick={() => setIsMoreOpen((open) => !open)} disabled={isSaving} className={bottomButton} aria-label="더보기" aria-expanded={isMoreOpen} aria-controls="memo-more-menu">
-                <EditorIcon name="more" />
-              </button>
-              <button type="button" onClick={finishEditing} disabled={isSaving} className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-black disabled:opacity-40" aria-label="편집 완료" aria-busy={isSaving}>
-                <EditorIcon name="check" />
-              </button>
-            </div>
-            {isMoreOpen && (
-              <div id="memo-more-menu" className="absolute right-3 top-14 grid min-w-40 rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-xl" aria-label="메모 추가 작업" onKeyDown={(event) => {
-                if (event.key === "Escape") setIsMoreOpen(false);
-              }}>
-                <button type="button" onClick={() => { setIsMoreOpen(false); toggleTags(); }} className="min-h-11 px-3 text-left">태그 관리</button>
-                <button type="button" onClick={() => void shareMemo(true)} className="min-h-11 px-3 text-left">본문 복사</button>
-                <button type="button" onPointerDown={keepSelection} onClick={() => undoEditor(1)} disabled={!historyAvailability.redo} className="min-h-11 px-3 text-left disabled:opacity-40">다시 실행</button>
-              </div>
-            )}
+            <button type="button" onClick={finishEditing} disabled={isSaving} className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400 text-black disabled:opacity-40" aria-label="편집 완료" aria-busy={isSaving}>
+              <EditorIcon name="check" />
+            </button>
           </header>
 
           <div
@@ -954,29 +923,57 @@ export function MemoModal({
               <p role="status" className="px-4 py-2 text-xs text-amber-300">{actionNotice}</p>
             )}
             {isLinkOpen && (
-              <section aria-label="링크 주소 입력" className="rounded-t-2xl bg-slate-900 p-3">
-                <label className="block text-sm">
-                  웹 주소
-                  <input autoFocus type="url" value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} onKeyDown={(event) => {
-                    if (event.key === "Enter") { event.preventDefault(); applyLink(); }
-                    if (event.key === "Escape") { setIsLinkOpen(false); restoreSelection(); }
-                  }} placeholder="https://" className="mt-2 h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-base" />
-                </label>
+              <div
+                className="fixed inset-0 z-[140] flex items-end bg-black/40 p-4"
+                role="presentation"
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  if (event.target === event.currentTarget) closeLink();
+                }}
+              >
+                <section
+                  aria-label="링크 주소 입력"
+                  role="dialog"
+                  aria-modal="true"
+                  className="mx-auto w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-2xl"
+                  onPointerDown={(event) => event.stopPropagation()}
+                >
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">링크</h3>
+                  <button type="button" onPointerDown={keepSelection} onClick={closeLink} aria-label="링크 입력 닫기" className={bottomButton}>
+                    <EditorIcon name="close" className="h-5 w-5" />
+                  </button>
+                </div>
+                  <label className="block text-sm">
+                    웹 주소
+                    <input
+                      autoFocus
+                      type="url"
+                      value={linkUrl}
+                      onChange={(event) => setLinkUrl(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          applyLink();
+                        }
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          closeLink();
+                        }
+                      }}
+                      placeholder="https://"
+                      className="mt-2 h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-base"
+                    />
+                  </label>
                 <div className="mt-2 flex justify-end gap-3">
-                  <button type="button" onClick={() => { setIsLinkOpen(false); restoreSelection(); }} className="min-h-11">취소</button>
+                  <button type="button" onPointerDown={keepSelection} onClick={closeLink} className="min-h-11">취소</button>
                   {activeFormat.link && (
                     <button type="button" onClick={() => { applyFormat("createLink"); setIsLinkOpen(false); }} className="min-h-11">링크 해제</button>
                   )}
                   <button type="button" onClick={applyLink} className="min-h-11 text-amber-400">적용</button>
                 </div>
-              </section>
-            )}
-            {isMarkupOpen && (
-              <MarkupPad onClose={() => { setIsMarkupOpen(false); restoreSelection(); }} onAttach={(url) => {
-                setImages((current) => [...current, { url, name: "마크업 그림" }]);
-                setIsMarkupOpen(false);
-                restoreSelection();
-              }} />
+                </section>
+              </div>
             )}
             {isFormatOpen && !isLinkOpen && (
               <IOSFormatSheet
@@ -986,17 +983,32 @@ export function MemoModal({
                 onFormat={applyFormat}
                 onClose={closeFormatLayer}
                 onLink={openLink}
+                onRestoreSelection={() => restoreSelection()}
               />
             )}
             {isTagsOpen && (
+              <div
+                className="fixed inset-0 z-[140] flex items-end bg-black/40 p-4"
+                role="presentation"
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  if (event.target === event.currentTarget) closeTags();
+                }}
+              >
               <section
-                className={`animate-[fade-in_180ms_ease-out] motion-reduce:animate-none border-b border-[#2a2e3d] px-3 py-2 ${isAnalyzingTags ? "bg-[#e5a93c]/5" : ""}`}
+                className={`mx-auto w-full max-w-lg animate-[fade-in_180ms_ease-out] rounded-2xl border border-[#2a2e3d] bg-slate-900 px-3 py-2 shadow-2xl motion-reduce:animate-none ${isAnalyzingTags ? "ring-1 ring-[#e5a93c]/30" : ""}`}
                 id="memo-tag-panel"
                 aria-label="태그 관리 패널"
+                role="dialog"
+                aria-modal="true"
+                onPointerDown={(event) => event.stopPropagation()}
               >
-                <h3 className="mb-2 text-xs font-semibold text-[#9ca3af]">
-                  🏷️ 태그 관리
-                </h3>
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-xs font-semibold text-[#9ca3af]">🏷️ 태그 관리</h3>
+                  <button type="button" onPointerDown={keepSelection} onClick={closeTags} aria-label="태그 관리 닫기" className={bottomButton}>
+                    <EditorIcon name="close" className="h-5 w-5" />
+                  </button>
+                </div>
                 <input
                   ref={tagInputRef}
                   value={tags}
@@ -1038,12 +1050,14 @@ export function MemoModal({
                   )}
                 </div>
               </section>
+              </div>
             )}
             <div
-              className="scrollbar-hidden flex w-full items-center gap-6 overflow-x-auto whitespace-nowrap touch-pan-x overscroll-x-contain border-t border-slate-800/80 bg-slate-900/90 px-4 py-3 backdrop-blur-md"
+              className="overflow-x-auto whitespace-nowrap scrollbar-hide flex items-center gap-6 px-4 py-2.5 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 w-full touch-pan-x overscroll-x-contain snap-x snap-mandatory"
               role="toolbar"
               aria-label="메모 작성 도구"
             >
+              <div className="flex min-w-full shrink-0 snap-start items-center justify-around gap-6" data-toolbar-page="main">
               <button
                 type="button"
                 onPointerDown={keepSelection}
@@ -1057,11 +1071,7 @@ export function MemoModal({
               >
                 <EditorIcon name="format" />
               </button>
-              {hasTextSelection && !isFormatOpen ? (
-                <InlineFormatTools quick activeFormat={activeFormat} disabled={isSaving} onKeepSelection={keepSelection} onFormat={applyFormat} onLink={openLink} />
-              ) : (
-                <>
-                  <button
+              <button
                     type="button"
                     onPointerDown={keepSelection}
                     onClick={insertChecklist}
@@ -1094,35 +1104,28 @@ export function MemoModal({
                   >
                     <EditorIcon name="clip" />
                   </button>
-                  <button
-                    type="button"
-                    onPointerDown={keepSelection}
-                    onClick={() => {
-                      rememberSelection();
-                      closeFormatLayer();
-                      setIsTagsOpen(false);
-                      setIsMarkupOpen((open) => !open);
-                    }}
-                    disabled={isSaving}
-                    className={bottomButton}
-                    aria-label="마크업"
-                    title="마크업"
-                  >
-                    <EditorIcon name="pen" />
-                  </button>
-                </>
-              )}
               <button
                 type="button"
                 onPointerDown={keepSelection}
-                onClick={createAnotherMemo}
+                onClick={toggleTags}
                 disabled={isSaving}
                 className={bottomButton}
-                aria-label="새 메모 작성"
-                title="새 메모 작성"
+                aria-label="태그 관리"
+                title="태그 관리"
               >
-                <EditorIcon name="compose" />
+                <EditorIcon name="tag" />
               </button>
+              </div>
+              <div className="flex min-w-full shrink-0 snap-start items-center gap-6" data-toolbar-page="inline">
+                <InlineFormatTools
+                  activeFormat={activeFormat}
+                  disabled={isSaving}
+                  onKeepSelection={keepSelection}
+                  onFormat={applyFormat}
+                  onLink={openLink}
+                  onRestoreSelection={() => restoreSelection()}
+                />
+              </div>
               <input
                 ref={imageInputRef}
                 type="file"

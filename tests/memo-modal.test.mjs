@@ -89,7 +89,7 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     const sheet = document.getElementById("memo-format-sheet");
     assert.equal(document.querySelectorAll('[aria-label="서식 도구"]').length, 1);
     assert.equal(sheet.querySelectorAll('[role="group"]').length, 4);
-    assert.equal(sheet.querySelectorAll('button').length, 18);
+    assert.equal(sheet.querySelectorAll('button').length, 20);
     assert.equal(sheet.querySelector('[aria-label="문단 스타일"]').textContent.includes("모노스페이스"), true);
     assert.equal(sheet.closest("form").id, "memo-form");
     await click(button("굵게"));
@@ -146,11 +146,12 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     const toolbar = shell.querySelector('[role="toolbar"]');
     assert(toolbar.classList.contains("overflow-x-auto"));
     assert.match(toolbar.textContent, /BIUS/);
-    assert.equal(toolbar.querySelectorAll("svg").length, 6);
-    assert.equal(toolbar.querySelectorAll("button").length, 10);
-    assert(toolbar.querySelector('[aria-label="새 메모 작성"]'));
+    assert.equal(toolbar.querySelectorAll("svg").length, 8);
+    assert.equal(toolbar.querySelectorAll("button").length, 12);
+    assert.equal(toolbar.querySelector('[aria-label="새 메모 작성"]'), null);
+    assert(toolbar.querySelector('[aria-label="태그 관리"]'));
     assert(toolbar.querySelector('[aria-label="텍스트 서식"]'));
-    assert.deepEqual([...shell.querySelector("header").children].map((item) => item.tagName), ["BUTTON", "DIV"]);
+    assert.deepEqual([...shell.querySelector("header").children].map((item) => item.tagName), ["BUTTON", "BUTTON"]);
     assert.equal(shell.querySelector("header").textContent.trim(), "");
     assert([...toolbar.querySelectorAll("button")].every((item) => item.classList.contains("shrink-0")));
     editor.parentElement.scrollTop = 80;
@@ -203,6 +204,7 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     assert(image.classList.contains("max-h-[300px]"));
     // 실제 React 키 이벤트와 모바일 beforeinput 경로도 같은 체크리스트 분기를 사용합니다.
     await click(button("체크리스트"));
+    assert(editor.querySelector("ul.list-none > li.memo-check-item.flex.items-center.gap-2 > input[type=checkbox]"));
     let checklistText = editor.querySelector(".memo-check-text");
     checklistText.textContent = "할 일";
     let caret = document.createRange();
@@ -236,6 +238,9 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     assert.equal(editor.querySelectorAll(".memo-check-item").length, 1);
     await click(button("표 삽입"));
     assert.equal(editor.querySelectorAll("table td").length, 4);
+    for (const className of ["border-collapse", "border", "border-slate-700"]) {
+      assert(editor.querySelector("table").classList.contains(className));
+    }
     assert.equal(editor.querySelector("p table, .memo-check-item table"), null);
     assert.equal(document.activeElement, editor);
     assert.equal(editor.querySelector("table").nextElementSibling.outerHTML, "<p><br></p>");

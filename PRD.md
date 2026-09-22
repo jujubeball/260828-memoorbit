@@ -1,5 +1,16 @@
 # MemoOrbit 제품 요구사항 문서 (PRD v2.0 - 통합 개정판)
 
+## 2026-09-22 iOS 서식·레이어·2페이지 툴바 최종 명세 (최신 우선)
+
+- 편집기 헤더는 좌측 뒤로가기와 우측 노란 원형 완료 버튼만 표시한다. 공유·더보기와 편집기 하단 새 메모 버튼은 제거한다.
+- 키보드 도킹 툴바는 지정된 `overflow-x-auto whitespace-nowrap scrollbar-hide flex items-center gap-6 px-4 py-2.5 bg-slate-900/95 backdrop-blur-md border-t border-slate-800` 컨테이너 안에 1페이지 가가·체크리스트·표·첨부·태그와 2페이지 B·I·U·S·형광펜·글자색·링크를 순서대로 둔다.
+- B/I/U/S는 선택 범위를 각각 `strong`·`em`·`u`·`s`로 토글하고, 형광펜은 `mark.bg-yellow-500/30`, 글자색은 허용된 HEX 색상 span, 링크는 `a[target="_blank"].text-amber-400.underline`으로 적용·해제한다.
+- 문단 스타일은 현재 행 전체를 제목 `h1.text-2xl.font-bold.text-white`, 머리말 `h2.text-xl.font-bold.text-white`, 부머리말 `h3.text-[17px].font-semibold.text-white`, 본문 `p.text-[15px].font-normal.text-white`, 모노스페이스 `pre > code.font-mono` 구조로 변환한다.
+- 체크리스트는 원형 체크 input을 포함한 `ul.list-none > li.flex.items-center.gap-2`, 표는 `table.border-collapse.border.border-slate-700` 2×2 구조로 삽입한다. 점·대시·숫자 목록은 각각 지정된 list 클래스 구조를 사용하며 들여쓰기는 16px 단위로 증감한다.
+- 툴바와 포맷 시트는 같은 `activeFormat`과 저장된 DOM Range를 사용해 활성 서식을 동시에 노란색으로 표시한다.
+- 포맷 시트·색상 선택·링크 입력·통합 검색은 바깥 영역, ESC, 닫기 버튼으로 닫히며 Range를 보존한다. 포맷 시트 핸들을 아래로 스와이프해 닫을 수 있다.
+- [x] 서식 DOM, 두 위치의 활성 상태 동기화, 레이어 닫기와 선택 보존을 전체 74개 자동 테스트로 검증하고 ESLint·TypeScript·프로덕션 빌드를 통과했다.
+
 ## 2026-09-22 iPhone 메모 UI 정밀 교정 (최신 우선)
 
 - 목록 카드 제목은 `text-[17px] font-semibold text-white truncate mb-0.5`, 날짜와 본문 미리보기는 `text-[13px] font-normal text-slate-400 truncate` 계층으로 표시한다.

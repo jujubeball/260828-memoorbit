@@ -446,8 +446,8 @@ button:disabled {
 
 /* 선택 글자의 형광펜과 문단 인셋은 저장된 본문에서도 같은 모양으로 표시합니다. */
 .rich-editor mark, .rich-content mark {
-  background: #fbbf24;
-  color: #111827;
+  background: rgb(234 179 8 / 30%);
+  color: inherit;
 }
 .rich-editor .editor-inset, .rich-content .editor-inset {
   border-left: 3px solid #e5a93c;

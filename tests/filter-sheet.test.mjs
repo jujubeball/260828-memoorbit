@@ -103,6 +103,10 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
     assert.equal(options.keyword, "검색 유지");
     assert.equal(options.timePreset, "all");
     assert.equal(options.hasImage, undefined);
+    const escape = new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    await act(async () => window.dispatchEvent(escape));
+    assert(escape.defaultPrevented);
+    assert.equal(document.getElementById("advanced-search-filters"), null);
   } finally {
     await act(async () => root.unmount());
     dom.window.close();

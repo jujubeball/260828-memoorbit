@@ -89,7 +89,7 @@ test("문단 경계의 빈 커서는 해당 문단만 목록으로 바꾼다", (
   range.setStart(editor, 1);
   range.collapse(true);
   const selected = formatEditorList(editor, range, "insertUnorderedList");
-  assert.equal(editor.innerHTML, "<p>앞</p><ul><li><br></li></ul><p>뒤</p>");
+  assert.equal(editor.innerHTML, '<p>앞</p><ul class="list-disc pl-5"><li><br></li></ul><p>뒤</p>');
   assert(selected.collapsed);
   assert.equal(selected.startContainer.tagName, "LI");
   dom.window.close();
@@ -107,7 +107,7 @@ test("문단 없는 본문과 다음 문단을 함께 선택해도 글자와 선
   dom.window.close();
 });
 
-for (const command of ["bold", "italic", "underline", "strikeThrough", "formatBlock"]) {
+for (const command of ["bold", "italic", "underline", "strikeThrough"]) {
   test(`운동만 선택하고 포커스를 옮겨도 ${command} 적용·해제 범위가 유지된다`, () => {
     const { editor, range, dom, document } = setup("<p>운동은 하면 할 수록 어렵다</p>");
     range.setStart(editor.firstChild.firstChild, 0);
@@ -116,17 +116,16 @@ for (const command of ["bold", "italic", "underline", "strikeThrough", "formatBl
     const saved = readEditorRange(editor);
     document.querySelector("input").focus();
     const restored = restoreEditorRange(editor, saved);
-    const value = command === "formatBlock" ? "h1" : undefined;
-    const formatted = formatEditorRange(editor, restored, command, value);
+    const formatted = formatEditorRange(editor, restored, command);
     assert.equal(formatted.toString(), "운동");
     assert.equal(editor.querySelector("p").lastChild.textContent, "은 하면 할 수록 어렵다");
     const state = readEditorFormat(editor, formatted);
-    assert.equal(command === "formatBlock" ? state.block : state[command], value ?? true);
-    const cleared = formatEditorRange(editor, formatted, command, value);
+    assert.equal(state[command], true);
+    const cleared = formatEditorRange(editor, formatted, command);
     assert.equal(cleared.toString(), "운동");
     assert.equal(editor.textContent, "운동은 하면 할 수록 어렵다");
     const next = readEditorFormat(editor, cleared);
-    assert.equal(command === "formatBlock" ? next.block : next[command], command === "formatBlock" ? null : false);
+    assert.equal(next[command], false);
     dom.window.close();
   });
 }
@@ -143,17 +142,35 @@ for (const [command, tag] of [["bold", "strong"], ["italic", "em"], ["underline"
   });
 }
 
-test("부분 제목 크기는 선택한 글자만 바꾸고 문단 구조를 유지한다", () => {
+test("제목 서식은 선택 글자가 있는 행 전체를 실제 h1 블록으로 바꾼다", () => {
   const { editor, range, dom } = setup("<p>안녕 테스트</p>");
   range.setStart(editor.firstChild.firstChild, 0);
   range.setEnd(editor.firstChild.firstChild, 2);
   formatEditorRange(editor, range, "formatBlock", "h1");
-  assert.equal(editor.querySelector("span").textContent, "안녕");
-  assert(editor.querySelector("span").classList.contains("text-2xl"));
-  assert.equal(editor.querySelector("h1"), null);
-  assert.equal(editor.querySelector("p").lastChild.textContent, " 테스트");
+  const heading = editor.querySelector("h1");
+  assert.equal(heading.textContent, "안녕 테스트");
+  for (const className of ["text-2xl", "font-bold", "text-white"]) assert(heading.classList.contains(className));
   dom.window.close();
 });
+
+for (const [value, tag, classes] of [
+  ["h2", "H2", ["text-xl", "font-bold", "text-white"]],
+  ["h3", "H3", ["text-[17px]", "font-semibold", "text-white"]],
+  ["p", "P", ["text-[15px]", "font-normal", "text-white"]],
+  ["pre", "PRE", ["font-mono", "text-[15px]", "font-normal", "text-white"]],
+]) {
+  test(`${value} 문단 스타일은 행 전체를 실제 ${tag.toLowerCase()} 블록으로 변환한다`, () => {
+    const { editor, range, dom } = setup("<p>행 전체</p>");
+    range.selectNodeContents(editor.firstChild);
+    formatEditorRange(editor, range, "formatBlock", value);
+    const block = editor.firstElementChild;
+    assert.equal(block.tagName, tag);
+    for (const className of classes) assert(block.classList.contains(className));
+    if (value === "pre") assert.equal(block.firstElementChild.tagName, "CODE");
+    assert.equal(block.textContent, "행 전체");
+    dom.window.close();
+  });
+}
 
 test("여러 문단·기존 인라인 태그에 걸친 선택은 선택한 텍스트만 감싼다", () => {
   const { editor, range, dom } = setup("<p>앞 안녕 <em>반가워</em></p><p>테스트 뒤</p>");
@@ -255,14 +272,14 @@ test("선택 없는 커서에서도 굵게 켜기와 끄기를 반복할 수 있
   dom.window.close();
 });
 
-test("제목과 색상도 다시 누르면 선택 범위의 활성 상태가 해제된다", () => {
+test("제목은 행 스타일을 유지하고 색상은 다시 누르면 선택 범위에서 해제된다", () => {
   const { editor, range, dom } = setup();
   range.setStart(editor.firstChild, 0);
   range.setEnd(editor.firstChild, 2);
   let selected = formatEditorRange(editor, range, "formatBlock", "h1");
   assert.equal(readEditorFormat(editor, selected).block, "h1");
   selected = formatEditorRange(editor, selected, "formatBlock", "h1");
-  assert.equal(readEditorFormat(editor, selected).block, null);
+  assert.equal(readEditorFormat(editor, selected).block, "h1");
   selected = formatEditorRange(editor, selected, "foreColor", "#e5a93c");
   assert.equal(readEditorFormat(editor, selected).color, "#e5a93c");
   selected = formatEditorRange(editor, selected, "foreColor", "#e5a93c");
@@ -276,7 +293,7 @@ test("대시 목록은 점 목록으로 전환·해제되고 선택 텍스트가
   range.setStart(editor.firstChild.firstChild, 0);
   range.setEnd(editor.firstChild.firstChild, 2);
   let selected = formatEditorList(editor, range, "insertDashedList");
-  assert.equal(editor.querySelector("ul").className, "dashed-list");
+  assert.equal(editor.querySelector("ul").className, "dashed-list list-[dash] pl-5");
   assert.equal(selected.toString(), "안녕");
   selected = formatEditorList(editor, selected, "insertUnorderedList");
   assert.equal(editor.querySelector("ul").classList.contains("dashed-list"), false);
@@ -294,6 +311,7 @@ test("형광펜은 선택 부분만 토글하고 웹 링크만 허용한다", ()
   range.setEnd(editor.firstChild.firstChild, 2);
   let selected = formatEditorRange(editor, range, "highlight");
   assert.equal(readEditorFormat(editor, selected).highlight, true);
+  assert(editor.querySelector("mark").classList.contains("bg-yellow-500/30"));
   selected = formatEditorRange(editor, selected, "highlight");
   assert.equal(readEditorFormat(editor, selected).highlight, false);
   const before = editor.innerHTML;
@@ -302,6 +320,9 @@ test("형광펜은 선택 부분만 토글하고 웹 링크만 허용한다", ()
   selected = formatEditorRange(editor, selected, "createLink", "https://example.com/one");
   selected = formatEditorRange(editor, selected, "createLink", "https://example.com/two");
   assert.equal(editor.querySelectorAll("a").length, 1, editor.innerHTML);
+  assert.equal(editor.querySelector("a").getAttribute("target"), "_blank");
+  assert(editor.querySelector("a").classList.contains("text-amber-400"));
+  assert(editor.querySelector("a").classList.contains("underline"));
   assert.equal(readEditorFormat(editor, selected).link, "https://example.com/two");
   selected = formatEditorRange(editor, selected, "createLink");
   assert.equal(editor.querySelector("a"), null);

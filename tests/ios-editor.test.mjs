@@ -29,7 +29,7 @@ function loadModal() {
   return load("src/components/MemoModal.tsx").MemoModal;
 }
 
-test("아이콘 헤더·퀵 서식·실행취소·링크·포맷·마크업·완료가 같은 본문을 사용한다", async () => {
+test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문과 선택 상태를 사용한다", async () => {
   const dom = new JSDOM('<div id="root"></div>', { pretendToBeVisual: true, url: "http://localhost" });
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
@@ -37,16 +37,10 @@ test("아이콘 헤더·퀵 서식·실행취소·링크·포맷·마크업·완
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
   Object.defineProperty(globalThis, "navigator", { configurable: true, value: dom.window.navigator });
-  let shared = null;
-  let copied = null;
-  navigator.share = async (value) => { shared = value; };
-  Object.defineProperty(navigator, "clipboard", { value: { writeText: async (value) => { copied = value; } } });
+  Object.defineProperty(navigator, "clipboard", { value: { writeText: async () => {} } });
   dom.window.scrollTo = () => {};
   Object.defineProperty(dom.window.HTMLElement.prototype, "innerText", { configurable: true, get() { return this.textContent; } });
-  const strokes = [];
-  dom.window.HTMLCanvasElement.prototype.getContext = () => ({ beginPath() {}, moveTo() {}, lineTo(x, y) { strokes.push([x, y]); }, stroke() {}, clearRect() {} });
-  dom.window.HTMLCanvasElement.prototype.setPointerCapture = () => {};
-  dom.window.HTMLCanvasElement.prototype.toDataURL = () => "data:image/png;base64,drawn";
+  dom.window.HTMLElement.prototype.setPointerCapture = () => {};
   const { createRoot } = await import("react-dom/client");
   const MemoModal = loadModal();
   const root = createRoot(document.getElementById("root"));
@@ -76,18 +70,22 @@ test("아이콘 헤더·퀵 서식·실행취소·링크·포맷·마크업·완
     editor = document.querySelector('[aria-label="메모 내용"]');
     const header = document.querySelector("header");
     assert.equal(header.textContent.trim(), "");
-    assert.deepEqual([...header.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["목록으로 돌아가기", "공유", "더보기", "편집 완료"]);
+    assert.deepEqual([...header.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["목록으로 돌아가기", "편집 완료"]);
     assert.equal(button("새 메모"), undefined);
     assert.equal(button("새 메모 작성"), undefined);
     const defaultToolbar = document.querySelector('[role="toolbar"]');
-    assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "마크업", "새 메모 작성"]);
+    assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "태그 관리", "굵게", "기울임", "밑줄", "취소선", "형광펜", "색상 선택", "링크"]);
     assert(defaultToolbar.classList.contains("overflow-x-auto"));
     assert(defaultToolbar.classList.contains("gap-6"));
+    for (const className of ["whitespace-nowrap", "scrollbar-hide", "flex", "items-center", "px-4", "py-2.5", "bg-slate-900/95", "backdrop-blur-md", "border-t", "border-slate-800"]) {
+      assert(defaultToolbar.classList.contains(className));
+    }
+    assert.equal(defaultToolbar.querySelectorAll('[data-toolbar-page]').length, 2);
     assert([...defaultToolbar.querySelectorAll("button")].every((item) => item.classList.contains("shrink-0")));
     await select();
     const toolbar = document.querySelector('[role="toolbar"]');
     assert.match(toolbar.textContent, /BIUS/);
-    assert.equal(toolbar.querySelector('[aria-label="표 삽입"]'), null);
+    assert(toolbar.querySelector('[aria-label="표 삽입"]'));
     await click("굵게");
     assert.equal(editor.querySelector("strong").textContent, "안녕");
     assert.equal(document.activeElement, editor);
@@ -101,18 +99,31 @@ test("아이콘 헤더·퀵 서식·실행취소·링크·포맷·마크업·완
     await click("형광펜");
     assert.equal(button("형광펜").getAttribute("aria-pressed"), "false");
     await click("링크");
-    const input = document.querySelector('input[type="url"]');
+    let input = document.querySelector('input[type="url"]');
+    const linkBackdrop = input.closest('[role="presentation"]');
+    const outsidePress = new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true });
+    await act(async () => linkBackdrop.dispatchEvent(outsidePress));
+    assert(outsidePress.defaultPrevented);
+    assert.equal(document.querySelector('input[type="url"]'), null);
+    assert.equal(document.getSelection().toString(), "안녕");
+    await click("링크");
+    input = document.querySelector('input[type="url"]');
     await act(async () => {
       Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value").set.call(input, "https://example.com/note");
       input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
     });
     await click("적용");
     assert.equal(editor.querySelector("a").getAttribute("href"), "https://example.com/note");
+    assert.equal(editor.querySelector("a").getAttribute("target"), "_blank");
+    assert(editor.querySelector("a").classList.contains("text-amber-400"));
     assert.equal(document.activeElement, editor);
     assert.equal(document.getSelection().toString(), "안녕");
     await click("텍스트 서식");
     const formatSheet = document.getElementById("memo-format-sheet");
     assert.match(formatSheet.textContent, /포맷/);
+    const syncedBoldButtons = [...document.querySelectorAll('[aria-label="굵게"]')];
+    assert.equal(syncedBoldButtons.length, 2);
+    assert(syncedBoldButtons.every((item) => item.getAttribute("aria-pressed") === "true"));
     const formatRows = [...formatSheet.querySelectorAll('[role="group"]')];
     assert.equal(formatRows.length, 4);
     for (const row of [formatRows[0], formatRows[1], formatRows[2].parentElement]) {
@@ -124,31 +135,30 @@ test("아이콘 헤더·퀵 서식·실행취소·링크·포맷·마크업·완
     await click("제목");
     assert.equal(button("제목").getAttribute("aria-pressed"), "true");
     await click("색상 선택");
+    assert(document.querySelector('[aria-label="글자색 선택"]'));
+    await act(async () => window.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+    assert.equal(document.querySelector('[aria-label="글자색 선택"]'), null);
+    assert.equal(document.getSelection().toString(), "안녕");
+    await click("색상 선택");
     await click("빨간색 글자");
-    assert.equal(button("빨간색 글자").getAttribute("aria-pressed"), "true");
+    assert.equal(button("색상 선택").getAttribute("aria-pressed"), "true");
     await click("인셋 컨테이너");
     assert(editor.querySelector(".editor-inset"));
     await click("인셋 컨테이너");
     assert.equal(editor.querySelector(".editor-inset"), null);
+    const handle = document.querySelector('[aria-label="포맷 시트 내리기"]');
+    await act(async () => handle.dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true, clientY: 10 })));
+    await act(async () => handle.dispatchEvent(new dom.window.MouseEvent("pointermove", { bubbles: true, cancelable: true, clientY: 100 })));
+    await act(async () => handle.dispatchEvent(new dom.window.MouseEvent("pointerup", { bubbles: true, cancelable: true, clientY: 100 })));
+    assert.equal(document.getElementById("memo-format-sheet"), null);
+    assert.equal(document.getSelection().toString(), "안녕");
+    await click("텍스트 서식");
     await click("포맷 닫기");
     assert.equal(document.getElementById("memo-format-sheet"), null);
     assert.equal(document.getSelection().toString(), "안녕");
-    await click("공유");
-    assert.equal(shared.text, "안녕 테스트");
-    await click("더보기");
-    await click("본문 복사");
-    assert.equal(copied, "안녕 테스트");
-    await select(true);
-    await click("마크업");
-    const canvas = document.querySelector("canvas");
-    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 200 });
-    await act(async () => canvas.dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 20 })));
-    assert(strokes.length > 0);
-    await click("그림 첨부");
-    assert.equal(document.querySelector("canvas"), null);
     await click("편집 완료");
     assert.equal(submissions.length, 1);
-    assert.equal(submissions[0].images[0].name, "마크업 그림");
+    assert.equal(submissions[0].images.length, 0);
     assert.equal(submissions[0].richContent, editor.innerHTML);
     assert.notEqual(document.activeElement, editor);
   } finally {
