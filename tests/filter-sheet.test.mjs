@@ -61,7 +61,17 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
   });
   try {
     await act(async () => render());
-    await click(document.querySelector('[aria-controls="advanced-search-filters"]'));
+    const desktopSearchTrigger = document.querySelector('[aria-controls="advanced-search-filters"]');
+    assert(!desktopSearchTrigger.textContent.includes("필터"));
+    assert.equal(document.querySelector("button").textContent.includes("⚙️"), false);
+    await click(desktopSearchTrigger);
+    const overlay = document.getElementById("advanced-search-filters");
+    assert(overlay.classList.contains("fixed"));
+    assert(overlay.classList.contains("inset-0"));
+    assert(overlay.classList.contains("z-50"));
+    assert(overlay.classList.contains("bg-slate-950"));
+    assert.equal(overlay.getAttribute("aria-label"), "통합 검색 및 필터");
+    assert.equal(document.activeElement, overlay.querySelector('input[placeholder^="제목"]'));
     const summary = document.querySelector('[aria-label="선택한 필터"]');
     const startBox = document.getElementById("search-filter-start-date").parentElement;
     const endBox = document.getElementById("search-filter-end-date").parentElement;
@@ -112,15 +122,17 @@ test("목록 도킹 검색은 입력·음성 결과를 반영하고 편집기 �
     await act(async () => render());
     const dock = document.querySelector('[aria-label="목록 검색 및 작성"]');
     assert(dock);
-    assert.equal(dock.style.getPropertyValue("--list-dock-bottom"), "var(--mobile-nav-height)");
+    assert(dock.classList.contains("bottom-0"));
     await act(async () => dock.querySelector("input").focus());
-    assert.match(dock.style.getPropertyValue("--list-dock-bottom"), /^\d+px$/);
-    await act(async () => dock.querySelector("input").blur());
-    assert.equal(dock.style.getPropertyValue("--list-dock-bottom"), "var(--mobile-nav-height)");
-    assert.equal(dock.querySelectorAll("button").length, 2);
+    const overlay = document.getElementById("advanced-search-filters");
+    assert(overlay);
+    assert.equal(document.activeElement, overlay.querySelector('input[placeholder^="제목"]'));
+    await act(async () => overlay.querySelector('[aria-label="검색 닫기"]').click());
+    const reopenedDock = document.querySelector('[aria-label="목록 검색 및 작성"]');
+    assert.equal(reopenedDock.querySelectorAll("button").length, 2);
     assert.equal(document.querySelectorAll('[aria-label="새 메모 작성"]').length, 1);
-    await act(async () => dock.querySelector('[aria-label="음성 검색"]').click());
-    assert.match(dock.textContent, /지원하지 않습니다/);
+    await act(async () => reopenedDock.querySelector('[aria-label="음성 검색"]').click());
+    assert.match(reopenedDock.textContent, /지원하지 않습니다/);
     const sessions = [];
     let aborted = false;
     window.SpeechRecognition = class {
@@ -129,14 +141,15 @@ test("목록 도킹 검색은 입력·음성 결과를 반영하고 편집기 �
       stop() { this.onend?.(); }
       abort() { aborted = true; }
     };
-    await act(async () => dock.querySelector('[aria-label="음성 검색"]').click());
+    await act(async () => reopenedDock.querySelector('[aria-label="음성 검색"]').click());
     const recognition = sessions[0];
     assert.equal(recognition.lang, "ko-KR");
     await act(async () => recognition.onresult({ results: [[{ transcript: "아이디어" }]] }));
-    assert.equal(dock.querySelector("input").value, "아이디어");
+    assert.equal(document.querySelector('[aria-label="통합 검색 및 필터"] input[placeholder^="제목"]').value, "아이디어");
     await act(async () => new Promise((resolve) => setTimeout(resolve, 340)));
     assert.equal(options.keyword, "아이디어");
-    await act(async () => dock.querySelector('[aria-label="새 메모 작성"]').click());
+    await act(async () => document.querySelector('[aria-label="검색 닫기"]').click());
+    await act(async () => document.querySelector('[aria-label="새 메모 작성"]').click());
     assert.equal(creates, 1);
     hidden = true;
     await act(async () => render());

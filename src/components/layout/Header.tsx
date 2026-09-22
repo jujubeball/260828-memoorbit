@@ -1,7 +1,7 @@
 "use client";
 
 import { AuthButton } from "@/src/components/AuthButton";
-import type { NavigationSection } from "@/src/components/layout/BottomNavigation";
+import type { NavigationSection } from "@/src/components/layout/TopSegmentedNavigation";
 
 interface HeaderProps {
   activeSection: NavigationSection;

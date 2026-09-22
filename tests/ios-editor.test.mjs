@@ -117,7 +117,16 @@ test("아이콘 헤더·퀵 서식·실행취소·링크·포맷·마크업·완
     assert.equal(document.activeElement, editor);
     assert.equal(document.getSelection().toString(), "안녕");
     await click("텍스트 서식");
-    assert.match(document.getElementById("memo-format-sheet").textContent, /포맷/);
+    const formatSheet = document.getElementById("memo-format-sheet");
+    assert.match(formatSheet.textContent, /포맷/);
+    const formatRows = [...formatSheet.querySelectorAll('[role="group"]')];
+    assert.equal(formatRows.length, 4);
+    for (const row of [formatRows[0], formatRows[1], formatRows[2].parentElement]) {
+      for (const className of ["flex", "items-center", "gap-x-4", "overflow-x-auto", "whitespace-nowrap", "flex-nowrap", "scrollbar-hide", "px-2"]) {
+        assert(row.classList.contains(className), `${className} 누락`);
+      }
+      assert(!row.classList.contains("flex-wrap"));
+    }
     await click("제목");
     assert.equal(button("제목").getAttribute("aria-pressed"), "true");
     await click("색상 선택");

@@ -24,18 +24,18 @@
   --background: #0f1117;
   --foreground: #f3f4f6;
   --mobile-header-height: calc(3.5rem + env(safe-area-inset-top));
-  --mobile-nav-height: calc(4rem + env(safe-area-inset-bottom));
+  --mobile-segment-height: 3.5rem;
 }
 
-/* 가시 높이에서 헤더와 하단 탭 공간을 한 번씩만 빼서 캔버스와 상세 시트를 같은 영역에 배치합니다. */
+/* 가시 높이에서 고정 헤더와 상단 세그먼트 공간을 한 번씩만 빼 캔버스를 맞춥니다. */
 .orbit-shell {
-  height: max(0px, calc(var(--orbit-viewport-height, 100dvh) - var(--mobile-header-height) - var(--mobile-nav-height)));
+  height: max(0px, calc(var(--orbit-viewport-height, 100dvh) - var(--mobile-header-height) - var(--mobile-segment-height)));
 }
 
 @media (min-width: 768px) {
   :root {
     --mobile-header-height: 0px;
-    --mobile-nav-height: 0px;
+    --mobile-segment-height: 0px;
   }
 
   .orbit-shell {
@@ -214,6 +214,14 @@ button:disabled {
 }
 
 .scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
 

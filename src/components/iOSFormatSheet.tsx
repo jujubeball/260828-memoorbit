@@ -30,7 +30,7 @@ export function IOSFormatSheet({ activeFormat, disabled, onKeepSelection, onForm
         </button>
       </div>
       <div
-        className="scrollbar-hidden flex gap-1 overflow-x-auto overscroll-x-contain rounded-lg bg-white/5 touch-pan-x"
+        className="scrollbar-hide flex flex-nowrap items-center gap-x-4 overflow-x-auto whitespace-nowrap px-2 overscroll-x-contain rounded-lg bg-white/5 touch-pan-x"
         role="group"
         aria-label="문단 스타일"
       >
@@ -50,14 +50,14 @@ export function IOSFormatSheet({ activeFormat, disabled, onKeepSelection, onForm
         ))}
       </div>
       <div
-        className="scrollbar-hidden mt-2 flex gap-2 overflow-x-auto overscroll-x-contain touch-pan-x"
+        className="scrollbar-hide mt-2 flex flex-nowrap items-center gap-x-4 overflow-x-auto whitespace-nowrap px-2 overscroll-x-contain touch-pan-x"
         role="group"
         aria-label="인라인 서식"
       >
         <InlineFormatTools activeFormat={activeFormat} disabled={disabled} onKeepSelection={onKeepSelection} onFormat={onFormat} onLink={onLink} />
 
       </div>
-      <div className="scrollbar-hidden mt-2 flex gap-2 overflow-x-auto border-t border-white/10 pt-2">
+      <div className="scrollbar-hide mt-2 flex flex-nowrap items-center gap-x-4 overflow-x-auto whitespace-nowrap px-2 border-t border-white/10 pt-2 touch-pan-x overscroll-x-contain">
         <div
           className="flex shrink-0 flex-[3] gap-1"
           role="group"

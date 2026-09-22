@@ -49,13 +49,13 @@ const memo = {
   createdAt: "2026-01-02T00:00:00Z", updatedAt: "2026-09-15T00:00:00Z",
 };
 
-test("하단 세 탭은 현재 화면을 표시하고 입력·편집 중 숨겨졌다가 복원된다", async () => {
+test("상단 세그먼트는 현재 화면을 표시하고 세 화면에서 같은 구조를 유지한다", async () => {
   const dom = setup();
   const { createRoot } = await import("react-dom/client");
-  const { BottomNavigation } = loader()("src/components/layout/BottomNavigation.tsx");
+  const { TopSegmentedNavigation } = loader()("src/components/layout/TopSegmentedNavigation.tsx");
   const root = createRoot(document.getElementById("root"));
   let current = "memos";
-  const render = (hidden = false) => root.render(React.createElement(BottomNavigation, {
+  const render = (hidden = false) => root.render(React.createElement(TopSegmentedNavigation, {
     activeSection: current, hidden, onSelect(section) { current = section; render(); },
   }));
   try {
@@ -77,10 +77,11 @@ test("하단 세 탭은 현재 화면을 표시하고 입력·편집 중 숨겨�
     await act(async () => document.querySelectorAll("nav button")[1].click());
     assert.equal(current, "orbit");
     assert(document.querySelector('[aria-current="page"]').textContent.includes("태그 궤도"));
-    await act(async () => document.getElementById("search").focus());
-    assert.equal(document.querySelector("nav"), null);
-    await act(async () => document.getElementById("search").blur());
-    assert(document.querySelector("nav"));
+    assert(navigation.classList.contains("fixed"));
+    assert(navigation.classList.contains("top-[var(--mobile-header-height)]"));
+    assert(!navigation.classList.contains("bottom-0"));
+    assert(navigation.firstElementChild.classList.contains("bg-slate-800"));
+    assert(navigation.firstElementChild.classList.contains("rounded-lg"));
     await act(async () => render(true));
     assert.equal(document.querySelector("nav"), null);
     await act(async () => render(false));

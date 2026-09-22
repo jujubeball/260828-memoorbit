@@ -17,7 +17,7 @@ import {
 import { MemoModal, type MemoDraft } from "@/src/components/MemoModal";
 import { MainContentHeader } from "@/src/components/MainContentHeader";
 import { Header } from "@/src/components/layout/Header";
-import { BottomNavigation, type NavigationSection } from "@/src/components/layout/BottomNavigation";
+import { TopSegmentedNavigation, type NavigationSection } from "@/src/components/layout/TopSegmentedNavigation";
 import { AuthButton } from "@/src/components/AuthButton";
 import { OrbitGraphView } from "@/src/components/OrbitGraphView";
 import { SearchFilterBar } from "@/src/components/SearchFilterBar";
@@ -607,8 +607,13 @@ export default function Home(): React.JSX.Element {
       </aside>
 
       <Header activeSection={activeSection} />
+      <TopSegmentedNavigation
+        activeSection={activeSection}
+        onSelect={selectNavigation}
+        hidden={isEditorOpen || Boolean(deleteTarget)}
+      />
       <main
-        className={`mx-auto w-full max-w-full overflow-x-clip px-4 pt-[var(--mobile-header-height)] md:pt-0 ${activeSection === "orbit" ? "pb-[var(--mobile-nav-height)]" : activeSection === "timeline" ? "pb-[calc(var(--mobile-nav-height)+2rem)] md:pb-8 md:max-w-5xl" : "pb-[calc(var(--mobile-nav-height)+5rem)] md:pb-28"} ${activeSection === "memos" ? "md:max-w-5xl" : ""} ${activeSection === "orbit" ? "px-0 md:h-dvh md:overflow-hidden md:pb-0" : ""}`}
+        className={`mx-auto w-full max-w-full overflow-x-clip px-4 pt-[calc(var(--mobile-header-height)+3.5rem)] md:pt-0 ${activeSection === "orbit" ? "pb-0" : activeSection === "timeline" ? "pb-8 md:max-w-5xl" : "pb-24 md:pb-28"} ${activeSection === "memos" ? "md:max-w-5xl" : ""} ${activeSection === "orbit" ? "px-0 md:h-dvh md:overflow-hidden md:pb-0" : ""}`}
       >
         {activeSection === "memos" && (
           <>
@@ -746,11 +751,6 @@ export default function Home(): React.JSX.Element {
           />
         )}
       </main>
-      <BottomNavigation
-        activeSection={activeSection}
-        onSelect={selectNavigation}
-        hidden={isEditorOpen || Boolean(deleteTarget)}
-      />
       {isEditorOpen && (
         <MemoModal
           isSaving={isSavingMemo}

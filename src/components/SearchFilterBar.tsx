@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { ListSearchDock } from "@/src/components/ListSearchDock";
 import { DateInputBox } from "@/src/components/DateInputBox";
 import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
@@ -42,7 +42,7 @@ export function SearchFilterBar({
   // 검색 입력은 로컬 상태에서 즉시 표시하고 부모에는 타이핑이 멈춘 뒤 전달합니다.
   const [keyword, setKeyword] = useState(options.keyword ?? "");
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isMobileFilter, setIsMobileFilter] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   // 태그 검색어와 날짜 교정 안내를 화면 상태로 보관합니다.
   const [tagQuery, setTagQuery] = useState("");
   const [dateNotice, setDateNotice] = useState("");
@@ -57,16 +57,6 @@ export function SearchFilterBar({
     + (options.hasTable === true ? 1 : 0)
     + (options.isPinned === true ? 1 : 0);
 
-  // 💡 [모바일 필터 모달 판별]
-  // 화면이 모바일 너비인지 추적해 전체 화면 필터가 열렸을 때만 문서 스크롤을 잠급니다.
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 767px)");
-    const syncMobileFilter = (): void => setIsMobileFilter(mediaQuery.matches);
-    syncMobileFilter();
-    mediaQuery.addEventListener("change", syncMobileFilter);
-    return () => mediaQuery.removeEventListener("change", syncMobileFilter);
-  }, []);
-
   // 💡 [검색 입력 디바운스]
   // 새 글자가 들어오면 이전 예약을 취소하며, 로고 초기화로 컴포넌트가 교체될 때도 예약을 정리합니다.
   const commitKeyword = useEffectEvent(() => {
@@ -80,7 +70,15 @@ export function SearchFilterBar({
     return () => window.clearTimeout(timer);
   }, [keyword]);
 
-  usePageScrollLock(isExpanded && isMobileFilter);
+  usePageScrollLock(isExpanded);
+
+  // 💡 [통합 검색 레이어 진입]
+  // 하단 검색창과 데스크톱 진입점은 같은 레이어를 열고, 음성 결과가 있으면 검색어에 먼저 반영합니다.
+  const openSearchLayer = (nextKeyword?: string): void => {
+    if (nextKeyword !== undefined) setKeyword(nextKeyword);
+    setIsExpanded(true);
+    queueMicrotask(() => searchInputRef.current?.focus({ preventScroll: true }));
+  };
 
   // 부모에서 사용 빈도순으로 받은 태그를 검색하고 기본 화면에는 상위 다섯 개만 표시합니다.
   const matchingTags = availableTags.filter((tag) => tag.toLocaleLowerCase().includes(tagQuery.trim().toLocaleLowerCase()));
@@ -152,7 +150,7 @@ export function SearchFilterBar({
 
   return (
     <section
-      className="relative md:z-40 md:mb-6 md:rounded-2xl md:border md:border-[#2a2e3d] md:bg-[#1a1d26]/80 md:p-4 md:shadow-[0_14px_34px_rgb(0_0_0/0.16)] md:backdrop-blur-md"
+      className="relative md:mb-6 md:rounded-2xl md:border md:border-[#2a2e3d] md:bg-[#1a1d26]/80 md:p-4 md:shadow-[0_14px_34px_rgb(0_0_0/0.16)] md:backdrop-blur-md"
       aria-label="메모 검색 필터"
     >
       {selectedTags.length > 0 && (
@@ -176,67 +174,51 @@ export function SearchFilterBar({
           ))}
         </div>
       )}
-      <div className="relative mt-3 flex w-full items-center justify-end gap-1.5 md:static md:w-auto md:max-w-none md:translate-x-0 md:gap-2 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
-        <label className="relative hidden min-w-0 flex-1 md:block">
-          <span className="sr-only">메모 검색어</span>
-          <span
-            className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-[#9ca3af]"
-            aria-hidden="true"
-          >
-            🔍
-          </span>
-          <input
-            type="search"
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-            placeholder="제목, 내용, 태그 또는 의미 검색..."
-            className="h-9 w-full rounded-full border-0 bg-transparent pl-9 pr-2 text-base text-[#f3f4f6] outline-none placeholder:text-[#6b7280] focus:ring-1 focus:ring-[#e5a93c] md:h-11 md:rounded-xl md:border md:border-[#2a2e3d] md:bg-[#0f1117] md:pl-10 md:pr-3 md:text-sm"
-          />
-        </label>
-
-        <button
-          type="button"
-          onClick={() => setIsExpanded((current) => !current)}
-          aria-expanded={isExpanded}
-          aria-controls="advanced-search-filters"
-          className={`flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold transition-colors md:h-11 md:rounded-xl md:px-3 ${isExpanded || activeFilterCount > 0 ? "border-[#ffc86b] bg-[#e5a93c] text-white" : "border-[#2a2e3d] bg-[#0f1117] text-[#d1d5db]"}`}
-        >
-          <span aria-hidden="true">⚙️</span>
-          필터
-          {activeFilterCount > 0 && (
-            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-[9px] font-bold text-[#b77912]">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => openSearchLayer()}
+        aria-haspopup="dialog"
+        aria-controls="advanced-search-filters"
+        className="hidden h-11 w-full items-center rounded-xl border border-[#2a2e3d] bg-[#0f1117] px-4 text-left text-sm text-[#9ca3af] md:flex"
+      >
+        🔍 {keyword || "제목, 내용, 태그 또는 의미 검색..."}
+      </button>
 
       {!hideMobileDock && !isExpanded && (
-        <ListSearchDock keyword={keyword} onKeywordChange={setKeyword} onCreate={onCreateMemo} />
+        <ListSearchDock keyword={keyword} onOpenSearch={openSearchLayer} onCreate={onCreateMemo} />
       )}
 
       {isExpanded && (
-        <>
           <div
             id="advanced-search-filters"
             role="dialog"
             aria-modal="true"
-            aria-label="상세 필터"
+            aria-label="통합 검색 및 필터"
             onClick={(event) => event.stopPropagation()}
-            className="fixed inset-0 z-[70] grid content-start gap-4 overflow-y-auto bg-[#121318] p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(var(--mobile-nav-height)+1rem)] shadow-2xl md:static md:mt-4 md:max-h-none md:gap-5 md:overflow-visible md:rounded-none md:border-x-0 md:border-b-0 md:bg-transparent md:p-0 md:pt-4 md:shadow-none"
+            className="fixed inset-0 z-50 overflow-y-auto bg-slate-950 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]"
           >
-            <div className="flex items-center justify-between border-b border-[#2a2e3d] pb-3 md:hidden">
-              <span className="text-sm font-bold text-[#e5a93c]">상세 필터</span>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsExpanded(false)}
-                  className="text-xs text-[#9ca3af] hover:text-white"
-                >
-                  닫기 ✕
-                </button>
-              </div>
+            <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-2 border-b border-slate-800 bg-slate-950/95 px-4 pb-3 backdrop-blur-md">
+              <button
+                type="button"
+                onClick={() => setIsExpanded(false)}
+                className="flex h-11 shrink-0 items-center text-sm font-semibold text-amber-400"
+                aria-label="검색 닫기"
+              >
+                ＜ 취소
+              </button>
+              <label className="relative min-w-0 flex-1">
+                <span className="sr-only">메모 검색어</span>
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  value={keyword}
+                  onChange={(event) => setKeyword(event.target.value)}
+                  placeholder="제목, 내용, 태그 또는 의미 검색..."
+                  className="h-11 w-full rounded-xl bg-slate-800 px-3 text-base text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-amber-500"
+                />
+              </label>
             </div>
+            <div className="mx-auto grid w-full max-w-3xl content-start gap-5">
             <section aria-label="선택한 필터" className="flex items-start justify-between gap-3 border-b border-[#2a2e3d] pb-3">
               <div className="min-w-0" aria-live="polite">
                 <h3 className="inline-block rounded-full bg-white/5 px-2 py-1 text-xs font-bold text-[#f3f4f6]">
@@ -389,8 +371,8 @@ export function SearchFilterBar({
                 <p role="status" className="mt-2 text-xs text-[#ffc86b]">{dateNotice}</p>
               )}
             </fieldset>
+            </div>
           </div>
-        </>
       )}
     </section>
   );
