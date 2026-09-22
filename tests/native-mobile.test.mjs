@@ -61,6 +61,19 @@ test("하단 세 탭은 현재 화면을 표시하고 입력·편집 중 숨겨�
   try {
     await act(async () => render());
     assert.equal(document.querySelectorAll("nav button").length, 3);
+    const navigation = document.querySelector("nav");
+    const shellClass = navigation.className;
+    const rowClass = navigation.firstElementChild.className;
+    const labelsAndIcons = [...navigation.querySelectorAll("button")].map((button) => button.textContent);
+    // 세 화면을 돌아도 같은 탭바 DOM과 행 크기·아이콘·라벨을 유지하고 활성 표시만 옮깁니다.
+    for (const index of [1, 2, 0]) {
+      await act(async () => navigation.querySelectorAll("button")[index].click());
+      assert.equal(document.querySelector("nav"), navigation);
+      assert.equal(navigation.className, shellClass);
+      assert.equal(navigation.firstElementChild.className, rowClass);
+      assert.deepEqual([...navigation.querySelectorAll("button")].map((button) => button.textContent), labelsAndIcons);
+      assert.equal(navigation.querySelectorAll("button")[index].getAttribute("aria-current"), "page");
+    }
     await act(async () => document.querySelectorAll("nav button")[1].click());
     assert.equal(current, "orbit");
     assert(document.querySelector('[aria-current="page"]').textContent.includes("태그 궤도"));

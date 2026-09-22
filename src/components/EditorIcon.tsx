@@ -1,11 +1,12 @@
 interface EditorIconProps {
-  name: "back" | "undo" | "share" | "more" | "check" | "close" | "clip" | "pen" | "link" | "palette" | "inset" | "mic" | "search" | "format" | "checklist" | "table" | "camera" | "compose" | "dash" | "bullet" | "number" | "outdent" | "indent" | "tag";
+  name: "plus" | "back" | "undo" | "share" | "more" | "check" | "close" | "clip" | "pen" | "link" | "palette" | "inset" | "mic" | "search" | "format" | "checklist" | "table" | "camera" | "compose" | "dash" | "bullet" | "number" | "outdent" | "indent" | "tag";
   className?: string;
 }
 
 // 같은 좌표계와 선 굵기를 공유하며 접근성 이름은 바깥 버튼에서 제공합니다.
 export function EditorIcon({ name, className = "h-6 w-6" }: EditorIconProps): React.JSX.Element {
   const paths: Record<EditorIconProps["name"], string> = {
+    plus: "M12 4v16M4 12h16",
     back: "M15 4l-8 8 8 8",
     undo: "M8 4 3 9l5 5M3 9h11a6 6 0 0 1 0 12",
     share: "M12 15V2M7 7l5-5 5 5M5 10H3v12h18V10h-2",

@@ -31,6 +31,8 @@ interface ListSearchDockProps {
 export function ListSearchDock({ keyword, onKeywordChange, onCreate }: ListSearchDockProps): React.JSX.Element {
   const viewport = useVisualViewport();
   const recognitionRef = useRef<SpeechRecognitionSession | null>(null);
+  // 검색 입력 중에는 숨겨진 탭바 공간 대신 키보드 상단에 검색창을 붙입니다.
+  const [isSearching, setIsSearching] = useState(false);
   const [listening, setListening] = useState(false);
   const [notice, setNotice] = useState("");
   // 💡 [음성 입력 수명]
@@ -75,8 +77,8 @@ export function ListSearchDock({ keyword, onKeywordChange, onCreate }: ListSearc
   return (
     <div
       aria-label="목록 검색 및 작성"
-      className="fixed inset-x-0 bottom-[var(--list-dock-bottom)] z-50 border-t border-slate-800 bg-slate-900/90 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md md:hidden"
-      style={{ "--list-dock-bottom": `${bottom}px` } as CSSProperties}
+      className="fixed inset-x-0 bottom-[var(--list-dock-bottom)] z-50 border-t border-slate-800 bg-slate-900/90 px-3 py-2 backdrop-blur-md md:hidden"
+      style={{ "--list-dock-bottom": isSearching ? `${bottom}px` : "var(--mobile-nav-height)" } as CSSProperties}
     >
       {notice && (
         <p role="status" className="mb-2 text-xs text-amber-300">{notice}</p>
@@ -86,14 +88,14 @@ export function ListSearchDock({ keyword, onKeywordChange, onCreate }: ListSearc
           <EditorIcon name="search" className="h-5 w-5 shrink-0 text-slate-400" />
           <label className="min-w-0 flex-1">
             <span className="sr-only">목록 검색어</span>
-            <input type="search" value={keyword} onChange={(event) => onKeywordChange(event.target.value)} placeholder="검색..." className="h-11 w-full min-w-0 bg-transparent px-2 text-base text-white outline-none" />
+            <input type="search" onFocus={() => setIsSearching(true)} onBlur={() => setIsSearching(false)} value={keyword} onChange={(event) => onKeywordChange(event.target.value)} placeholder="검색..." className="h-11 w-full min-w-0 bg-transparent px-2 text-base text-white outline-none" />
           </label>
           <button type="button" onClick={toggleVoice} aria-label={listening ? "음성 검색 중지" : "음성 검색"} aria-pressed={listening} className={`flex h-11 w-11 shrink-0 items-center justify-center ${listening ? "text-red-400" : "text-slate-400"}`}>
             <EditorIcon name="mic" className="h-5 w-5" />
           </button>
         </div>
         <button type="button" onClick={onCreate} aria-label="새 메모 작성" className="flex h-11 w-11 shrink-0 items-center justify-center text-amber-400">
-          <EditorIcon name="compose" />
+          <EditorIcon name="plus" />
         </button>
       </div>
     </div>

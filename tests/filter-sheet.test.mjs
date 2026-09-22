@@ -63,6 +63,11 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
     await act(async () => render());
     await click(document.querySelector('[aria-controls="advanced-search-filters"]'));
     const summary = document.querySelector('[aria-label="선택한 필터"]');
+    const startBox = document.getElementById("search-filter-start-date").parentElement;
+    const endBox = document.getElementById("search-filter-end-date").parentElement;
+    assert.match(startBox.textContent, /2026\.09\.01/);
+    assert.match(endBox.textContent, /2026\.09\.17/);
+    assert.equal(document.getElementById("search-filter-end-date").value, "2026-09-17");
     assert.match(summary.textContent, /선택된 필터 \(19개\)/);
     assert.match(summary.textContent, /태그 17개, 사진 포함, 기간 지정/);
     assert.equal(summary.querySelectorAll("button").length, 1);
@@ -107,6 +112,11 @@ test("목록 도킹 검색은 입력·음성 결과를 반영하고 편집기 �
     await act(async () => render());
     const dock = document.querySelector('[aria-label="목록 검색 및 작성"]');
     assert(dock);
+    assert.equal(dock.style.getPropertyValue("--list-dock-bottom"), "var(--mobile-nav-height)");
+    await act(async () => dock.querySelector("input").focus());
+    assert.match(dock.style.getPropertyValue("--list-dock-bottom"), /^\d+px$/);
+    await act(async () => dock.querySelector("input").blur());
+    assert.equal(dock.style.getPropertyValue("--list-dock-bottom"), "var(--mobile-nav-height)");
     assert.equal(dock.querySelectorAll("button").length, 2);
     assert.equal(document.querySelectorAll('[aria-label="새 메모 작성"]').length, 1);
     await act(async () => dock.querySelector('[aria-label="음성 검색"]').click());

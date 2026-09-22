@@ -1022,7 +1022,7 @@ export function MemoModal({
               </section>
             )}
             <div
-              className="scrollbar-hidden flex h-[52px] w-full items-center justify-between gap-1 overflow-x-auto touch-pan-x overscroll-x-contain border-t border-slate-800/80 bg-slate-900/90 px-3 backdrop-blur-md"
+              className="scrollbar-hidden flex w-full items-center gap-6 overflow-x-auto whitespace-nowrap touch-pan-x overscroll-x-contain border-t border-slate-800/80 bg-slate-900/90 px-4 py-3 backdrop-blur-md"
               role="toolbar"
               aria-label="메모 작성 도구"
             >

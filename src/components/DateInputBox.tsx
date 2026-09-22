@@ -81,7 +81,7 @@ export function DateInputBox({
         aria-label={`${label} 달력 열기`}
       >
         <span className={value ? "font-medium text-white" : "text-[#6b7280]"}>
-          {value || placeholder}
+          {value ? (expanded ? value.replaceAll("-", ".") : value) : placeholder}
         </span>
       </button>
       <div className="z-10 flex h-full shrink-0 items-center border-l border-[#2a2e3d] bg-[#121318] px-1">

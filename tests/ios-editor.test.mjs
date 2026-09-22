@@ -78,6 +78,12 @@ test("아이콘 헤더·퀵 서식·실행취소·링크·포맷·마크업·완
     assert.equal(header.textContent.trim(), "");
     assert.deepEqual([...header.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["목록으로 돌아가기", "실행취소", "공유", "더보기", "편집 완료"]);
     assert.equal(button("새 메모"), undefined);
+    assert.equal(button("새 메모 작성"), undefined);
+    const defaultToolbar = document.querySelector('[role="toolbar"]');
+    assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "마크업"]);
+    assert(defaultToolbar.classList.contains("overflow-x-auto"));
+    assert(defaultToolbar.classList.contains("gap-6"));
+    assert([...defaultToolbar.querySelectorAll("button")].every((item) => item.classList.contains("shrink-0")));
     assert(button("실행취소").disabled);
     await select();
     const toolbar = document.querySelector('[role="toolbar"]');

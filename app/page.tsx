@@ -608,7 +608,7 @@ export default function Home(): React.JSX.Element {
 
       <Header activeSection={activeSection} />
       <main
-        className={`mx-auto w-full max-w-full overflow-x-clip px-4 pt-[var(--mobile-header-height)] md:pt-0 ${activeSection === "orbit" ? "pb-[var(--mobile-nav-height)]" : activeSection === "timeline" ? "pb-[calc(var(--mobile-nav-height)+2rem)] md:pb-8 md:max-w-5xl" : "pb-[calc(var(--mobile-nav-height)+1rem)] md:pb-28"} ${activeSection === "memos" ? "md:max-w-5xl" : ""} ${activeSection === "orbit" ? "px-0 md:h-dvh md:overflow-hidden md:pb-0" : ""}`}
+        className={`mx-auto w-full max-w-full overflow-x-clip px-4 pt-[var(--mobile-header-height)] md:pt-0 ${activeSection === "orbit" ? "pb-[var(--mobile-nav-height)]" : activeSection === "timeline" ? "pb-[calc(var(--mobile-nav-height)+2rem)] md:pb-8 md:max-w-5xl" : "pb-[calc(var(--mobile-nav-height)+5rem)] md:pb-28"} ${activeSection === "memos" ? "md:max-w-5xl" : ""} ${activeSection === "orbit" ? "px-0 md:h-dvh md:overflow-hidden md:pb-0" : ""}`}
       >
         {activeSection === "memos" && (
           <>
@@ -648,7 +648,6 @@ export default function Home(): React.JSX.Element {
                 }
               />
             </div>
-            <BottomNavigation inline activeSection={activeSection} onSelect={selectNavigation} hidden={isEditorOpen || Boolean(deleteTarget)} />
             <SearchFilterBar
               key={filterResetKey}
               options={filterOptions}
@@ -750,7 +749,7 @@ export default function Home(): React.JSX.Element {
       <BottomNavigation
         activeSection={activeSection}
         onSelect={selectNavigation}
-        hidden={activeSection === "memos" || isEditorOpen || Boolean(deleteTarget)}
+        hidden={isEditorOpen || Boolean(deleteTarget)}
       />
       {isEditorOpen && (
         <MemoModal
