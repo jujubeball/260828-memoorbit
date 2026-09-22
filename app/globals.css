@@ -1,0 +1,437 @@
+@import "tailwindcss";
+
+@keyframes format-sheet-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes filter-range-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.filter-range-enter {
+  animation: filter-range-enter 180ms ease-out;
+}
+
+:root {
+  --background: #0f1117;
+  --foreground: #f3f4f6;
+  --mobile-header-height: calc(3.5rem + env(safe-area-inset-top));
+  --mobile-nav-height: calc(4rem + env(safe-area-inset-bottom));
+}
+
+/* 가시 높이에서 헤더와 하단 탭 공간을 한 번씩만 빼서 캔버스와 상세 시트를 같은 영역에 배치합니다. */
+.orbit-shell {
+  height: max(0px, calc(var(--orbit-viewport-height, 100dvh) - var(--mobile-header-height) - var(--mobile-nav-height)));
+}
+
+@media (min-width: 768px) {
+  :root {
+    --mobile-header-height: 0px;
+    --mobile-nav-height: 0px;
+  }
+
+  .orbit-shell {
+    height: 100%;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* 모든 요소의 테두리와 안쪽 여백을 선언한 너비 안에 포함시켜 예상하지 못한 가로 확장을 막습니다. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 💡 [모바일 가로 오버플로우 차단]
+   브라우저 화면부터 앱의 루트와 main까지 최대 너비를 기기 폭 안으로 묶어, 자식 카드가 넓어져도 페이지 전체가 좌우로 흔들리지 않게 합니다. */
+html,
+body,
+#root,
+#__next,
+main {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", sans-serif;
+  min-width: 100%;
+  overflow-x: clip;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.rich-editor h1,
+.rich-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 2rem;
+}
+
+.rich-editor h2,
+.rich-content h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.75rem;
+}
+
+.rich-editor h3,
+.rich-content h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.75rem;
+}
+
+.rich-editor pre,
+.rich-content pre {
+  border-radius: 0.5rem;
+  background: #1c1c1e;
+  padding: 0.25rem 0.5rem;
+  font-family: var(--font-geist-mono), monospace;
+  white-space: pre-wrap;
+}
+
+.rich-editor ul,
+.rich-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+.rich-editor ol,
+.rich-content ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+
+.rich-editor .dashed-list,
+.rich-content .dashed-list {
+  list-style: none;
+}
+
+.rich-editor .dashed-list > li::before,
+.rich-content .dashed-list > li::before {
+  content: "–";
+  margin-left: -1.25rem;
+  margin-right: 0.75rem;
+}
+
+.rich-editor p,
+.rich-content p {
+  margin-top: 0.375rem;
+}
+
+.rich-editor table,
+.rich-content table {
+  table-layout: fixed;
+  margin-top: 0.75rem;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rich-editor th,
+.rich-editor td,
+.rich-content th,
+.rich-content td {
+  border: 1px solid #a8a29e;
+  padding: 0.5rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.memo-check-item,
+.rich-content .memo-check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-height: 1.75rem;
+}
+
+/* 본문에 저장된 기존 이미지도 화면 너비를 넘지 않도록 첨부 프리뷰와 같은 경계를 적용합니다. */
+.rich-editor img,
+.rich-content img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: cover;
+  border: 1px solid #2a2e3d;
+  border-radius: 0.75rem;
+}
+
+@media (min-width: 1280px) {
+  /* 💡 [PC 전역 스크롤바 시인성]
+     어두운 화면에서도 현재 위치를 쉽게 찾도록 손잡이에 밝은 골드 테두리를 주고, 마우스를 올리면 전체를 골드로 바꿉니다. */
+  * {
+    scrollbar-color: #e5a93c #080a0f;
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #080a0f;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 2px solid #080a0f;
+    border-radius: 9999px;
+    background: #e5a93c;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #ffc86b;
+  }
+}
+
+.scrollbar-hidden {
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* 공통 인라인 날짜 박스는 자체 달력 버튼을 사용하므로 브라우저가 입력 안에 겹쳐 그리는 아이콘을 숨깁니다. */
+.native-date-input {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.native-date-input::-webkit-calendar-picker-indicator,
+.native-date-input::-webkit-clear-button,
+.native-date-input::-webkit-inner-spin-button {
+  opacity: 0;
+  display: none;
+}
+
+
+@media (max-width: 1279px) {
+  * {
+    scrollbar-width: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.memo-check-item input[type="checkbox"],
+.rich-content input[type="checkbox"] {
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 1.25rem;
+  border: 2px solid #e5a93c;
+  border-radius: 9999px;
+  background: transparent;
+  box-shadow: 0 2px 6px rgb(41 37 36 / 12%);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+  margin-top: 0.25rem;
+}
+
+.memo-check-text {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  flex: 1;
+  cursor: text;
+  line-height: 1.75rem;
+}
+
+.memo-check-item input[type="checkbox"]::after,
+.rich-content input[type="checkbox"]::after {
+  display: block;
+  width: 0.35rem;
+  height: 0.65rem;
+  margin: 0.12rem auto 0;
+  transform: rotate(45deg) scale(0);
+  border-bottom: 2px solid white;
+  border-right: 2px solid white;
+  content: "";
+  transition: transform 180ms ease;
+}
+
+.memo-check-item input[type="checkbox"]:checked,
+.rich-content input[type="checkbox"]:checked {
+  border-color: #e5a93c;
+  background: #e5a93c;
+  transform: scale(1.05);
+}
+
+.memo-check-item input[type="checkbox"]:checked::after,
+.rich-content input[type="checkbox"]:checked::after {
+  transform: rotate(45deg) scale(1);
+}
+
+.memo-check-item input[type="checkbox"]:checked + span,
+.rich-content input[type="checkbox"]:checked + span {
+  color: inherit;
+  text-decoration: none;
+}
+
+.rich-editor td[data-selected="true"] {
+  background: rgb(229 169 60 / 24%);
+  outline: 2px solid #e5a93c;
+  outline-offset: -2px;
+}
+
+.rich-editor td[data-highlight] {
+  background: rgb(229 169 60 / 18%);
+}
+
+.table-menu-item {
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  transition: background-color 120ms ease;
+}
+
+.table-menu-item:hover,
+.table-menu-item:focus-visible {
+  background: #48484a;
+  outline: none;
+}
+
+.orbit-stars {
+  background-image:
+    radial-gradient(circle at 18% 20%, white 0 1px, transparent 1.5px),
+    radial-gradient(circle at 72% 36%, white 0 1px, transparent 1.5px),
+    radial-gradient(circle at 42% 78%, #e5a93c 0 1px, transparent 1.5px),
+    radial-gradient(circle at 88% 84%, white 0 1px, transparent 1.5px);
+  background-size: 92px 92px, 128px 128px, 156px 156px, 116px 116px;
+}
+
+@keyframes orbit-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.orbit-node {
+  animation: orbit-float 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-node { animation: none; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled),
+  a[href],
+  [role="button"] {
+    cursor: pointer;
+  }
+
+  .interactive-control:hover {
+    background-color: #e7e5e4;
+  }
+
+  .new-memo-button:hover {
+    background-color: #1c1917;
+  }
+
+  .pin-control:hover {
+    outline: 2px solid #a8a29e;
+    outline-offset: 1px;
+  }
+}
+
+.ios-tap {
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.ios-tap:active {
+  opacity: 0.55;
+  transform: scale(0.97);
+}
+
+.glass-panel {
+  border: 1px solid #2a2e3d;
+  border-radius: 1rem;
+  background: rgb(26 29 38 / 80%);
+  box-shadow: 0 18px 45px rgb(0 0 0 / 18%);
+  backdrop-filter: blur(12px);
+}
+
+.glass-icon-button {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #2a2e3d;
+  border-radius: 9999px;
+  color: #ffc86b;
+  background: rgb(255 255 255 / 5%);
+}
+
+.rich-editor:empty::before {
+  color: #636366;
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+@media (hover: none) {
+  .interactive-control:hover {
+    background-color: inherit;
+  }
+}
+
+.format-color-button[data-color="#1d4ed8"] {
+  background-color: #1d4ed8;
+}
+
+.format-color-button[data-color="#0f766e"] {
+  background-color: #0f766e;
+}
+
+.format-color-button[data-color="#c2410c"] {
+  background-color: #c2410c;
+}
+
+.format-color-button[data-color="#be185d"] {
+  background-color: #be185d;
+}
+
+.format-color-button[data-color="#6d28d9"] {
+  background-color: #6d28d9;
+}
+
+.format-color-button[data-color="#ffffff"] { background-color: #ffffff; }
+.format-color-button[data-color="#e5a93c"] { background-color: #e5a93c; }
+.format-color-button[data-color="#ff453a"] { background-color: #ff453a; }
+.format-color-button[data-color="#0a84ff"] { background-color: #0a84ff; }
+.format-color-button[data-color="#30d158"] { background-color: #30d158; }

@@ -1,0 +1,277 @@
+import type { GeminiAnalysis, GeminiAnalysisPurpose } from "@/src/types/gemini";
+import type { GeminiMemoLink } from "@/src/types/gemini";
+import type { Memo } from "@/types/memo";
+import type { MemoLink } from "@/types/memo";
+
+// 💡 [Gemini 서버 오류 전달 상자]
+// 일반 Error에 서버가 보낸 details를 별도 칸으로 보존해, 시간 궤도 화면이 fetch failed의 실제 하위 원인을 그대로 읽을 수 있게 합니다.
+export class GeminiApiError extends Error {
+  readonly details: string;
+  readonly category: GeminiErrorCategory;
+  readonly status?: number;
+
+  constructor(
+    message: string,
+    details: string,
+    category: GeminiErrorCategory = "unknown",
+    status?: number,
+  ) {
+    super(message);
+    this.name = "GeminiApiError";
+    this.details = details;
+    this.category = category;
+    this.status = status;
+  }
+}
+
+export type GeminiErrorCategory =
+  | "api-key"
+  | "timeout"
+  | "network"
+  | "response"
+  | "server"
+  | "unknown";
+
+const GEMINI_ERROR_LABELS: Record<GeminiErrorCategory, string> = {
+  "api-key": "API 키 설정 필요",
+  timeout: "분석 요청 시간 초과",
+  network: "네트워크 통신 오류",
+  response: "AI 응답 형식 오류",
+  server: "AI 서버 응답 오류",
+  unknown: "알 수 없는 분석 오류",
+};
+
+export const getGeminiErrorLabel = (error: unknown): string =>
+  error instanceof GeminiApiError
+    ? GEMINI_ERROR_LABELS[error.category]
+    : error instanceof TypeError
+      ? GEMINI_ERROR_LABELS.network
+      : GEMINI_ERROR_LABELS.unknown;
+
+interface RecommendedTagsResponse {
+  tags: string[];
+}
+
+// 💡 [태그 전용 Gemini 요청]
+// 에디터 본문만 태그 전용 서버 Route로 보내고, 화면에는 검증을 통과한 최대 다섯 개의 문자열만 돌려줍니다.
+export const requestRecommendedTags = async (
+  text: string,
+  signal?: AbortSignal,
+): Promise<string[]> => {
+  const response = await fetch("/api/tags/recommend", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error("Gemini 태그 추천 요청에 실패했습니다.");
+  }
+
+  const result = await response.json() as RecommendedTagsResponse;
+  if (!Array.isArray(result.tags)) {
+    throw new Error("Gemini 태그 추천 응답 형식이 올바르지 않습니다.");
+  }
+
+  return result.tags
+    .filter((tag): tag is string => typeof tag === "string")
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+};
+
+// 💡 [메모 연관성 분석 요청]
+// 이미지 같은 큰 데이터는 제외하고 제목·본문·태그만 서버로 보내 의미적으로 가까운 메모 ID 쌍을 받습니다.
+export const requestMemoLinks = async (
+  memos: Memo[],
+  signal?: AbortSignal,
+): Promise<GeminiMemoLink[]> => {
+  // 500개를 넘는 경우 묶음을 겹쳐 보내 경계 메모의 연결도 일부 확보하고, 모든 노드가 분석 대상에 포함되게 합니다.
+  if (memos.length > 500) {
+    const links = new Map<string, GeminiMemoLink>();
+    for (let start = 0; start < memos.length; start += 450) {
+      const batch = await requestMemoLinks(memos.slice(start, start + 500), signal);
+      batch.forEach((link) => {
+        const key = [link.sourceId, link.targetId].sort().join(":");
+        if ((links.get(key)?.weight ?? -1) < link.weight) links.set(key, link);
+      });
+      if (start + 500 >= memos.length) break;
+    }
+    return [...links.values()];
+  }
+  const requestController = new AbortController();
+  let didTimeout = false;
+  const abortFromCaller = (): void => requestController.abort(signal?.reason);
+  if (signal?.aborted) abortFromCaller();
+  else signal?.addEventListener("abort", abortFromCaller, { once: true });
+  const timeoutId = window.setTimeout(() => {
+    didTimeout = true;
+    requestController.abort();
+  }, 15_000);
+
+  try {
+    const response = await fetch("/api/links/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        memos: memos.map(({ id, title, content, tags }) => ({
+          id,
+          title,
+          content: content.slice(0, 500),
+          tags,
+        })),
+      }),
+      signal: requestController.signal,
+    });
+    const responseText = await response.text();
+    let result: { links?: unknown; error?: string; details?: string };
+    try {
+      result = JSON.parse(responseText) as typeof result;
+    } catch {
+      throw new GeminiApiError(
+        "Gemini 메모 연관 응답을 해석하지 못했습니다.",
+        `HTTP ${response.status}: JSON 응답이 아닙니다.`,
+        "response",
+        response.status,
+      );
+    }
+    if (!response.ok) {
+      const details = result.details ?? result.error ?? `HTTP ${response.status}`;
+      const category: GeminiErrorCategory = /api\s*키|api key/i.test(details)
+        ? "api-key"
+        : "server";
+      throw new GeminiApiError(
+        "Gemini 메모 연관 분석에 실패했습니다.",
+        details,
+        category,
+        response.status,
+      );
+    }
+    if (!Array.isArray(result.links)) {
+      throw new GeminiApiError(
+        "메모 연관 응답 형식이 올바르지 않습니다.",
+        "links 배열이 응답에 없습니다.",
+        "response",
+        response.status,
+      );
+    }
+    const validIds = new Set(memos.map((memo) => memo.id));
+    const validLinks = result.links.filter((item): item is GeminiMemoLink => {
+      if (!item || typeof item !== "object") return false;
+      const link = item as Partial<GeminiMemoLink>;
+      return typeof link.sourceId === "string" && typeof link.targetId === "string"
+        && validIds.has(link.sourceId) && validIds.has(link.targetId) && link.sourceId !== link.targetId
+        && typeof link.weight === "number" && Number.isFinite(link.weight) && link.weight >= 0 && link.weight <= 1;
+    });
+    if (result.links.length > 0 && validLinks.length === 0) {
+      throw new GeminiApiError(
+        "메모 연관 응답에 유효한 링크가 없습니다.",
+        "links 항목의 ID 또는 가중치 구조가 올바르지 않습니다.",
+        "response",
+        response.status,
+      );
+    }
+    return validLinks;
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    const failure = error instanceof GeminiApiError
+      ? error
+      : didTimeout
+        ? new GeminiApiError(
+            "Gemini 메모 연관 분석 시간이 초과되었습니다.",
+            "15초 안에 응답을 받지 못했습니다.",
+            "timeout",
+          )
+        : error instanceof TypeError
+          ? new GeminiApiError(
+              "Gemini 메모 연관 분석 네트워크 요청에 실패했습니다.",
+              error.message,
+              "network",
+            )
+          : new GeminiApiError(
+              "Gemini 메모 연관 분석에 실패했습니다.",
+              error instanceof Error ? error.message : String(error),
+              "unknown",
+            );
+    console.error("[Tag Orbit] 링크 추천 API 호출 실패", {
+      category: failure.category,
+      status: failure.status,
+      message: failure.message,
+      details: failure.details,
+      memoCount: memos.length,
+    });
+    throw failure;
+  } finally {
+    window.clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", abortFromCaller);
+  }
+};
+
+// 💡 [저장 직후 메모 연결 요청]
+// 방금 저장한 메모와 나머지 메모의 작은 텍스트 정보만 보내고, 새 메모에서 출발하는 링크 배열을 받습니다.
+export const requestLinksForMemo = async (
+  memo: Memo,
+  existingMemos: Memo[],
+): Promise<MemoLink[]> => {
+  const response = await fetch("/api/memos/link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      memo: {
+        id: memo.id,
+        title: memo.title,
+        content: memo.content.slice(0, 600),
+        tags: memo.tags,
+      },
+      existingMemos: existingMemos.map(({ id, title, content, tags }) => ({
+        id,
+        title,
+        content: content.slice(0, 600),
+        tags,
+      })),
+    }),
+  });
+  if (!response.ok) throw new Error("Gemini 메모 연관 분석에 실패했습니다.");
+  const result: unknown = await response.json();
+  if (!Array.isArray(result)) throw new Error("메모 연관 응답 형식이 올바르지 않습니다.");
+  return result.filter((item): item is MemoLink => {
+    if (!item || typeof item !== "object") return false;
+    const link = item as Partial<MemoLink>;
+    return typeof link.targetId === "string"
+      && typeof link.weight === "number"
+      && link.weight >= 0.75
+      && link.weight <= 1;
+  });
+};
+
+// 💡 [Gemini 서버 요청 함수]
+// 브라우저는 API 키를 알지 못한 채 본문만 우리 서버에 전달하고, 서버가 돌려준 태그와 한 줄 분석을 받습니다.
+export const requestGeminiAnalysis = async (
+  text: string,
+  purpose: GeminiAnalysisPurpose,
+  signal?: AbortSignal,
+): Promise<GeminiAnalysis> => {
+  const response = await fetch("/api/gemini", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, purpose }),
+    signal,
+  });
+
+  if (!response.ok) {
+    // 서버가 보내 준 안전한 세부 원인을 읽어 시간 궤도 화면의 개발자 콘솔까지 전달합니다.
+    const failure = await response.json().catch(() => null) as {
+      error?: string;
+      details?: string;
+    } | null;
+    const reason = failure?.details ?? failure?.error ?? `응답 상태 ${response.status}`;
+    throw new GeminiApiError("Gemini 분석 요청에 실패했습니다.", reason);
+  }
+
+  const result = await response.json() as GeminiAnalysis;
+  if (!Array.isArray(result.tags) || typeof result.comment !== "string") {
+    throw new Error("Gemini 분석 응답 형식이 올바르지 않습니다.");
+  }
+  return result;
+};

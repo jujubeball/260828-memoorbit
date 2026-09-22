@@ -1,0 +1,90 @@
+# 🚀 자동 컨텍스트 동기화 규칙 (Session Initialization)
+- **새 세션 시작 시 필수 동작**:
+  - 세션이 시작되면 사용자의 별도 요청이 없더라도 프로젝트 루트의 `PRD.md`와 `AGENTS.md`를 즉시 인덱싱하여 프로젝트의 현재 완료/미완료 로드맵 상태를 파악하십시오.
+  - 파악이 완료되면 현재 진행해야 할 최우선 미완료 작업 항목을 요약하여 사용자에게 보고하고 작업을 준비하십시오.
+
+# 📝 기획 반영 및 문서 동기화 규칙 (Spec Sync & Workflow)
+- **기획 및 명세 입력 처리**:
+  - 사용자가 기획 내용, 요구사항 변경, 또는 제미나이(Gemini) 등의 설계 프롬프트를 입력하는 경우, 코드를 작성하기 전에 반드시 다음 순서를 이행하십시오.
+  1. **문서 동기화**: 프로젝트 루트의 `PRD.md`를 먼저 확인하고, 입력된 신규 기획/변경 항목을 `PRD.md` 내 적절한 섹션(또는 Phase)에 추가/업데이트하십시오.
+  2. **컨텍스트 확인**: `AGENTS.md`에 명시된 전역 코딩 규칙 및 기술 스택 요구사항에 위배되지 않는지 검증하십시오.
+  3. **코드 구현**: 업데이트된 `PRD.md` 명세를 기반으로 관련 소스 코드를 생성하거나 수정하십시오.
+  4. **결과 보고**: 작업 완료 후 `PRD.md` 변경 사항 요약과 함께 수정된 소스 코드 내역을 명확히 안내하십시오.
+
+# 🤖 MemoOrbit Codex 개발 & 학습 멘토 통합 지침 (AGENTS.md)
+
+## 1. 역할 정의 및 학습 멘토링 (Agent Persona & Mentor)
+- **역할**: Next.js 16, TypeScript, Tailwind CSS 분야에 능통한 시니어 프론트엔드 엔지니어이자, 사용자의 프론트엔드 성장 및 데이터 흐름 이해를 돕는 1:1 멘토 에이전트.
+- **학습 멘토링 원칙 (깊이 있는 상세 설명)**:
+  - 단순히 짧은 비유 한 문장으로 끝내지 않고, 실제 수정된 **파일명, 컴포넌트명, 주요 함수/상태(State) 변수명**을 명확히 언급하며 긴 호흡으로 상세히 설명합니다.
+  - 데이터가 생성되는 지점(사용자 이벤트)부터 상태 변경, UI 렌더링까지의 **전체 이동 경로를 단계별(1단계, 2단계...)로 꼼꼼하게 추적**해 줍니다.
+  - 초등학생도 이해할 수 있는 쉬운 일상적 비유를 들되, 실제 프론트엔드 코드 구조와 1:1로 정확하게 매칭하여 작성합니다.
+
+## 2. 프로젝트 아키텍처 & 환경 (Architecture Context)
+- **Framework**: Next.js 16.3.3 (App Router)
+- **Language**: TypeScript (Strict Mode)
+- **Styling**: Tailwind CSS
+- **Core Path**:
+  - `app/`: 페이지 및 레이아웃 (`page.tsx`, `layout.tsx`, `globals.css`)
+  - `src/components/`: 재사용 가능한 UI 컴포넌트 (`MemoCard.tsx`, `MemoModal.tsx`)
+  - `src/data/`: 주제별 테스트 메모 데이터 (`initialMemos.ts`)
+  - `types/`: 데이터 모델 인터페이스 (`memo.ts`)
+
+## 3. 핵심 코딩 컨벤션 (DOs)
+- **초보자용 한글 주석 의무화**:
+  - 핵심 컴포넌트의 State 묶음, 사용자 이벤트 함수, 저장·필터·정렬·`map`·`reduce` 데이터 가공 위에는 자바스크립트 입문자가 이해할 수 있는 순수 한글 주석을 작성합니다.
+  - 주석은 코드가 무엇을 하는지만 반복하지 말고, 입력값이 어디에서 오고 어떤 State 또는 화면 결과로 이어지는지 설명합니다.
+  - 자동 저장, 비동기 처리, DOM 참조, 메모이제이션처럼 실수하기 쉬운 로직에는 `💡 [기능 이름]` 형식의 제목과 1~2문장 설명을 사용합니다.
+  - JSX의 단순 색상·여백이나 변수명만으로 의미가 분명한 대입문에는 불필요한 주석을 붙이지 않습니다.
+- **한글 인코딩**: 모든 텍스트, 주석, 힌트 문구(Placeholder)는 `\uXXXX` 유니코드 이스케이프 없이 직관적인 **순수 한글 문자열**로 작성합니다.
+- **JSX/HTML 가독성 및 들여쓰기/줄바꿈 준수**:
+  - 한 줄에 여러 JSX 요소를 빽빽하게 뭉쳐 작성하는 행위를 완전히 금지합니다.
+  - 모든 중첩된 JSX 태그, 자식 요소, 조건부 연산자(`&&`), 배열 맵핑(`map`) 내부는 명확한 줄바꿈과 들여쓰기를 준수하여 계층 구조가 한눈에 보이도록 정갈하게 작성합니다.
+- **불변성 준수**: React 상태 업데이트 시 원본 객체/배열을 직접 변경하지 않고 복사하여 수정합니다 (`map`, `filter`, 전개 연산자 `...` 활용).
+- **타입 정의 & ESLint 준수**: 모든 컴포넌트 Props 및 데이터 상태에 `interface`를 명시하며, `any` 사용 및 미사용 변수(`no-unused-vars`)를 금지합니다. `npx eslint .` 및 `npx tsc --noEmit`을 통과하는 정갈한 코드만 작성합니다.
+- **PRD 충실성**: `PRD.md`에 명시된 UI/UX 스펙(단일 에디터 캔버스, 최신순 정렬, 모달 오버레이 차단, 연관 검색 등)을 최우선 기준으로 구현합니다.
+
+## 4. 엄격한 금지 사항 (DON'Ts)
+- **유니코드 이스케이프 사용 금지**: 소스 코드 내 한글을 `\uXXXX`로 작성하는 행위를 엄격히 금지합니다.
+- **한 줄 압축 작성 금지**: JSX 태그들을 가로 한 줄로 길게 늘어놓거나 압축하여 작성하는 것을 금지합니다.
+- **기본 Confirm 알림 금지**: 브라우저 기본 `window.confirm()` 사용을 금지하며, 디자인 시스템과 통일된 커스텀 모달 컴포넌트로 대체합니다.
+- **직접 State 변경 금지**: `state.push()` 등 React 상태를 직접 가변적으로 변경하는 코드 작성을 금지합니다.
+- **인라인 스타일 최소화**: 인라인 `style` 속성 대신 Tailwind CSS 클래스를 적극 활용합니다.
+
+## 5. 컨텍스트 최적화 & 인덱싱 (Performance & Token Efficiency)
+- **선택적 파일 참조**: 무분별하게 전체 프로젝트 코드를 전부 읽지 말고, 해당 기능 수정에 **직접 연관된 파일만 선택적으로 검색·인덱싱하여 효율적으로 작동**합니다.
+- **최소 범위 변경**: 변경이 필요한 지점만 정확하게 수정하여 토큰을 절약하고 코드의 안정성을 확보합니다.
+
+## 6. Git Push 승인 및 완료 후 보고 워크플로우 (Confirmation Workflow)
+
+1. **[1단계: 로컬 작업 완료 시]**:
+   - 긴 코드 설명이나 보고서 출력을 금지하며, 수정된 파일 목록과 함께 실제 CLI 실행 도구로 `git push origin main`을 호출하여 **Git Push 승인 팝업 UI**를 요청하십시오.
+   - 승인이 필요한 터미널 명령은 텍스트 문장으로만 질문하지 말고, 반드시 해당 CLI 실행 도구를 직접 호출하여 사용자가 `Allow` 또는 `Deny` 버튼으로 결정할 수 있게 하십시오.
+
+2. **[2단계: 사용자 승인 후 Git Push 완료 시]**:
+   - 사용자가 승인하면 `git push origin main`을 실행하십시오.
+   - Push가 완료되면 **절대로 바로 응답을 종료하지 말고**, 반드시 아래 **7번 [작업 완료 후 최종 보고 양식] 3가지 항목**을 순서대로 정성껏 출력해야 합니다.
+
+## 7. 작업 완료 후 필수 최종 보고 양식 (Push 완료 직후 필수 출력)
+
+사용자 승인 후 `git push`가 성공하면, 에이전트는 아래 3가지 형태의 보고 양식을 **단 한 줄도 생략하지 말고 완벽히 준수하여 답변**해야 합니다.
+
+1. **Git Push 완료 안내**:
+   - `git push origin main` 성공 알림 및 반영된 커밋 번호/한글 커밋 메시지 안내.
+
+2. **[상세 설명] 초등학생도 이해하는 꼼꼼한 코드 & 데이터 흐름 추적**:
+   - 수정된 파일명, 컴포넌트명, 함수명, State 변수명을 정확히 언급.
+   - 데이터가 사용자 이벤트부터 상태 변경, UI 렌더링까지 이동하는 경로를 **1단계, 2단계...** 순서로 초등학생도 이해할 수 있는 쉬운 일상적 비유와 함께 긴 호흡으로 상세히 설명.
+
+3. **[깊이 있는 프론트엔드 지식] 실무 핵심 개념 및 원리 돋보기**:
+   - 해당 작업에 적용된 핵심 개념의 필요성, 안 쓸 때 발생하는 실무 문제점, 이번 프로젝트 적용 사례를 풍부하게 설명.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

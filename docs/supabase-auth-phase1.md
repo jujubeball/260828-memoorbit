@@ -1,0 +1,68 @@
+# Supabase 회원가입 Phase 1 설정
+
+## 현재 구현 범위
+
+- Google·Apple 소셜 로그인과 쿠키 기반 세션 복원, 로그아웃을 제공한다.
+- 로그인 모달은 헤더 또는 PC 사이드바의 계정 버튼을 눌렀을 때만 열린다.
+- 게스트와 인증 오류 상태에서도 IndexedDB 메모 작성·수정·삭제를 사용할 수 있다.
+- 로그인은 계정 연결이며, 이번 단계에서 로컬 메모를 서버에 업로드하지 않는다.
+
+## 환경 변수
+
+프로젝트 루트 `.env.local`의 다음 항목에 실제 프로젝트 값을 입력한다. 기존 다른 항목은 보존한다.
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+```
+
+2026-09-18 로컬 확인 시 두 항목에 값이 입력되어 있다. 값을 변경하면 개발 서버를 다시 시작한다. 배포 환경에도 같은 이름의 변수를 설정하고 다시 배포한다. `.env.local`은 Git 제외 대상이며 공유용 양식은 `.env.example`이다.
+
+## 소셜 공급자와 귀환 주소
+
+Header와 PC 메뉴의 `클라우드 계정`은 글자와 아이콘 전체가 로그인 버튼이다. 로그인 이벤트가 오면 이메일과 직접 로그아웃 버튼으로 바뀐다. 로그아웃은 현재 브라우저 세션만 해제하며, 요청 실패 시 계정 표시를 유지하고 재시도 안내를 표시한다.
+
+### 로컬·Vercel 주소 구분
+
+- 앱이 Supabase에 보내는 `redirectTo`는 `${window.location.origin}/auth/callback`이다. 로컬 포트, Vercel 프로덕션 도메인, 커스텀 도메인 각각 실제 접속 주소의 콜백을 Supabase Authentication → URL Configuration → Redirect URLs에 등록한다. Site URL은 실제 프로덕션 주소로 설정한다.
+- Google Cloud OAuth 클라이언트의 Authorized redirect URIs에는 Supabase Google 공급자 화면에 표시되는 `https://<프로젝트 참조>.supabase.co/auth/v1/callback`을 정확히 등록한다. 커스텀 인증 도메인을 사용하면 공급자 화면의 해당 주소를 따른다. 이 값은 앱의 `/auth/callback`과 다르다.
+- `redirect_uri_mismatch`가 Google 화면에서 발생하면 Google에 등록된 공급자 콜백을 먼저 확인한다. 로그인이 엉뚱한 앱 도메인으로 돌아오면 Supabase의 허용 목록과 Site URL을 확인한다. 로컬과 Vercel에 동일 프로젝트의 공개 환경 변수를 설정하고 변경 후 재시작·재배포한다.
+- 현재 자동 테스트의 Vercel 주소는 검증용 예시이며 실제 배포 설정을 확인하거나 변경한 것은 아니다.
+
+공식 참고: [Google 공급자 설정](https://supabase.com/docs/guides/auth/social-login/auth-google), [리디렉션 허용 목록](https://supabase.com/docs/guides/auth/redirect-urls).
+
+1. Supabase 프로젝트의 인증 설정에서 Google·Apple 공급자를 활성화하고 각 공급자의 자격 증명을 등록한다. 이메일/비밀번호 로그인은 앱 UI에서 제공하지 않는다. 서버에서도 소셜 로그인만 허용하려면 사용하지 않는 Email 공급자를 비활성화한다.
+2. Google·Apple 개발자 설정에는 Supabase가 안내하는 공급자 콜백 주소를 등록한다. 앱의 `/auth/callback` 주소와 혼동하지 않는다.
+3. Supabase 인증 URL 설정의 허용 리디렉션 목록에 `http://localhost:3000/auth/callback`과 `https://배포도메인/auth/callback`을 등록한다. Site URL은 실제 배포 출처로 지정한다.
+4. 사용자가 로그인 버튼을 누르면 `useAuth`가 현재 출처의 `/auth/callback`을 지정한다. 서버 콜백이 일회용 코드를 세션 쿠키로 교환해 메인으로 보내며, AuthProvider가 쿠키에서 세션을 복원한다.
+
+## SQL Editor 실행 순서
+
+새 프로젝트에서는 아래 두 파일을 순서대로 실행한다.
+
+1. [기본 테이블·RLS·수정 시각 트리거](../supabase/migrations/202609140001_create_notes.sql)
+2. [선택 본문 허용](../supabase/migrations/202609150001_notes_optional_content.sql)
+
+기본 마이그레이션이 이미 적용된 프로젝트에서는 두 번째 파일만 실행한다. 기존 테이블을 삭제하거나 다시 만들지 않는다.
+
+최종 `notes` 테이블은 UUID 기본 키, 필수 소유자 UUID와 제목, 선택 본문, 고정 여부, 생성·수정 시각을 가진다. 계정 삭제 시 해당 메모도 함께 삭제된다. 로그인 사용자는 `auth.uid() = user_id`인 행만 조회·추가·수정·삭제할 수 있으며, 수정으로 소유자를 다른 계정으로 바꾸는 것도 금지된다. 게스트의 로컬 메모 사용과 원격 테이블 접근 권한은 별개다.
+
+## 검증 범위
+
+- 브라우저 클라이언트 구현은 `src/lib/supabase/client.ts`이며 기존 `lib/supabase/client.ts`는 같은 함수를 재내보낸다. 로그인 훅과 AuthProvider는 새 경로를 사용한다.
+- 활성 라우터가 루트 `app/`에 있으므로 콜백 구현은 `app/auth/callback/route.ts`에 둔다. `src/app/`에 중복 라우트를 만들지 않는다.
+- 실계정 검수 시 Network의 Preserve log를 켜고 Google 로그인을 누른다. Google 이동 후 `/auth/callback?code=...` 응답의 홈 리디렉션과 `Set-Cookie`를 확인한다. Application의 현재 앱 출처 Cookies에서 `sb-...-auth-token`(분할 시 `.0`, `.1`) 생성과 새로고침 후 계정 이메일 표시를 확인한다. 코드 교환은 서버에서 수행되므로 브라우저 Network에 토큰 교환 요청이 직접 보이지 않을 수 있다. 토큰 값은 기록하거나 공유하지 않는다.
+
+- 자동 검증: 세션 초기 응답 경합, 구독 해제, OAuth 공급자·귀환 주소, 실패·취소, 게스트 화면 유지, 로그인 모달의 직접 클릭 연결·연속 호출·경고 제거·닫기.
+- 실제 프로젝트 연결 후 검증: Google·Apple 로그인 성공/취소, 새로고침 후 세션 복원, 두 계정 사이 RLS 격리, 계정 삭제 시 메모 삭제.
+- 모바일 실기기 검증: 짧은 화면에서 모달 스크롤·닫기, 배경 스크롤 복원, 앱 복귀.
+- 2026-09-18 환경 변수 입력은 확인했다. 연결 가능한 브라우저가 없어 Google 계정 선택·로그인 완료·실제 세션 쿠키 생성은 검증하지 못했다. 공급자 설정과 SQL 원격 적용 상태도 별도 확인이 필요하다.
+
+공식 참고: [서버·브라우저 클라이언트 구성](https://supabase.com/docs/guides/auth/server-side/creating-a-client), [행 단위 보안 정책](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+## 실제 소셜 로그인과 설정 누락 처리
+
+- Google·Apple 버튼은 항상 활성화하며 클릭을 로그인 함수에 직접 연결합니다. 요청 중에도 클릭을 차단하지 않고 설정 경고나 노란색 오류 문구를 표시하지 않습니다.
+- 로그인 함수는 공개 환경 값을 SDK에 직접 전달하고 OAuth 연결을 시도합니다. 실제 URL과 키가 없으면 SDK 생성 단계에서 실패할 수 있으며 콘솔에 오류를 기록합니다. 초기 복원 실패에도 게스트 메모 화면은 유지합니다.
+- 브라우저는 PKCE 검증값을 쿠키로 공유하며 URL의 코드 자동 교환은 비활성화합니다. `/auth/callback`의 서버 클라이언트가 코드 교환과 응답 쿠키 기록을 담당합니다.
+- 취소·코드 누락·교환 실패는 메인으로 복귀하며 모달에 경고를 표시하지 않습니다. 성공한 세션은 새로고침 후에도 SDK에서 복원합니다.
