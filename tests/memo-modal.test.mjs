@@ -146,9 +146,9 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     const toolbar = shell.querySelector('[role="toolbar"]');
     assert(toolbar.classList.contains("overflow-x-auto"));
     assert.match(toolbar.textContent, /BIUS/);
-    assert.equal(toolbar.querySelectorAll("svg").length, 5);
-    assert.equal(toolbar.querySelectorAll("button").length, 9);
-    assert.equal(toolbar.querySelector('[aria-label="새 메모"]'), null);
+    assert.equal(toolbar.querySelectorAll("svg").length, 6);
+    assert.equal(toolbar.querySelectorAll("button").length, 10);
+    assert(toolbar.querySelector('[aria-label="새 메모 작성"]'));
     assert(toolbar.querySelector('[aria-label="텍스트 서식"]'));
     assert.deepEqual([...shell.querySelector("header").children].map((item) => item.tagName), ["BUTTON", "DIV"]);
     assert.equal(shell.querySelector("header").textContent.trim(), "");

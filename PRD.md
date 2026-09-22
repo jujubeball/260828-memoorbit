@@ -1,5 +1,15 @@
 # MemoOrbit 제품 요구사항 문서 (PRD v2.0 - 통합 개정판)
 
+## 2026-09-22 iPhone 메모 UI 정밀 교정 (최신 우선)
+
+- 목록 카드 제목은 `text-[17px] font-semibold text-white truncate mb-0.5`, 날짜와 본문 미리보기는 `text-[13px] font-normal text-slate-400 truncate` 계층으로 표시한다.
+- 로고 아래 세그먼트는 `flex p-1 bg-slate-800/80 rounded-lg max-w-sm mx-auto my-2` 구조를 사용하고, 하단 글로벌 탭바는 렌더링하지 않는다.
+- 편집기 헤더는 뒤로가기와 공유·더보기·노란 원형 완료만 표시한다. 새 메모는 첫 문단을 `text-2xl font-bold text-white` 제목으로 시작한다.
+- 편집기 도킹 툴바는 가가·체크리스트·표·첨부·마크업·SquarePen 순서로 표시한다. SquarePen은 현재 내용을 안전하게 저장한 뒤 새 메모 캔버스로 전환한다.
+- 통합 검색은 `fixed inset-0 z-50 bg-slate-950 p-4` 전체 화면에서 검색·태그·미디어·기간 필터를 함께 제공한다.
+- 포맷 시트의 세 행은 각각 `flex items-center gap-x-4 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide px-2 py-1`을 포함하고 `flex-wrap`을 사용하지 않는다.
+- [x] 지정 DOM·클래스·상호작용을 전체 71개 자동 테스트와 ESLint, TypeScript, 프로덕션 빌드로 검증했다.
+
 ## 2026-09-22 상단 세그먼트·통합 검색 개정 (최신 우선)
 
 - 기존 하단 글로벌 3탭과 목록 내부 임시 탭을 모두 제거한다. 모바일 공통 헤더 바로 아래에 `flex p-1 bg-slate-800 rounded-lg` 기반의 메모 목록·태그 궤도·시간 뷰 세그먼트를 고정하고, 화면 전환 시 동일한 DOM·크기·라벨을 유지한다.

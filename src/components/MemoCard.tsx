@@ -328,7 +328,7 @@ export function MemoCard({
             </span>
           )}
           <h3
-            className="min-w-0 flex-1 truncate text-sm font-semibold leading-5 text-slate-100 md:text-base"
+            className="min-w-0 flex-1 text-[17px] font-semibold text-white truncate mb-0.5"
           >
             {memo.title}
           </h3>
@@ -343,11 +343,11 @@ export function MemoCard({
             </span>
           )}
         </div>
-        <div className={`mt-1 flex min-w-0 items-center gap-2 text-xs leading-5 ${viewMode === "gallery" ? "md:hidden" : ""}`}>
-          <time dateTime={memo.createdAt} className="shrink-0 text-slate-400">
+        <div className={`mt-1 flex min-w-0 items-center gap-2 ${viewMode === "gallery" ? "md:hidden" : ""}`}>
+          <time dateTime={memo.createdAt} className="shrink-0 text-[13px] font-normal text-slate-400 truncate">
             {formatMemoDate(memo.createdAt)}
           </time>
-          <p className="min-w-0 flex-1 truncate text-slate-500">
+          <p className="min-w-0 flex-1 text-[13px] font-normal text-slate-400 truncate">
             {preview}
           </p>
         </div>

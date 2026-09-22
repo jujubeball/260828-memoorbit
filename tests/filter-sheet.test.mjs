@@ -68,8 +68,9 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
     const overlay = document.getElementById("advanced-search-filters");
     assert(overlay.classList.contains("fixed"));
     assert(overlay.classList.contains("inset-0"));
-    assert(overlay.classList.contains("z-50"));
-    assert(overlay.classList.contains("bg-slate-950"));
+      assert(overlay.classList.contains("z-50"));
+      assert(overlay.classList.contains("bg-slate-950"));
+      assert(overlay.classList.contains("p-4"));
     assert.equal(overlay.getAttribute("aria-label"), "통합 검색 및 필터");
     assert.equal(document.activeElement, overlay.querySelector('input[placeholder^="제목"]'));
     const summary = document.querySelector('[aria-label="선택한 필터"]');

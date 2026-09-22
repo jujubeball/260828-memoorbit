@@ -80,7 +80,9 @@ test("상단 세그먼트는 현재 화면을 표시하고 세 화면에서 같�
     assert(navigation.classList.contains("fixed"));
     assert(navigation.classList.contains("top-[var(--mobile-header-height)]"));
     assert(!navigation.classList.contains("bottom-0"));
-    assert(navigation.firstElementChild.classList.contains("bg-slate-800"));
+    for (const className of ["flex", "p-1", "bg-slate-800/80", "rounded-lg", "max-w-sm", "mx-auto", "my-2"]) {
+      assert(navigation.firstElementChild.classList.contains(className));
+    }
     assert(navigation.firstElementChild.classList.contains("rounded-lg"));
     await act(async () => render(true));
     assert.equal(document.querySelector("nav"), null);
@@ -106,6 +108,14 @@ test("텍스트 목록은 제목과 날짜·본문 두 행을 표시하고 태�
     assert(article.querySelector("p").textContent.includes("두 번째 문장"));
     assert(article.querySelector("p").classList.contains("truncate"));
     assert(article.querySelector("h3").classList.contains("truncate"));
+    for (const className of ["text-[17px]", "font-semibold", "text-white", "truncate", "mb-0.5"]) {
+      assert(article.querySelector("h3").classList.contains(className));
+    }
+    for (const element of [article.querySelector("time"), article.querySelector("p")]) {
+      for (const className of ["text-[13px]", "font-normal", "text-slate-400", "truncate"]) {
+        assert(element.classList.contains(className));
+      }
+    }
     assert.equal(article.querySelector("time").parentElement, article.querySelector("p").parentElement);
     assert.equal(article.querySelector("time").dateTime, memo.createdAt);
     assert.equal(article.textContent.includes("#기록"), false);

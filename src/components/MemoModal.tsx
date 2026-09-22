@@ -48,7 +48,8 @@ interface MemoModalProps {
   isOpen: boolean;
   editingMemo: Memo | null;
   onClose: () => void;
-  onSubmit: (draft: MemoDraft) => void;
+  onSubmit: (draft: MemoDraft, startNew?: boolean) => void;
+  onNewMemo: () => void;
 }
 
 interface TableMenuPosition {
@@ -69,7 +70,7 @@ const escapeHtml = (value: string): string =>
 // richContent가 있으면 그대로 복원하고, 없으면 일반 제목과 본문을 HTML로 변환합니다. 이 함수 자체는 DOM에 쓰지 않습니다.
 const createInitialHtml = (memo: Memo | null): string => {
   if (memo?.richContent) return memo.richContent;
-  if (!memo) return "";
+  if (!memo) return '<h1 class="text-2xl font-bold text-white"><br></h1>';
   // 일반 본문의 각 줄을 편집 가능한 문단으로 감싼 초기 본문 HTML입니다.
   const body = memo.content
     .split("\n")
@@ -118,6 +119,7 @@ export function MemoModal({
   editingMemo,
   onClose,
   onSubmit,
+  onNewMemo,
 }: MemoModalProps): React.JSX.Element | null {
   // 💡 [편집기 DOM 참조 모음]
   // 화면에 그려진 본문, 파일 입력, 선택 범위, 표 셀을 React 코드에서 안전하게 찾아가기 위한 책갈피입니다.
@@ -136,8 +138,19 @@ export function MemoModal({
   // initialHtml이 같으면 같은 함수 참조를 유지하여 태그·서식 State 변경 때 본문 HTML을 다시 주입하지 않습니다.
   const mountEditor = useCallback((element: HTMLDivElement | null): void => {
     editorRef.current = element;
-    if (element) element.innerHTML = initialHtml;
-  }, [initialHtml]);
+    if (!element) return;
+    element.innerHTML = initialHtml;
+    if (!editingMemo) {
+      element.focus();
+      const range = document.createRange();
+      range.selectNodeContents(element.firstElementChild ?? element);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      savedRange.current = range.cloneRange();
+    }
+  }, [editingMemo, initialHtml]);
   // 💡 [사용자가 바꾸는 편집 상태]
   // 입력할 때마다 화면을 다시 그려야 하는 값만 State로 보관하고, 실제 서식 HTML은 편집 DOM에서 저장 순간 읽습니다.
   // plainText는 onInput·syncText가 갱신하며 저장 버튼 활성화, 제목 상태 문구, 태그 추천 이펙트의 입력으로 이어집니다.
@@ -540,20 +553,23 @@ export function MemoModal({
   // 본문에 한 글자라도 있으면 현재 DOM의 제목·본문·서식을 MemoDraft로 묶어 page.tsx의 공통 저장 함수로 전달합니다.
   // 첫 줄은 title, 나머지는 content입니다. 반환값 true는 저장 요청을 맡겼거나 저장 중이라는 뜻이지 DB 저장 성공 확인이 아닙니다.
   // 실제 로컬 저장 완료와 화면 전환은 부모 submitMemo가 책임집니다. 사진·표만 있어도 새 메모 전환 중 잃지 않도록 저장합니다.
-  const saveCurrentMemo = (): boolean => {
+  const saveCurrentMemo = (startNew = false): boolean => {
     if (isSaving) return true;
     const editor = editorRef.current;
     const text = editor?.innerText.replaceAll(CARET_PLACEHOLDER, "");
     if (!editor || (!text?.trim() && images.length === 0 && !editor.querySelector("table, img"))) return false;
     const [title, ...body] = (text ?? "").split("\n");
-    onSubmit({
-      title: title.trim() || "제목 없는 메모",
-      content: body.join("\n").trim(),
-      richContent: sanitizeEditorHtml(editor.innerHTML.replaceAll(CARET_PLACEHOLDER, "")),
-      tags,
-      imageUrl,
-      images,
-    });
+    onSubmit(
+      {
+        title: title.trim() || "제목 없는 메모",
+        content: body.join("\n").trim(),
+        richContent: sanitizeEditorHtml(editor.innerHTML.replaceAll(CARET_PLACEHOLDER, "")),
+        tags,
+        imageUrl,
+        images,
+      },
+      startNew,
+    );
     return true;
   };
   // 뒤로가기나 딤드를 누르면 내용이 있으면 먼저 자동 저장하고, 빈 메모라면 저장 없이 닫습니다.
@@ -567,6 +583,11 @@ export function MemoModal({
     if (isSaving) return;
     editorRef.current?.blur();
     closeEditor();
+  };
+  // 새 메모 버튼은 현재 내용이 있으면 먼저 저장하고, 빈 캔버스라면 곧바로 새 제목 문단을 준비합니다.
+  const createAnotherMemo = (): void => {
+    if (saveCurrentMemo(true)) return;
+    onNewMemo();
   };
   // 본문 이력을 복원한 뒤 React의 글자·선택 상태도 같은 내용으로 맞춥니다.
   const undoEditor = (direction: -1 | 1): void => {
@@ -811,9 +832,6 @@ export function MemoModal({
               <EditorIcon name="back" />
             </button>
             <div className="flex items-center gap-1">
-              <button type="button" onPointerDown={keepSelection} onClick={() => undoEditor(-1)} disabled={isSaving || !historyAvailability.undo} className={bottomButton} aria-label="실행취소">
-                <EditorIcon name="undo" />
-              </button>
               <button type="button" onPointerDown={keepSelection} onClick={() => void shareMemo()} disabled={isSaving} className={bottomButton} aria-label="공유">
                 <EditorIcon name="share" />
               </button>
@@ -928,7 +946,7 @@ export function MemoModal({
           </div>
 
           {/* 💡 [키보드 도킹 툴바]
-              다섯 아이콘과 패널을 가시 화면 하단에 두어 키보드 위에 함께 표시합니다. */}
+              여섯 아이콘과 패널을 가시 화면 하단에 두어 키보드 위에 함께 표시합니다. */}
           <div
             className="z-20 box-border w-full max-w-full shrink-0 touch-auto overscroll-none bg-transparent pb-[max(0.5rem,env(safe-area-inset-bottom))]"
           >
@@ -1094,6 +1112,17 @@ export function MemoModal({
                   </button>
                 </>
               )}
+              <button
+                type="button"
+                onPointerDown={keepSelection}
+                onClick={createAnotherMemo}
+                disabled={isSaving}
+                className={bottomButton}
+                aria-label="새 메모 작성"
+                title="새 메모 작성"
+              >
+                <EditorIcon name="compose" />
+              </button>
               <input
                 ref={imageInputRef}
                 type="file"

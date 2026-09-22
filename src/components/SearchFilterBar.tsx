@@ -195,7 +195,7 @@ export function SearchFilterBar({
             aria-modal="true"
             aria-label="통합 검색 및 필터"
             onClick={(event) => event.stopPropagation()}
-            className="fixed inset-0 z-50 overflow-y-auto bg-slate-950 px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]"
+            className="fixed inset-0 z-50 bg-slate-950 p-4 overflow-y-auto pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]"
           >
             <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-2 border-b border-slate-800 bg-slate-950/95 px-4 pb-3 backdrop-blur-md">
               <button

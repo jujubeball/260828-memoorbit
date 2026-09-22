@@ -76,15 +76,14 @@ test("아이콘 헤더·퀵 서식·실행취소·링크·포맷·마크업·완
     editor = document.querySelector('[aria-label="메모 내용"]');
     const header = document.querySelector("header");
     assert.equal(header.textContent.trim(), "");
-    assert.deepEqual([...header.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["목록으로 돌아가기", "실행취소", "공유", "더보기", "편집 완료"]);
+    assert.deepEqual([...header.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["목록으로 돌아가기", "공유", "더보기", "편집 완료"]);
     assert.equal(button("새 메모"), undefined);
     assert.equal(button("새 메모 작성"), undefined);
     const defaultToolbar = document.querySelector('[role="toolbar"]');
-    assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "마크업"]);
+    assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "마크업", "새 메모 작성"]);
     assert(defaultToolbar.classList.contains("overflow-x-auto"));
     assert(defaultToolbar.classList.contains("gap-6"));
     assert([...defaultToolbar.querySelectorAll("button")].every((item) => item.classList.contains("shrink-0")));
-    assert(button("실행취소").disabled);
     await select();
     const toolbar = document.querySelector('[role="toolbar"]');
     assert.match(toolbar.textContent, /BIUS/);
@@ -92,12 +91,7 @@ test("아이콘 헤더·퀵 서식·실행취소·링크·포맷·마크업·완
     await click("굵게");
     assert.equal(editor.querySelector("strong").textContent, "안녕");
     assert.equal(document.activeElement, editor);
-    await click("실행취소");
-    assert.equal(editor.innerHTML, memo.richContent);
-    await click("더보기");
-    await click("다시 실행");
-    assert.equal(editor.querySelector("strong").textContent, "안녕");
-    // 모바일 편집 메뉴의 실행취소도 브라우저 이력과 섞이지 않고 같은 서식 이력을 사용합니다.
+    // 헤더를 단순화해도 모바일 키보드의 실행취소 입력은 브라우저 이력과 섞이지 않고 같은 서식 이력을 사용합니다.
     await act(async () => editor.dispatchEvent(new dom.window.InputEvent("beforeinput", { inputType: "historyUndo", bubbles: true, cancelable: true })));
     assert.equal(editor.innerHTML, memo.richContent);
     await act(async () => editor.dispatchEvent(new dom.window.InputEvent("beforeinput", { inputType: "historyRedo", bubbles: true, cancelable: true })));
@@ -122,7 +116,7 @@ test("아이콘 헤더·퀵 서식·실행취소·링크·포맷·마크업·완
     const formatRows = [...formatSheet.querySelectorAll('[role="group"]')];
     assert.equal(formatRows.length, 4);
     for (const row of [formatRows[0], formatRows[1], formatRows[2].parentElement]) {
-      for (const className of ["flex", "items-center", "gap-x-4", "overflow-x-auto", "whitespace-nowrap", "flex-nowrap", "scrollbar-hide", "px-2"]) {
+      for (const className of ["flex", "items-center", "gap-x-4", "overflow-x-auto", "whitespace-nowrap", "flex-nowrap", "scrollbar-hide", "px-2", "py-1"]) {
         assert(row.classList.contains(className), `${className} 누락`);
       }
       assert(!row.classList.contains("flex-wrap"));

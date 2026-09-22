@@ -20,9 +20,9 @@ export function TopSegmentedNavigation({ activeSection, onSelect, hidden = false
   return (
     <nav
       aria-label="상단 주요 메뉴"
-      className="fixed inset-x-0 top-[var(--mobile-header-height)] z-40 border-b border-slate-800 bg-slate-950/95 px-3 py-2 backdrop-blur-md md:hidden"
+      className="fixed inset-x-0 top-[var(--mobile-header-height)] z-40 border-b border-slate-800 bg-slate-950/95 px-3 backdrop-blur-md md:hidden"
     >
-      <div className="flex rounded-lg bg-slate-800 p-1">
+      <div className="flex p-1 bg-slate-800/80 rounded-lg max-w-sm mx-auto my-2">
         {items.map((item) => (
           <button
             key={item.id}
