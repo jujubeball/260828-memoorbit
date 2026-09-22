@@ -15,6 +15,7 @@ import {
 import { enterEditorChecklist, insertEditorChecklist } from "@/src/lib/editorChecklist";
 import { EditorIcon } from "@/src/components/EditorIcon";
 import { InlineFormatTools } from "@/src/components/InlineFormatTools";
+import { MarkupPad } from "@/src/components/MarkupPad";
 import { useEditorHistory } from "@/src/hooks/useEditorHistory";
 import { IOSFormatSheet } from "@/src/components/iOSFormatSheet";
 import { useVisualViewport } from "@/src/hooks/useVisualViewport";
@@ -178,6 +179,7 @@ export function MemoModal({
   const isFormatOpen = formatSheet.mode === "format";
   // 선택 위치의 굵게·크기 등을 담아 툴바와 IOSFormatSheet의 황금색 선택 표시와 aria-pressed로 함께 전달합니다.
   const [isLinkOpen, setIsLinkOpen] = useState(false);
+  const [isMarkupOpen, setIsMarkupOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [actionNotice, setActionNotice] = useState("");
   const { record: recordHistory, travel: travelHistory } = useEditorHistory(editorRef, initialHtml);
@@ -324,6 +326,19 @@ export function MemoModal({
     window.addEventListener("keydown", closeWithEscape);
     return () => window.removeEventListener("keydown", closeWithEscape);
   }, [isTagsOpen]);
+
+  useEffect(() => {
+    if (!isMarkupOpen) return;
+    const closeWithEscape = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setIsMarkupOpen(false);
+      const editor = editorRef.current;
+      if (editor) savedRange.current = restoreEditorRange(editor, savedRange.current, true);
+    };
+    window.addEventListener("keydown", closeWithEscape);
+    return () => window.removeEventListener("keydown", closeWithEscape);
+  }, [isMarkupOpen]);
 
   if (!isOpen) return null;
 
@@ -608,6 +623,10 @@ export function MemoModal({
     setIsLinkOpen(false);
     restoreSelection();
   };
+  const closeMarkup = (): void => {
+    setIsMarkupOpen(false);
+    restoreSelection();
+  };
   const applyLink = (): void => {
     const value = linkUrl.trim();
     try {
@@ -763,6 +782,7 @@ export function MemoModal({
     }
     rememberSelection();
     setIsTagsOpen(false);
+    setIsMarkupOpen(false);
     formatSheet.open();
     restoreSelection();
   };
@@ -975,7 +995,27 @@ export function MemoModal({
                 </section>
               </div>
             )}
-            {isFormatOpen && !isLinkOpen && (
+            {isMarkupOpen && (
+              <div
+                className="fixed inset-0 z-[140] flex items-end bg-black/40"
+                role="presentation"
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  if (event.target === event.currentTarget) closeMarkup();
+                }}
+              >
+                <div className="w-full" onPointerDown={(event) => event.stopPropagation()}>
+                  <MarkupPad
+                    onClose={closeMarkup}
+                    onAttach={(url) => {
+                      setImages((current) => [...current, { url, name: "마크업 그림" }]);
+                      closeMarkup();
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            {isFormatOpen && !isLinkOpen && !isMarkupOpen && (
               <IOSFormatSheet
                 activeFormat={activeFormat}
                 disabled={isSaving}
@@ -1107,13 +1147,18 @@ export function MemoModal({
               <button
                 type="button"
                 onPointerDown={keepSelection}
-                onClick={toggleTags}
+                onClick={() => {
+                  rememberSelection();
+                  closeFormatLayer();
+                  setIsTagsOpen(false);
+                  setIsMarkupOpen(true);
+                }}
                 disabled={isSaving}
                 className={bottomButton}
-                aria-label="태그 관리"
-                title="태그 관리"
+                aria-label="마크업"
+                title="마크업"
               >
-                <EditorIcon name="tag" />
+                <EditorIcon name="pen" />
               </button>
               </div>
               <div className="flex min-w-full shrink-0 snap-start items-center gap-6" data-toolbar-page="inline">

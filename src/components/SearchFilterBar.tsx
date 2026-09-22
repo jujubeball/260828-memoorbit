@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { ListSearchDock } from "@/src/components/ListSearchDock";
 import { DateInputBox } from "@/src/components/DateInputBox";
 import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
-import type { MemoFilterOptions } from "@/src/lib/filterMemos";
+import { filterMemos, type MemoFilterOptions } from "@/src/lib/filterMemos";
+import type { Memo } from "@/types/memo";
 
 interface SearchFilterBarProps {
   options: MemoFilterOptions;
   availableTags: string[];
   onOptionsChange: (options: MemoFilterOptions) => void;
   onCreateMemo: () => void;
+  memos: Memo[];
+  onOpenMemo: (memo: Memo) => void;
   hideMobileDock?: boolean;
 }
 
@@ -37,14 +40,15 @@ export function SearchFilterBar({
   availableTags,
   onOptionsChange,
   onCreateMemo,
+  memos,
+  onOpenMemo,
   hideMobileDock = false,
 }: SearchFilterBarProps): React.JSX.Element {
   // 검색 입력은 로컬 상태에서 즉시 표시하고 부모에는 타이핑이 멈춘 뒤 전달합니다.
   const [keyword, setKeyword] = useState(options.keyword ?? "");
   const [isExpanded, setIsExpanded] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  // 태그 검색어와 날짜 교정 안내를 화면 상태로 보관합니다.
-  const [tagQuery, setTagQuery] = useState("");
+  // 날짜 역전 교정 안내만 로컬 화면 상태로 보관합니다.
   const [dateNotice, setDateNotice] = useState("");
   const selectedTags = options.tags ?? [];
   const areAllTagsSelected = selectedTags.length === 0;
@@ -93,9 +97,19 @@ export function SearchFilterBar({
     queueMicrotask(() => searchInputRef.current?.focus({ preventScroll: true }));
   };
 
-  // 부모에서 사용 빈도순으로 받은 태그를 검색하고 기본 화면에는 상위 다섯 개만 표시합니다.
-  const matchingTags = availableTags.filter((tag) => tag.toLocaleLowerCase().includes(tagQuery.trim().toLocaleLowerCase()));
-  const visibleTags = tagQuery.trim() ? matchingTags : availableTags.slice(0, 5);
+  // 💡 [실시간 결과 피드]
+  // 입력 중인 keyword를 부모의 300ms 반영보다 먼저 필터 함수에 전달해 키를 누르는 즉시 결과 카드가 바뀌게 합니다.
+  const liveResults = useMemo(
+    () => filterMemos(memos, {
+      ...options,
+      keyword,
+      semanticScores: keyword === (options.keyword ?? "")
+        ? options.semanticScores
+        : undefined,
+    }),
+    [keyword, memos, options],
+  );
+  const visibleTags = availableTags.slice(0, 5);
   const filterSummary = [
     selectedTags.length ? `태그 ${selectedTags.length}개` : "",
     options.hasImage ? "사진 포함" : "",
@@ -149,7 +163,6 @@ export function SearchFilterBar({
 
   // 검색어는 그대로 두고 상세 필터에서 선택한 태그·기간·미디어·상태 조건만 처음 상태로 되돌립니다.
   const resetDetailedFilters = (): void => {
-    setTagQuery("");
     setDateNotice("");
     updateOptions({
       tags: [],
@@ -214,16 +227,7 @@ export function SearchFilterBar({
             }}
             className="fixed inset-0 z-50 bg-slate-950 p-4 overflow-y-auto pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]"
           >
-            <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-2 border-b border-slate-800 bg-slate-950/95 px-4 pb-3 backdrop-blur-md">
-              <button
-                type="button"
-                onPointerDown={(event) => event.preventDefault()}
-                onClick={() => setIsExpanded(false)}
-                className="flex h-11 shrink-0 items-center text-sm font-semibold text-amber-400"
-                aria-label="검색 닫기"
-              >
-                ＜ 취소
-              </button>
+            <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-2 bg-slate-950/95 px-4 pb-3 backdrop-blur-md">
               <label className="relative min-w-0 flex-1">
                 <span className="sr-only">메모 검색어</span>
                 <input
@@ -235,6 +239,15 @@ export function SearchFilterBar({
                   className="h-11 w-full rounded-xl bg-slate-800 px-3 text-base text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-amber-500"
                 />
               </label>
+              <button
+                type="button"
+                onPointerDown={(event) => event.preventDefault()}
+                onClick={() => setIsExpanded(false)}
+                className="flex h-11 shrink-0 items-center px-1 text-sm font-semibold text-amber-400"
+                aria-label="검색 닫기"
+              >
+                취소
+              </button>
             </div>
             <div className="mx-auto grid w-full max-w-3xl content-start gap-5">
             <section aria-label="선택한 필터" className="flex items-start justify-between gap-3 border-b border-[#2a2e3d] pb-3">
@@ -263,21 +276,10 @@ export function SearchFilterBar({
               <span className="block text-xs font-bold text-[#f3f4f6]">
                 태그 선택
               </span>
-              <label className="mt-3 block">
-                <span className="sr-only">태그 검색</span>
-                <input
-                  type="search"
-                  value={tagQuery}
-                  onChange={(event) => setTagQuery(event.target.value)}
-                  placeholder="태그 검색"
-                  aria-controls="filter-tag-results"
-                  className="h-11 w-full rounded-xl border border-[#2a2e3d] bg-[#0f1117] px-3 text-base outline-none focus:ring-1 focus:ring-[#e5a93c]"
-                />
-              </label>
               <p className="mt-2 text-xs text-[#9ca3af]" aria-live="polite">
-                {tagQuery.trim() ? `검색 결과 ${matchingTags.length}개 · 다시 누르면 선택 해제` : "자주 사용하는 태그 Top 5"}
+                자주 사용하는 태그 Top 5
               </p>
-              <div id="filter-tag-results" className={`mt-2 max-h-48 overflow-y-auto overscroll-contain ${tagQuery.trim() ? "grid gap-1 rounded-xl border border-[#2a2e3d] bg-[#1a1d26] p-2" : "flex flex-wrap gap-2"}`}>
+              <div id="filter-tag-results" className="mt-2 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={clearSelectedTags}
@@ -389,6 +391,37 @@ export function SearchFilterBar({
                 <p role="status" className="mt-2 text-xs text-[#ffc86b]">{dateNotice}</p>
               )}
             </fieldset>
+            <section aria-labelledby="search-results-title" className="min-h-0 border-t border-slate-800 pt-4">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 id="search-results-title" className="text-sm font-semibold text-white">검색 결과</h3>
+                <span className="text-xs text-slate-400">{liveResults.length}개</span>
+              </div>
+              {liveResults.length > 0 ? (
+                <div className="max-h-[45dvh] overflow-y-auto rounded-2xl bg-slate-900/60" aria-label="검색 결과 목록">
+                  {liveResults.map((memo) => (
+                    <button
+                      key={memo.id}
+                      type="button"
+                      onClick={() => {
+                        setIsExpanded(false);
+                        onOpenMemo(memo);
+                      }}
+                      className="block w-full border-b border-slate-800 px-4 py-3 text-left last:border-b-0"
+                    >
+                      <span className="block text-[17px] font-semibold text-white truncate">{memo.title}</span>
+                      <span className="mt-0.5 flex min-w-0 items-center gap-2 text-[13px] text-slate-400 truncate">
+                        <time dateTime={memo.updatedAt} className="shrink-0 truncate">
+                          {new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric" }).format(new Date(memo.updatedAt))}
+                        </time>
+                        <span className="truncate">{memo.content || "내용 없음"}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="py-10 text-center text-sm text-slate-400" role="status">일치하는 메모가 없습니다</p>
+              )}
+            </section>
             </div>
           </div>
       )}

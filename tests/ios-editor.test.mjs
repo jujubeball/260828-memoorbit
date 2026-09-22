@@ -41,6 +41,10 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
   dom.window.scrollTo = () => {};
   Object.defineProperty(dom.window.HTMLElement.prototype, "innerText", { configurable: true, get() { return this.textContent; } });
   dom.window.HTMLElement.prototype.setPointerCapture = () => {};
+  const strokes = [];
+  dom.window.HTMLCanvasElement.prototype.getContext = () => ({ beginPath() {}, moveTo() {}, lineTo(x, y) { strokes.push([x, y]); }, stroke() {}, clearRect() {} });
+  dom.window.HTMLCanvasElement.prototype.setPointerCapture = () => {};
+  dom.window.HTMLCanvasElement.prototype.toDataURL = () => "data:image/png;base64,drawn";
   const { createRoot } = await import("react-dom/client");
   const MemoModal = loadModal();
   const root = createRoot(document.getElementById("root"));
@@ -74,7 +78,7 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     assert.equal(button("새 메모"), undefined);
     assert.equal(button("새 메모 작성"), undefined);
     const defaultToolbar = document.querySelector('[role="toolbar"]');
-    assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "태그 관리", "굵게", "기울임", "밑줄", "취소선", "형광펜", "색상 선택", "링크"]);
+    assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "마크업", "굵게", "기울임", "밑줄", "취소선", "형광펜", "색상 선택", "링크"]);
     assert(defaultToolbar.classList.contains("overflow-x-auto"));
     assert(defaultToolbar.classList.contains("gap-6"));
     for (const className of ["whitespace-nowrap", "scrollbar-hide", "flex", "items-center", "px-4", "py-2.5", "bg-slate-900/95", "backdrop-blur-md", "border-t", "border-slate-800"]) {
@@ -156,9 +160,23 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     await click("포맷 닫기");
     assert.equal(document.getElementById("memo-format-sheet"), null);
     assert.equal(document.getSelection().toString(), "안녕");
+    await select(true);
+    await click("마크업");
+    let canvas = document.querySelector("canvas");
+    const markupBackdrop = canvas.closest('[role="presentation"]');
+    await act(async () => markupBackdrop.dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true })));
+    assert.equal(document.querySelector("canvas"), null);
+    assert.equal(document.activeElement, editor);
+    await click("마크업");
+    canvas = document.querySelector("canvas");
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 200 });
+    await act(async () => canvas.dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 20 })));
+    assert(strokes.length > 0);
+    await click("그림 첨부");
+    assert.equal(document.querySelector("canvas"), null);
     await click("편집 완료");
     assert.equal(submissions.length, 1);
-    assert.equal(submissions[0].images.length, 0);
+    assert.equal(submissions[0].images[0].name, "마크업 그림");
     assert.equal(submissions[0].richContent, editor.innerHTML);
     assert.notEqual(document.activeElement, editor);
   } finally {

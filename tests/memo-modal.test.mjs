@@ -149,7 +149,8 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     assert.equal(toolbar.querySelectorAll("svg").length, 8);
     assert.equal(toolbar.querySelectorAll("button").length, 12);
     assert.equal(toolbar.querySelector('[aria-label="새 메모 작성"]'), null);
-    assert(toolbar.querySelector('[aria-label="태그 관리"]'));
+    assert(toolbar.querySelector('[aria-label="마크업"]'));
+    assert.equal(toolbar.querySelector('[aria-label="태그 관리"]'), null);
     assert(toolbar.querySelector('[aria-label="텍스트 서식"]'));
     assert.deepEqual([...shell.querySelector("header").children].map((item) => item.tagName), ["BUTTON", "BUTTON"]);
     assert.equal(shell.querySelector("header").textContent.trim(), "");

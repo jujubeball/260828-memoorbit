@@ -657,8 +657,10 @@ export default function Home(): React.JSX.Element {
               key={filterResetKey}
               options={filterOptions}
               availableTags={availableTags}
+              memos={memos}
               onOptionsChange={setFilterOptions}
               onCreateMemo={startNewMemo}
+              onOpenMemo={openMemo}
               hideMobileDock={isEditorOpen || Boolean(deleteTarget)}
             />
             <div

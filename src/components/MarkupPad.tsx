@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type PointerEvent } from "react";
+import { EditorIcon } from "@/src/components/EditorIcon";
 
 interface MarkupPadProps {
   onAttach: (url: string) => void;
@@ -40,15 +41,38 @@ export function MarkupPad({ onAttach, onClose }: MarkupPadProps): React.JSX.Elem
     <section aria-label="마크업" className="rounded-t-3xl bg-slate-900 p-3">
       <div className="mb-2 flex items-center justify-between text-sm">
         <h3>마크업</h3>
-        <button type="button" onClick={onClose} className="min-h-11 px-2">취소</button>
-        <button type="button" onClick={() => {
-          const canvas = canvasRef.current;
-          canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
-          setHasDrawing(false);
-        }} className="min-h-11 px-2">지우기</button>
-        <button type="button" disabled={!hasDrawing} onClick={() => {
-          if (canvasRef.current) onAttach(canvasRef.current.toDataURL("image/png"));
-        }} className="min-h-11 px-2 text-amber-400 disabled:opacity-40">그림 첨부</button>
+        <button
+          type="button"
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={onClose}
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10"
+          aria-label="마크업 닫기"
+        >
+          <EditorIcon name="close" className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => {
+            const canvas = canvasRef.current;
+            canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+            setHasDrawing(false);
+          }}
+          className="min-h-11 px-2"
+        >
+          지우기
+        </button>
+        <button
+          type="button"
+          disabled={!hasDrawing}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => {
+            if (canvasRef.current) onAttach(canvasRef.current.toDataURL("image/png"));
+          }}
+          className="min-h-11 px-2 text-amber-400 disabled:opacity-40"
+        >
+          그림 첨부
+        </button>
       </div>
       <canvas
         ref={canvasRef}

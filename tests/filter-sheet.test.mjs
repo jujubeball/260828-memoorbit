@@ -49,9 +49,23 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
   const { SearchFilterBar } = loader()("src/components/SearchFilterBar.tsx");
   const root = createRoot(document.getElementById("root"));
   const availableTags = Array.from({ length: 500 }, (_, index) => `태그${String(index).padStart(3, "0")}`);
+  const memos = [{
+    id: "live-result",
+    title: "검색 유지 메모",
+    content: "실시간 결과 본문",
+    richContent: "<p>실시간 결과 본문</p>",
+    tags: ["태그000"],
+    imageUrl: "https://example.test/photo.jpg",
+    images: [],
+    isPinned: false,
+    syncStatus: "synced",
+    createdAt: "2026-09-10T00:00:00Z",
+    updatedAt: "2026-09-10T00:00:00Z",
+  }];
+  const opened = [];
   let options = { keyword: "검색 유지", tags: availableTags.slice(0, 17), hasImage: true, timePreset: "custom", customDateRange: { start: "2026-09-01", end: "2026-09-17" } };
   const render = () => root.render(React.createElement(SearchFilterBar, {
-    options, availableTags, onOptionsChange(next) { options = next; render(); }, onCreateMemo() {},
+    options, availableTags, memos, onOptionsChange(next) { options = next; render(); }, onCreateMemo() {}, onOpenMemo(memo) { opened.push(memo.id); },
   }));
   const click = async (button) => act(async () => button.click());
   const change = async (input, value) => act(async () => {
@@ -73,6 +87,9 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
       assert(overlay.classList.contains("p-4"));
     assert.equal(overlay.getAttribute("aria-label"), "통합 검색 및 필터");
     assert.equal(document.activeElement, overlay.querySelector('input[placeholder^="제목"]'));
+    const searchHeader = overlay.firstElementChild;
+    assert.deepEqual([...searchHeader.children].map((item) => item.tagName), ["LABEL", "BUTTON"]);
+    assert.equal(searchHeader.querySelector("button").textContent.trim(), "취소");
     const summary = document.querySelector('[aria-label="선택한 필터"]');
     const startBox = document.getElementById("search-filter-start-date").parentElement;
     const endBox = document.getElementById("search-filter-end-date").parentElement;
@@ -84,15 +101,20 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
     assert.equal(summary.querySelectorAll("button").length, 1);
     const results = document.getElementById("filter-tag-results");
     assert.equal(results.querySelectorAll("button").length, 6);
-    await change(document.querySelector('[placeholder="태그 검색"]'), "태그499");
-    assert.match(results.textContent, /태그499/);
-    assert.equal(results.querySelectorAll("button").length, 2);
-    await click([...results.querySelectorAll("button")].find((button) => button.textContent.includes("태그499")));
-    assert(options.tags.includes("태그499"));
-    await click([...results.querySelectorAll("button")].find((button) => button.textContent.includes("태그499")));
-    assert(!options.tags.includes("태그499"));
-    await change(document.querySelector('[placeholder="태그 검색"]'), "없는 태그");
-    assert.match(document.querySelector('[aria-controls="filter-tag-results"]').parentElement.nextElementSibling.textContent, /검색 결과 0개/);
+    assert.equal(document.querySelector('[placeholder="태그 검색"]'), null);
+    assert.equal(document.querySelectorAll('[aria-label="검색 결과 목록"] button').length, 1);
+    const resultCard = document.querySelector('[aria-label="검색 결과 목록"] button');
+    for (const className of ["text-[17px]", "font-semibold", "text-white", "truncate"]) {
+      assert(resultCard.firstElementChild.classList.contains(className));
+    }
+    for (const className of ["text-[13px]", "text-slate-400"]) {
+      assert(resultCard.children[1].classList.contains(className));
+    }
+    const searchInput = overlay.querySelector('input[placeholder^="제목"]');
+    await change(searchInput, "일치하지 않는 검색어");
+    assert.match(overlay.textContent, /일치하는 메모가 없습니다/);
+    await change(searchInput, "검색 유지");
+    assert.equal(document.querySelectorAll('[aria-label="검색 결과 목록"] button').length, 1);
     await change(document.getElementById("search-filter-start-date"), "2026-09-22");
     assert.equal(options.customDateRange.end, "2026-09-22");
     assert.match(document.querySelector('[role="status"]').textContent, /종료일/);
@@ -106,6 +128,10 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
     const escape = new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
     await act(async () => window.dispatchEvent(escape));
     assert(escape.defaultPrevented);
+    assert.equal(document.getElementById("advanced-search-filters"), null);
+    await click(desktopSearchTrigger);
+    await click(document.querySelector('[aria-label="검색 결과 목록"] button'));
+    assert.deepEqual(opened, ["live-result"]);
     assert.equal(document.getElementById("advanced-search-filters"), null);
   } finally {
     await act(async () => root.unmount());
@@ -121,8 +147,8 @@ test("목록 도킹 검색은 입력·음성 결과를 반영하고 편집기 �
   let options = {};
   let creates = 0;
   let hidden = false;
-  const render = () => root.render(React.createElement(SearchFilterBar, { options, availableTags: [], hideMobileDock: hidden,
-    onOptionsChange(next) { options = next; render(); }, onCreateMemo() { creates += 1; } }));
+  const render = () => root.render(React.createElement(SearchFilterBar, { options, availableTags: [], memos: [], hideMobileDock: hidden,
+    onOptionsChange(next) { options = next; render(); }, onCreateMemo() { creates += 1; }, onOpenMemo() {} }));
   try {
     await act(async () => render());
     const dock = document.querySelector('[aria-label="목록 검색 및 작성"]');
