@@ -39,6 +39,8 @@ function setup() {
   globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window);
   globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window);
   globalThis.getComputedStyle = window.getComputedStyle.bind(window);
+  dom.window.HTMLElement.prototype.setPointerCapture = () => {};
+  window.scrollTo = () => {};
   window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} });
   return dom;
 }
@@ -84,19 +86,19 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
     assert(overlay.classList.contains("inset-0"));
       assert(overlay.classList.contains("z-50"));
       assert(overlay.classList.contains("bg-slate-950"));
-      assert(overlay.classList.contains("p-4"));
+      assert(overlay.classList.contains("px-4"));
     assert.equal(overlay.getAttribute("aria-label"), "통합 검색 및 필터");
     assert.equal(document.activeElement, overlay.querySelector('input[placeholder^="제목"]'));
-    const searchHeader = overlay.firstElementChild;
+    const searchHeader = overlay.querySelector("label").parentElement;
     assert.deepEqual([...searchHeader.children].map((item) => item.tagName), ["LABEL", "BUTTON"]);
-    assert.equal(searchHeader.querySelector("button").textContent.trim(), "취소");
+    assert.equal(searchHeader.querySelector('[aria-label="검색 닫기"]').textContent.trim(), "취소");
     const summary = document.querySelector('[aria-label="선택한 필터"]');
     const startBox = document.getElementById("search-filter-start-date").parentElement;
     const endBox = document.getElementById("search-filter-end-date").parentElement;
     assert.match(startBox.textContent, /2026\.09\.01/);
     assert.match(endBox.textContent, /2026\.09\.17/);
     assert.equal(document.getElementById("search-filter-end-date").value, "2026-09-17");
-    assert.match(summary.textContent, /선택된 필터 \(19개\)/);
+    assert.match(summary.textContent, /19개 선택됨/);
     assert.match(summary.textContent, /태그 17개, 사진 포함, 기간 지정/);
     assert.equal(summary.querySelectorAll("button").length, 1);
     const results = document.getElementById("filter-tag-results");
@@ -129,6 +131,34 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
     await act(async () => window.dispatchEvent(escape));
     assert(escape.defaultPrevented);
     assert.equal(document.getElementById("advanced-search-filters"), null);
+    // 검색을 열기 전 편집 선택을 저장하고 아래 스와이프와 배경 닫기에서도 복원합니다.
+    const previousEditor = document.createElement("div");
+    previousEditor.contentEditable = "true";
+    previousEditor.tabIndex = 0;
+    previousEditor.textContent = "보존할 선택";
+    document.body.append(previousEditor);
+    previousEditor.focus();
+    const range = document.createRange();
+    range.selectNodeContents(previousEditor);
+    document.getSelection().removeAllRanges();
+    document.getSelection().addRange(range);
+    await click(desktopSearchTrigger);
+    const clear = document.querySelector('[aria-label="검색어 지우기"]');
+    await click(clear);
+    assert.equal(document.querySelector('input[placeholder^="제목"]').value, "");
+    assert.equal(document.querySelectorAll('[aria-label="검색 결과 목록"] button').length, 1);
+    const handle = document.querySelector('[aria-label="검색 내리기"]');
+    await act(async () => {
+      handle.dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true, clientY: 10 }));
+      handle.dispatchEvent(new dom.window.MouseEvent("pointerup", { bubbles: true, cancelable: true, clientY: 100 }));
+    });
+    assert.equal(document.getElementById("advanced-search-filters"), null);
+    assert.equal(document.activeElement, previousEditor);
+    assert.equal(document.getSelection().toString(), "보존할 선택");
+    await click(desktopSearchTrigger);
+    await act(async () => document.getElementById("advanced-search-filters").dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true })));
+    assert.equal(document.getElementById("advanced-search-filters"), null);
+    assert.equal(document.activeElement, previousEditor);
     await click(desktopSearchTrigger);
     await click(document.querySelector('[aria-label="검색 결과 목록"] button'));
     assert.deepEqual(opened, ["live-result"]);

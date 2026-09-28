@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
+import { EditorIcon } from "@/src/components/EditorIcon";
+import { LayerSwipeHandle } from "@/src/components/LayerSwipeHandle";
+import { useVisualViewport } from "@/src/hooks/useVisualViewport";
 import { ListSearchDock } from "@/src/components/ListSearchDock";
 import { DateInputBox } from "@/src/components/DateInputBox";
 import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
@@ -48,6 +52,22 @@ export function SearchFilterBar({
   const [keyword, setKeyword] = useState(options.keyword ?? "");
   const [isExpanded, setIsExpanded] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+  const previousRange = useRef<Range | null>(null);
+  const viewport = useVisualViewport(isExpanded);
+  // 💡 [검색 종료 후 책갈피 복원]
+  // 검색 입력으로 옮기기 전 포커스와 선택을 보관했다가 취소할 때 복원합니다. 결과를 열 때에는 새 편집기에 맡깁니다.
+  const closeSearch = useCallback((): void => {
+    setIsExpanded(false);
+    const target = previousFocus.current;
+    const range = previousRange.current;
+    if (target?.isConnected) target.focus({ preventScroll: true });
+    if (range?.startContainer.isConnected && range.endContainer.isConnected) {
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+  }, []);
   // 날짜 역전 교정 안내만 로컬 화면 상태로 보관합니다.
   const [dateNotice, setDateNotice] = useState("");
   const selectedTags = options.tags ?? [];
@@ -83,15 +103,20 @@ export function SearchFilterBar({
     const closeWithEscape = (event: KeyboardEvent): void => {
       if (event.key !== "Escape") return;
       event.preventDefault();
-      setIsExpanded(false);
+      closeSearch();
     };
     window.addEventListener("keydown", closeWithEscape);
     return () => window.removeEventListener("keydown", closeWithEscape);
-  }, [isExpanded]);
+  }, [isExpanded, closeSearch]);
 
   // 💡 [통합 검색 레이어 진입]
   // 하단 검색창과 데스크톱 진입점은 같은 레이어를 열고, 음성 결과가 있으면 검색어에 먼저 반영합니다.
   const openSearchLayer = (nextKeyword?: string): void => {
+    if (!isExpanded) {
+      previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const selection = window.getSelection();
+      previousRange.current = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+    }
     if (nextKeyword !== undefined) setKeyword(nextKeyword);
     setIsExpanded(true);
     queueMicrotask(() => searchInputRef.current?.focus({ preventScroll: true }));
@@ -214,7 +239,7 @@ export function SearchFilterBar({
         <ListSearchDock keyword={keyword} onOpenSearch={openSearchLayer} onCreate={onCreateMemo} />
       )}
 
-      {isExpanded && (
+      {isExpanded && createPortal(
           <div
             id="advanced-search-filters"
             role="dialog"
@@ -223,181 +248,196 @@ export function SearchFilterBar({
             onPointerDown={(event) => {
               if (event.target !== event.currentTarget) return;
               event.preventDefault();
-              setIsExpanded(false);
+              closeSearch();
             }}
-            className="fixed inset-0 z-50 bg-slate-950 p-4 overflow-y-auto pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]"
+            className="fixed inset-0 z-50 flex h-[var(--search-height)] flex-col overflow-hidden bg-slate-950 px-4 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]"
+            style={{ "--search-height": viewport.height === null ? "100dvh" : `${viewport.height}px` } as CSSProperties}
           >
-            <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-2 bg-slate-950/95 px-4 pb-3 backdrop-blur-md">
+            <div className="z-40 flex h-14 w-full flex-shrink-0 shrink-0 items-center gap-2 border-b border-slate-800">
               <label className="relative min-w-0 flex-1">
                 <span className="sr-only">메모 검색어</span>
+                <EditorIcon name="search" className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-slate-400" />
                 <input
                   ref={searchInputRef}
                   type="search"
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
                   placeholder="제목, 내용, 태그 또는 의미 검색..."
-                  className="h-11 w-full rounded-xl bg-slate-800 px-3 text-base text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-amber-500"
+                  className="[&::-webkit-search-cancel-button]:appearance-none h-11 w-full rounded-xl bg-slate-800 pl-10 pr-11 text-base text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-amber-500"
                 />
+                {keyword && (
+                  <button
+                    type="button"
+                    aria-label="검색어 지우기"
+                    className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-slate-400"
+                    onPointerDown={(event) => event.preventDefault()}
+                    onClick={() => { setKeyword(""); searchInputRef.current?.focus(); }}
+                  >
+                    <EditorIcon name="close" className="h-4 w-4" />
+                  </button>
+                )}
               </label>
               <button
                 type="button"
                 onPointerDown={(event) => event.preventDefault()}
-                onClick={() => setIsExpanded(false)}
+                onClick={closeSearch}
                 className="flex h-11 shrink-0 items-center px-1 text-sm font-semibold text-amber-400"
                 aria-label="검색 닫기"
               >
                 취소
               </button>
             </div>
-            <div className="mx-auto grid w-full max-w-3xl content-start gap-5">
-            <section aria-label="선택한 필터" className="flex items-start justify-between gap-3 border-b border-[#2a2e3d] pb-3">
-              <div className="min-w-0" aria-live="polite">
-                <h3 className="inline-block rounded-full bg-white/5 px-2 py-1 text-xs font-bold text-[#f3f4f6]">
-                  선택된 필터 ({activeFilterCount}개)
-                </h3>
-                <p className="mt-1 text-xs text-[#9ca3af]">{filterSummary}</p>
-              </div>
-              <button
-                type="button"
-                onClick={resetDetailedFilters}
-                disabled={activeFilterCount === 0}
-                className="shrink-0 text-xs font-semibold text-[#ffc86b] disabled:text-[#6b7280]"
-              >
-                전체 초기화
-              </button>
-            </section>
-            <p className="rounded-lg border border-[#2a2e3d] bg-[#1a1d26]/50 p-2 text-xs leading-relaxed text-[#9ca3af]">
-              ✨ 단어가 정확히 일치하지 않아도 문맥과 의미를 분석하여 메모를 찾습니다.
-            </p>
-            <fieldset>
-              <legend className="sr-only">
-                다중 태그
-              </legend>
-              <span className="block text-xs font-bold text-[#f3f4f6]">
-                태그 선택
-              </span>
-              <p className="mt-2 text-xs text-[#9ca3af]" aria-live="polite">
-                자주 사용하는 태그 Top 5
-              </p>
-              <div id="filter-tag-results" className="mt-2 flex flex-wrap gap-2">
+            <LayerSwipeHandle onClose={closeSearch} label="검색 내리기" />
+            <div className="mx-auto grid max-h-[42%] w-full max-w-3xl shrink-0 content-start gap-4 overflow-y-auto py-2">
+              <section aria-label="선택한 필터" className="flex items-start justify-between gap-3 border-b border-[#2a2e3d] pb-3">
+                <div className="min-w-0" aria-live="polite">
+                  <h3 className="inline-block rounded-full bg-white/5 px-2 py-1 text-xs font-bold text-[#f3f4f6]">
+                    {activeFilterCount}개 선택됨
+                  </h3>
+                  <p className="mt-1 text-xs text-[#9ca3af]">{filterSummary}</p>
+                </div>
                 <button
                   type="button"
-                  onClick={clearSelectedTags}
-                  aria-pressed={areAllTagsSelected}
-                  className={chipClass(areAllTagsSelected)}
+                  onClick={resetDetailedFilters}
+                  disabled={activeFilterCount === 0}
+                  className="shrink-0 text-xs font-semibold text-[#ffc86b] disabled:text-[#6b7280]"
+                >
+                  전체 초기화
+                </button>
+              </section>
+              <p className="rounded-lg border border-[#2a2e3d] bg-[#1a1d26]/50 p-2 text-xs leading-relaxed text-[#9ca3af]">
+                ✨ 단어가 정확히 일치하지 않아도 문맥과 의미를 분석하여 메모를 찾습니다.
+              </p>
+              <fieldset>
+                <legend className="sr-only">
+                  다중 태그
+                </legend>
+                <span className="block text-xs font-bold text-[#f3f4f6]">
+                  태그 선택
+                </span>
+                <p className="mt-2 text-xs text-[#9ca3af]" aria-live="polite">
+                  자주 사용하는 태그 Top 5
+                </p>
+                <div id="filter-tag-results" className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={clearSelectedTags}
+                    aria-pressed={areAllTagsSelected}
+                    className={chipClass(areAllTagsSelected)}
+                  >
+                    전체
+                  </button>
+                  {visibleTags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleTag(tag)}
+                      aria-pressed={selectedTags.includes(tag)}
+                      className={chipClass(selectedTags.includes(tag))}
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset>
+              <legend className="text-xs font-bold text-[#f3f4f6]">
+                미디어 및 상태
+              </legend>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleAllMediaFilters}
+                  aria-pressed={areAllMediaFiltersSelected}
+                  className={chipClass(areAllMediaFiltersSelected)}
                 >
                   전체
                 </button>
-                {visibleTags.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleTag(tag)}
-                    aria-pressed={selectedTags.includes(tag)}
-                    className={chipClass(selectedTags.includes(tag))}
-                  >
-                    #{tag}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => toggleBooleanFilter("hasImage")}
+                  aria-pressed={options.hasImage === true}
+                  className={chipClass(options.hasImage === true)}
+                >
+                  📷 사진 포함
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleBooleanFilter("hasTable")}
+                  aria-pressed={options.hasTable === true}
+                  className={chipClass(options.hasTable === true)}
+                >
+                  📊 표 포함
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleBooleanFilter("isPinned")}
+                  aria-pressed={options.isPinned === true}
+                  className={chipClass(options.isPinned === true)}
+                >
+                  📌 고정됨
+                </button>
               </div>
-            </fieldset>
+              </fieldset>
 
-            <fieldset>
-            <legend className="text-xs font-bold text-[#f3f4f6]">
-              미디어 및 상태
-            </legend>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={toggleAllMediaFilters}
-                aria-pressed={areAllMediaFiltersSelected}
-                className={chipClass(areAllMediaFiltersSelected)}
-              >
-                전체
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleBooleanFilter("hasImage")}
-                aria-pressed={options.hasImage === true}
-                className={chipClass(options.hasImage === true)}
-              >
-                📷 사진 포함
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleBooleanFilter("hasTable")}
-                aria-pressed={options.hasTable === true}
-                className={chipClass(options.hasTable === true)}
-              >
-                📊 표 포함
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleBooleanFilter("isPinned")}
-                aria-pressed={options.isPinned === true}
-                className={chipClass(options.isPinned === true)}
-              >
-                📌 고정됨
-              </button>
-            </div>
-            </fieldset>
-
-            <fieldset>
-              <legend className="text-xs font-bold text-[#f3f4f6]">
-                시간 범위
-              </legend>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {TIME_PRESETS.map((preset) => (
-                  <button
-                    key={preset.value}
-                    type="button"
-                    onClick={() => updateOptions({ timePreset: preset.value })}
-                    aria-pressed={(options.timePreset ?? "all") === preset.value}
-                    className={chipClass(
-                      (options.timePreset ?? "all") === preset.value,
-                    )}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-                {options.timePreset === "custom" && (
-                  <div className="filter-range-enter flex w-full min-w-0 flex-wrap items-center gap-2 border-t border-[#2a2e3d]/60 pt-2">
-                    <DateInputBox
-                      expanded
-                      id="search-filter-start-date"
-                      label="시작일"
-                      value={options.customDateRange?.start ?? ""}
-                      onChange={(value) => updateCustomDateRange("start", value)}
-                      popoverAlign="left"
-                    />
-                    <span
-                      className="text-xs font-semibold text-[#6b7280]"
-                      aria-hidden="true"
+              <fieldset>
+                <legend className="text-xs font-bold text-[#f3f4f6]">
+                  시간 범위
+                </legend>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {TIME_PRESETS.map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => updateOptions({ timePreset: preset.value })}
+                      aria-pressed={(options.timePreset ?? "all") === preset.value}
+                      className={chipClass(
+                        (options.timePreset ?? "all") === preset.value,
+                      )}
                     >
-                      ~
-                    </span>
-                    <DateInputBox
-                      expanded
-                      id="search-filter-end-date"
-                      label="종료일"
-                      value={options.customDateRange?.end ?? ""}
-                      onChange={(value) => updateCustomDateRange("end", value)}
-                      popoverAlign="right"
-                    />
-                  </div>
+                      {preset.label}
+                    </button>
+                  ))}
+                  {options.timePreset === "custom" && (
+                    <div className="filter-range-enter flex w-full min-w-0 flex-wrap items-center gap-2 border-t border-[#2a2e3d]/60 pt-2">
+                      <DateInputBox
+                        expanded
+                        id="search-filter-start-date"
+                        label="시작일"
+                        value={options.customDateRange?.start ?? ""}
+                        onChange={(value) => updateCustomDateRange("start", value)}
+                        popoverAlign="left"
+                      />
+                      <span
+                        className="text-xs font-semibold text-[#6b7280]"
+                        aria-hidden="true"
+                      >
+                        ~
+                      </span>
+                      <DateInputBox
+                        expanded
+                        id="search-filter-end-date"
+                        label="종료일"
+                        value={options.customDateRange?.end ?? ""}
+                        onChange={(value) => updateCustomDateRange("end", value)}
+                        popoverAlign="right"
+                      />
+                    </div>
+                  )}
+                </div>
+                {options.timePreset === "custom" && dateNotice && (
+                  <p role="status" className="mt-2 text-xs text-[#ffc86b]">{dateNotice}</p>
                 )}
-              </div>
-              {options.timePreset === "custom" && dateNotice && (
-                <p role="status" className="mt-2 text-xs text-[#ffc86b]">{dateNotice}</p>
-              )}
-            </fieldset>
-            <section aria-labelledby="search-results-title" className="min-h-0 border-t border-slate-800 pt-4">
+              </fieldset>
+            </div>
+            <section aria-labelledby="search-results-title" className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col border-t border-slate-800 pt-2">
               <div className="mb-2 flex items-center justify-between">
                 <h3 id="search-results-title" className="text-sm font-semibold text-white">검색 결과</h3>
                 <span className="text-xs text-slate-400">{liveResults.length}개</span>
               </div>
               {liveResults.length > 0 ? (
-                <div className="max-h-[45dvh] overflow-y-auto rounded-2xl bg-slate-900/60" aria-label="검색 결과 목록">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-2xl bg-slate-900/60" aria-label="검색 결과 목록">
                   {liveResults.map((memo) => (
                     <button
                       key={memo.id}
@@ -422,8 +462,8 @@ export function SearchFilterBar({
                 <p className="py-10 text-center text-sm text-slate-400" role="status">일치하는 메모가 없습니다</p>
               )}
             </section>
-            </div>
-          </div>
+          </div>,
+          document.body,
       )}
     </section>
   );

@@ -1,4 +1,6 @@
 import { useEffect, useState, type PointerEvent } from "react";
+import { EditorLayer } from "@/src/components/EditorLayer";
+import { LayerSwipeHandle } from "@/src/components/LayerSwipeHandle";
 import { EditorIcon } from "@/src/components/EditorIcon";
 import type { EditorFormatState } from "@/src/lib/editorSelection";
 
@@ -52,16 +54,10 @@ export function InlineFormatTools({ activeFormat, disabled, onKeepSelection, onF
         <EditorIcon name="link" className="h-5 w-5" />
       </button>
       {colorsOpen && (
-        <div
-          className="fixed inset-0 z-[140] flex items-end bg-black/40 p-4"
-          role="presentation"
-          onPointerDown={(event) => {
-            event.preventDefault();
-            if (event.target === event.currentTarget) closeColors();
-          }}
-        >
-          <section className="mx-auto w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-2xl" role="dialog" aria-modal="true" aria-label="글자색 선택">
-            <div className="mb-2 flex items-center justify-between">
+        <EditorLayer onClose={closeColors}>
+          <section className="mx-auto w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900 px-3 pt-3 pb-[env(safe-area-inset-bottom)] shadow-2xl" role="dialog" aria-modal="true" aria-label="글자색 선택">
+            <LayerSwipeHandle onClose={closeColors} label="색상 선택 내리기" />
+            <div className="flex items-center justify-between">
               <h3 className="font-semibold">글자색</h3>
               <button type="button" onPointerDown={onKeepSelection} onClick={closeColors} aria-label="색상 선택 닫기" className={buttonClass(false)}>
                 <EditorIcon name="close" className="h-5 w-5" />
@@ -78,7 +74,7 @@ export function InlineFormatTools({ activeFormat, disabled, onKeepSelection, onF
               ))}
             </div>
           </section>
-        </div>
+        </EditorLayer>
       )}
     </>
   );

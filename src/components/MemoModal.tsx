@@ -14,6 +14,9 @@ import {
 } from "react";
 import { enterEditorChecklist, insertEditorChecklist } from "@/src/lib/editorChecklist";
 import { EditorIcon } from "@/src/components/EditorIcon";
+import { EditorLayer } from "@/src/components/EditorLayer";
+import { LayerSwipeHandle } from "@/src/components/LayerSwipeHandle";
+import { EditorToolbarPager } from "@/src/components/EditorToolbarPager";
 import { InlineFormatTools } from "@/src/components/InlineFormatTools";
 import { MarkupPad } from "@/src/components/MarkupPad";
 import { useEditorHistory } from "@/src/hooks/useEditorHistory";
@@ -193,6 +196,19 @@ export function MemoModal({
   }, []);
   // 보이는 높이가 CSS 변수로 이어져 내부 편집 래퍼의 크기를 정합니다. 바깥 불투명 배경은 계속 전체 화면을 덮습니다.
   const viewport = useVisualViewport(isOpen);
+  const dockRef = useRef<HTMLDivElement>(null);
+  // 💡 [고정 툴바 공간 예약]
+  // 안내 문구와 안전 영역을 포함한 실제 높이를 폼에 전달하므로 임의의 큰 본문 여백이 필요하지 않습니다.
+  useEffect(() => {
+    const dock = dockRef.current;
+    const form = dock?.closest("form");
+    if (!isOpen || !dock || !form || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      form.style.setProperty("--editor-dock-height", `${dock.getBoundingClientRect().height}px`);
+    });
+    observer.observe(dock);
+    return () => observer.disconnect();
+  }, [isOpen]);
   // null이면 셀 메뉴를 숨기고 좌표가 있으면 해당 위치에 표시합니다. 실제 작업 대상은 selectedCellRef에 있습니다.
   const [tableMenuPosition, setTableMenuPosition] =
     useState<TableMenuPosition | null>(null);
@@ -803,7 +819,7 @@ export function MemoModal({
     "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#e5a93c] transition-transform duration-150 active:scale-90 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-[#e5a93c] disabled:opacity-40 motion-reduce:transition-none motion-reduce:active:scale-100";
   return (
     <div
-      className="fixed inset-0 z-[100] box-border flex h-[100dvh] w-full max-w-full flex-col overflow-hidden touch-auto overscroll-none bg-[#121318] text-[#f3f4f6] xl:items-center xl:justify-center xl:bg-black/70 xl:p-6"
+      className="fixed inset-0 z-[100] box-border flex h-[100dvh] w-full max-w-full flex-col overflow-hidden touch-auto overscroll-none bg-slate-950 text-[#f3f4f6] xl:items-center xl:justify-center xl:bg-black/70 xl:p-6"
       style={{
         "--viewport-height": viewport.height === null ? "100dvh" : `${viewport.height}px`,
         "--viewport-top": `${viewport.offsetTop}px`,
@@ -826,14 +842,15 @@ export function MemoModal({
         data-scroll-locked
         className="fixed inset-x-0 top-[var(--viewport-top)] flex h-[var(--viewport-height)] min-h-0 w-full flex-col overflow-hidden bg-[#121318] xl:static xl:h-full xl:items-center xl:justify-center xl:bg-transparent"
       >
+        {/* 폼을 고정 좌표의 기준으로 삼아 툴바가 키보드로 줄어든 편집 화면 하단에 붙게 합니다. */}
         <form
           data-scroll-locked
           id="memo-form"
           onSubmit={submit}
           onClick={(event) => event.stopPropagation()}
-          className="box-border flex h-full min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#121318] xl:mx-auto xl:h-[75vh] xl:max-h-[80vh] xl:max-w-2xl xl:flex-none xl:rounded-3xl xl:border xl:border-[#2a2e3d] xl:shadow-2xl"
+          className="relative [transform:translateZ(0)] box-border flex h-full min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#121318] xl:mx-auto xl:h-[75vh] xl:max-h-[80vh] xl:max-w-2xl xl:flex-none xl:rounded-3xl xl:border xl:border-[#2a2e3d] xl:shadow-2xl"
         >
-          <header className="relative z-20 flex h-14 w-full shrink-0 items-center justify-between bg-[#121318] px-3">
+          <header className="relative z-40 flex h-14 w-full flex-shrink-0 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950 px-3">
             <button type="button" onClick={closeEditor} disabled={isSaving} className={bottomButton} aria-label="목록으로 돌아가기">
               <EditorIcon name="back" />
             </button>
@@ -843,7 +860,7 @@ export function MemoModal({
           </header>
 
           <div
-            className="box-border min-h-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto touch-pan-y overscroll-y-contain [-webkit-overflow-scrolling:touch] px-4 pt-3 pb-60"
+            className="box-border min-h-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto touch-pan-y overscroll-y-contain [-webkit-overflow-scrolling:touch] px-4 py-2"
             onClick={handleEditorAreaClick}
           >
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -935,35 +952,30 @@ export function MemoModal({
           </div>
 
           {/* 💡 [키보드 도킹 툴바]
-              여섯 아이콘과 패널을 가시 화면 하단에 두어 키보드 위에 함께 표시합니다. */}
+              다섯 기본 도구와 일곱 서식 도구를 가시 화면 하단에 두어 키보드 위에 함께 표시합니다. */}
           <div
-            className="z-20 box-border w-full max-w-full shrink-0 touch-auto overscroll-none bg-transparent pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+            className="fixed bottom-0 left-0 right-0 z-40 w-full bg-slate-900/95 backdrop-blur-md border-t border-slate-800 pb-[env(safe-area-inset-bottom)]"
+            ref={dockRef}
           >
             {actionNotice && (
               <p role="status" className="px-4 py-2 text-xs text-amber-300">{actionNotice}</p>
             )}
             {isLinkOpen && (
-              <div
-                className="fixed inset-0 z-[140] flex items-end bg-black/40 p-4"
-                role="presentation"
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  if (event.target === event.currentTarget) closeLink();
-                }}
-              >
+              <EditorLayer onClose={closeLink}>
                 <section
                   aria-label="링크 주소 입력"
                   role="dialog"
                   aria-modal="true"
-                  className="mx-auto w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-2xl"
+                  className="mx-auto w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900 px-3 pt-3 pb-[env(safe-area-inset-bottom)] shadow-2xl"
                   onPointerDown={(event) => event.stopPropagation()}
                 >
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">링크</h3>
-                  <button type="button" onPointerDown={keepSelection} onClick={closeLink} aria-label="링크 입력 닫기" className={bottomButton}>
-                    <EditorIcon name="close" className="h-5 w-5" />
-                  </button>
-                </div>
+                  <LayerSwipeHandle onClose={closeLink} label="링크 입력 내리기" />
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">링크</h3>
+                    <button type="button" onPointerDown={keepSelection} onClick={closeLink} aria-label="링크 입력 닫기" className={bottomButton}>
+                      <EditorIcon name="close" className="h-5 w-5" />
+                    </button>
+                  </div>
                   <label className="block text-sm">
                     웹 주소
                     <input
@@ -985,25 +997,18 @@ export function MemoModal({
                       className="mt-2 h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-base"
                     />
                   </label>
-                <div className="mt-2 flex justify-end gap-3">
-                  <button type="button" onPointerDown={keepSelection} onClick={closeLink} className="min-h-11">취소</button>
-                  {activeFormat.link && (
-                    <button type="button" onClick={() => { applyFormat("createLink"); setIsLinkOpen(false); }} className="min-h-11">링크 해제</button>
-                  )}
-                  <button type="button" onClick={applyLink} className="min-h-11 text-amber-400">적용</button>
-                </div>
+                  <div className="mt-2 flex justify-end gap-3">
+                    <button type="button" onPointerDown={keepSelection} onClick={closeLink} className="min-h-11">취소</button>
+                    {activeFormat.link && (
+                      <button type="button" onClick={() => { applyFormat("createLink"); setIsLinkOpen(false); }} className="min-h-11">링크 해제</button>
+                    )}
+                    <button type="button" onClick={applyLink} className="min-h-11 text-amber-400">적용</button>
+                  </div>
                 </section>
-              </div>
+              </EditorLayer>
             )}
             {isMarkupOpen && (
-              <div
-                className="fixed inset-0 z-[140] flex items-end bg-black/40"
-                role="presentation"
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  if (event.target === event.currentTarget) closeMarkup();
-                }}
-              >
+              <EditorLayer onClose={closeMarkup}>
                 <div className="w-full" onPointerDown={(event) => event.stopPropagation()}>
                   <MarkupPad
                     onClose={closeMarkup}
@@ -1013,7 +1018,7 @@ export function MemoModal({
                     }}
                   />
                 </div>
-              </div>
+              </EditorLayer>
             )}
             {isFormatOpen && !isLinkOpen && !isMarkupOpen && (
               <IOSFormatSheet
@@ -1027,141 +1032,134 @@ export function MemoModal({
               />
             )}
             {isTagsOpen && (
-              <div
-                className="fixed inset-0 z-[140] flex items-end bg-black/40 p-4"
-                role="presentation"
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  if (event.target === event.currentTarget) closeTags();
-                }}
-              >
-              <section
-                className={`mx-auto w-full max-w-lg animate-[fade-in_180ms_ease-out] rounded-2xl border border-[#2a2e3d] bg-slate-900 px-3 py-2 shadow-2xl motion-reduce:animate-none ${isAnalyzingTags ? "ring-1 ring-[#e5a93c]/30" : ""}`}
-                id="memo-tag-panel"
-                aria-label="태그 관리 패널"
-                role="dialog"
-                aria-modal="true"
-                onPointerDown={(event) => event.stopPropagation()}
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-xs font-semibold text-[#9ca3af]">🏷️ 태그 관리</h3>
-                  <button type="button" onPointerDown={keepSelection} onClick={closeTags} aria-label="태그 관리 닫기" className={bottomButton}>
-                    <EditorIcon name="close" className="h-5 w-5" />
-                  </button>
-                </div>
-                <input
-                  ref={tagInputRef}
-                  value={tags}
-                  onChange={(event) => setTags(event.target.value)}
-                  className="w-full rounded-lg border border-[#2a2e3d] bg-[#121318] px-3 py-2 text-base text-white outline-none placeholder:text-[#636366] focus:border-[#e5a93c]"
-                  placeholder="태그 직접 추가: 쉼표로 구분"
-                  aria-label="태그 직접 추가"
-                />
-                <div className="scrollbar-hidden mt-2 flex min-h-8 w-full items-center gap-2 overflow-x-auto touch-pan-x overscroll-x-contain" aria-label="AI 추천 태그" aria-live="polite">
-                  <span
-                    className={`shrink-0 text-xs text-[#8e8e93] ${isAnalyzingTags ? "animate-pulse text-[#ffc86b] motion-reduce:animate-none" : ""}`}
-                  >
-                    {isAnalyzingTags
-                      ? "Gemini 분석 중…"
-                      : isUsingLocalAnalysis
-                        ? "로컬 추천"
-                        : "✨ 추천"}
-                  </span>
-                  {recommendedTags.length > 0 ? (
-                    recommendedTags.map((tag) => {
-                      const isSelected = selectedTags.includes(tag);
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          onPointerDown={keepSelection}
-                          onClick={() => toggleTag(tag)}
-                          aria-pressed={isSelected}
-                          className={`ios-tap shrink-0 animate-[fade-in_180ms_ease-out] rounded-full border px-3 py-1.5 text-xs font-semibold motion-reduce:animate-none ${isSelected ? "border-[#e5a93c] bg-[#e5a93c] text-black" : "border-[#636366] text-white"}`}
-                        >
-                          #{tag}
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <p className="shrink-0 text-xs text-[#636366]">
-                      본문을 입력하면 관련 태그가 표시됩니다.
-                    </p>
-                  )}
-                </div>
-              </section>
-              </div>
+              <EditorLayer onClose={closeTags}>
+                <section
+                  className={`mx-auto w-full max-w-lg animate-[fade-in_180ms_ease-out] rounded-2xl border border-[#2a2e3d] bg-slate-900 px-3 pt-2 pb-[env(safe-area-inset-bottom)] shadow-2xl motion-reduce:animate-none ${isAnalyzingTags ? "ring-1 ring-[#e5a93c]/30" : ""}`}
+                  id="memo-tag-panel"
+                  aria-label="태그 관리 패널"
+                  role="dialog"
+                  aria-modal="true"
+                  onPointerDown={(event) => event.stopPropagation()}
+                >
+                  <LayerSwipeHandle onClose={closeTags} label="태그 관리 내리기" />
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold text-[#9ca3af]">🏷️ 태그 관리</h3>
+                    <button type="button" onPointerDown={keepSelection} onClick={closeTags} aria-label="태그 관리 닫기" className={bottomButton}>
+                      <EditorIcon name="close" className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <input
+                    ref={tagInputRef}
+                    value={tags}
+                    onChange={(event) => setTags(event.target.value)}
+                    className="w-full rounded-lg border border-[#2a2e3d] bg-[#121318] px-3 py-2 text-base text-white outline-none placeholder:text-[#636366] focus:border-[#e5a93c]"
+                    placeholder="태그 직접 추가: 쉼표로 구분"
+                    aria-label="태그 직접 추가"
+                  />
+                  <div className="scrollbar-hidden mt-2 flex min-h-8 w-full items-center gap-2 overflow-x-auto touch-pan-x overscroll-x-contain" aria-label="AI 추천 태그" aria-live="polite">
+                    <span
+                      className={`shrink-0 text-xs text-[#8e8e93] ${isAnalyzingTags ? "animate-pulse text-[#ffc86b] motion-reduce:animate-none" : ""}`}
+                    >
+                      {isAnalyzingTags
+                        ? "Gemini 분석 중…"
+                        : isUsingLocalAnalysis
+                          ? "로컬 추천"
+                          : "✨ 추천"}
+                    </span>
+                    {recommendedTags.length > 0 ? (
+                      recommendedTags.map((tag) => {
+                        const isSelected = selectedTags.includes(tag);
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onPointerDown={keepSelection}
+                            onClick={() => toggleTag(tag)}
+                            aria-pressed={isSelected}
+                            className={`ios-tap shrink-0 animate-[fade-in_180ms_ease-out] rounded-full border px-3 py-1.5 text-xs font-semibold motion-reduce:animate-none ${isSelected ? "border-[#e5a93c] bg-[#e5a93c] text-black" : "border-[#636366] text-white"}`}
+                          >
+                            #{tag}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <p className="shrink-0 text-xs text-[#636366]">
+                        본문을 입력하면 관련 태그가 표시됩니다.
+                      </p>
+                    )}
+                  </div>
+                </section>
+              </EditorLayer>
             )}
-            <div
-              className="overflow-x-auto whitespace-nowrap scrollbar-hide flex items-center gap-6 px-4 py-2.5 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 w-full touch-pan-x overscroll-x-contain snap-x snap-mandatory"
-              role="toolbar"
-              aria-label="메모 작성 도구"
-            >
-              <div className="flex min-w-full shrink-0 snap-start items-center justify-around gap-6" data-toolbar-page="main">
-              <button
-                type="button"
-                onPointerDown={keepSelection}
-                onClick={toggleFormatLayer}
-                disabled={isSaving}
-                className={`${bottomButton} ${formatSheet.mode !== "editor" ? "bg-[#e5a93c]/15 text-[#ffc86b]" : ""}`}
-                aria-label="텍스트 서식"
-                title="텍스트 서식"
-                aria-expanded={isFormatOpen}
-                aria-controls="memo-format-sheet"
+            <EditorToolbarPager onPreserveSelection={rememberSelection}>
+              <div
+                className="flex w-full shrink-0 snap-start items-center justify-around px-4 py-2.5"
+                data-toolbar-page="main"
               >
-                <EditorIcon name="format" />
-              </button>
-              <button
-                    type="button"
-                    onPointerDown={keepSelection}
-                    onClick={insertChecklist}
-                    disabled={isSaving}
-                    className={bottomButton}
-                    aria-label="체크리스트"
-                    title="체크리스트"
-                  >
-                    <EditorIcon name="checklist" />
-                  </button>
-                  <button
-                    type="button"
-                    onPointerDown={keepSelection}
-                    onClick={insertTable}
-                    disabled={isSaving}
-                    className={bottomButton}
-                    aria-label="표 삽입"
-                    title="표 삽입"
-                  >
-                    <EditorIcon name="table" />
-                  </button>
-                  <button
-                    type="button"
-                    onPointerDown={keepSelection}
-                    onClick={() => imageInputRef.current?.click()}
-                    disabled={isSaving}
-                    className={bottomButton}
-                    aria-label="사진 또는 파일 첨부"
-                    title="사진 또는 파일 첨부"
-                  >
-                    <EditorIcon name="clip" />
-                  </button>
-              <button
-                type="button"
-                onPointerDown={keepSelection}
-                onClick={() => {
-                  rememberSelection();
-                  closeFormatLayer();
-                  setIsTagsOpen(false);
-                  setIsMarkupOpen(true);
-                }}
-                disabled={isSaving}
-                className={bottomButton}
-                aria-label="마크업"
-                title="마크업"
-              >
-                <EditorIcon name="pen" />
-              </button>
+                <button
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={toggleFormatLayer}
+                  disabled={isSaving}
+                  className={`${bottomButton} ${formatSheet.mode !== "editor" ? "bg-[#e5a93c]/15 text-[#ffc86b]" : ""}`}
+                  aria-label="텍스트 서식"
+                  title="텍스트 서식"
+                  aria-expanded={isFormatOpen}
+                  aria-controls="memo-format-sheet"
+                >
+                  <EditorIcon name="format" />
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={insertChecklist}
+                  disabled={isSaving}
+                  className={bottomButton}
+                  aria-label="체크리스트"
+                  title="체크리스트"
+                >
+                  <EditorIcon name="checklist" />
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={insertTable}
+                  disabled={isSaving}
+                  className={bottomButton}
+                  aria-label="표 삽입"
+                  title="표 삽입"
+                >
+                  <EditorIcon name="table" />
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={isSaving}
+                  className={bottomButton}
+                  aria-label="사진 또는 파일 첨부"
+                  title="사진 또는 파일 첨부"
+                >
+                  <EditorIcon name="clip" />
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={keepSelection}
+                  onClick={() => {
+                    rememberSelection();
+                    closeFormatLayer();
+                    setIsTagsOpen(false);
+                    setIsMarkupOpen(true);
+                  }}
+                  disabled={isSaving}
+                  className={bottomButton}
+                  aria-label="마크업"
+                  title="마크업"
+                >
+                  <EditorIcon name="pen" />
+                </button>
               </div>
-              <div className="flex min-w-full shrink-0 snap-start items-center gap-6" data-toolbar-page="inline">
+              <div className="flex w-full shrink-0 snap-start items-center justify-between px-1 py-2.5" data-toolbar-page="inline">
                 <InlineFormatTools
                   activeFormat={activeFormat}
                   disabled={isSaving}
@@ -1182,8 +1180,10 @@ export function MemoModal({
                 }}
                 className="hidden"
               />
-            </div>
+            </EditorToolbarPager>
           </div>
+          {/* 고정 도구의 실제 높이만 확보하여 마지막 문단이 도구에 가리지 않게 합니다. */}
+          <div aria-hidden="true" className="h-[var(--editor-dock-height,calc(4rem+env(safe-area-inset-bottom)))] shrink-0" />
         </form>
 
         {tableMenuPosition && (

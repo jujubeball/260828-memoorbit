@@ -91,7 +91,9 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     assert.equal(sheet.querySelectorAll('[role="group"]').length, 4);
     assert.equal(sheet.querySelectorAll('button').length, 20);
     assert.equal(sheet.querySelector('[aria-label="문단 스타일"]').textContent.includes("모노스페이스"), true);
-    assert.equal(sheet.closest("form").id, "memo-form");
+    assert.equal(sheet.closest("form"), null);
+    assert.equal(sheet.parentElement.parentElement, document.body);
+    assert.equal(sheet.parentElement.style.getPropertyValue("--layer-height"), "350px");
     await click(button("굵게"));
     assert.equal(document.activeElement, editor);
     assert.equal(editor.getAttribute("contenteditable"), "true");
@@ -254,7 +256,8 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
       assert.equal(table.nextElementSibling.outerHTML, "<p><br></p>");
     }
     const scroller = editor.parentElement;
-    assert(scroller.classList.contains("pb-60"));
+    assert(!scroller.classList.contains("pb-60"));
+    assert(scroller.classList.contains("py-2"));
     // 여백의 단순 클릭만 끝 문단으로 이동하며, 드래그 시작은 선택과 스크롤을 유지합니다.
     const beforeTouch = document.getSelection().getRangeAt(0).cloneRange();
     await act(async () => scroller.dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true })));

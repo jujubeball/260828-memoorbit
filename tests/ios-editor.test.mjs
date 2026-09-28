@@ -80,13 +80,40 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     const defaultToolbar = document.querySelector('[role="toolbar"]');
     assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "마크업", "굵게", "기울임", "밑줄", "취소선", "형광펜", "색상 선택", "링크"]);
     assert(defaultToolbar.classList.contains("overflow-x-auto"));
-    assert(defaultToolbar.classList.contains("gap-6"));
-    for (const className of ["whitespace-nowrap", "scrollbar-hide", "flex", "items-center", "px-4", "py-2.5", "bg-slate-900/95", "backdrop-blur-md", "border-t", "border-slate-800"]) {
+    for (const className of ["whitespace-nowrap", "scrollbar-hide", "flex", "touch-none", "snap-x", "snap-mandatory"]) {
       assert(defaultToolbar.classList.contains(className));
     }
     assert.equal(defaultToolbar.querySelectorAll('[data-toolbar-page]').length, 2);
+    assert(defaultToolbar.parentElement.classList.contains("pb-[env(safe-area-inset-bottom)]"));
+    assert(defaultToolbar.parentElement.classList.contains("bottom-0"));
+    assert(!document.querySelector(".pb-60"));
     assert([...defaultToolbar.querySelectorAll("button")].every((item) => item.classList.contains("shrink-0")));
     await select();
+    // 실제 포인터 이동은 두 페이지를 넘기되 선택된 글자와 본문을 바꾸지 않고 뒤따르는 클릭도 차단합니다.
+    Object.defineProperty(defaultToolbar, "clientWidth", { value: 375 });
+    const scrolls = [];
+    defaultToolbar.scrollTo = ({ left }) => { scrolls.push(left); defaultToolbar.scrollLeft = left; };
+    const pointer = async (target, type, x, y = 10) => act(async () => {
+      const event = new dom.window.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y });
+      target.dispatchEvent(event);
+      return event;
+    });
+    const beforeSwipe = editor.innerHTML;
+    await pointer(defaultToolbar, "pointerdown", 300);
+    await pointer(defaultToolbar, "pointermove", 100);
+    await pointer(defaultToolbar, "pointerup", 100);
+    await act(async () => button("굵게").click());
+    assert.equal(editor.innerHTML, beforeSwipe);
+    assert.equal(document.getSelection().toString(), "안녕");
+    await pointer(defaultToolbar, "pointerdown", 50);
+    await pointer(defaultToolbar, "pointermove", 250);
+    await pointer(defaultToolbar, "pointerup", 250);
+    assert.deepEqual(scrolls, [375, 0]);
+    await pointer(defaultToolbar, "pointerdown", 50);
+    await pointer(defaultToolbar, "pointermove", 100);
+    await pointer(defaultToolbar, "pointercancel", 100);
+    assert.equal(defaultToolbar.style.scrollSnapType, "");
+    assert.equal(document.activeElement, editor);
     const toolbar = document.querySelector('[role="toolbar"]');
     assert.match(toolbar.textContent, /BIUS/);
     assert(toolbar.querySelector('[aria-label="표 삽입"]'));
@@ -110,6 +137,13 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     assert(outsidePress.defaultPrevented);
     assert.equal(document.querySelector('input[type="url"]'), null);
     assert.equal(document.getSelection().toString(), "안녕");
+    await click("링크");
+    const linkHandle = button("링크 입력 내리기");
+    await pointer(linkHandle, "pointerdown", 100, 10);
+    await pointer(linkHandle, "pointerup", 100, 100);
+    assert.equal(document.querySelector('input[type="url"]'), null);
+    assert.equal(document.getSelection().toString(), "안녕");
+    assert.equal(document.activeElement, editor);
     await click("링크");
     input = document.querySelector('input[type="url"]');
     await act(async () => {
@@ -142,6 +176,19 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     assert(document.querySelector('[aria-label="글자색 선택"]'));
     await act(async () => window.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
     assert.equal(document.querySelector('[aria-label="글자색 선택"]'), null);
+    assert.equal(document.getSelection().toString(), "안녕");
+    await click("색상 선택");
+    const colorDialog = document.querySelector('[aria-label="글자색 선택"]');
+    assert.equal(colorDialog.parentElement.parentElement, document.body);
+    const colorHandle = button("색상 선택 내리기");
+    await pointer(colorHandle, "pointerdown", 100, 10);
+    await pointer(colorHandle, "pointercancel", 100, 100);
+    await pointer(colorHandle, "pointerup", 100, 100);
+    assert(document.querySelector('[aria-label="글자색 선택"]'));
+    await pointer(colorHandle, "pointerdown", 100, 10);
+    await pointer(colorHandle, "pointerup", 100, 100);
+    assert.equal(document.querySelector('[aria-label="글자색 선택"]'), null);
+    assert(document.getElementById("memo-format-sheet"));
     assert.equal(document.getSelection().toString(), "안녕");
     await click("색상 선택");
     await click("빨간색 글자");

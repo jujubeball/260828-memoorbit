@@ -2,6 +2,7 @@
 
 import { useRef, useState, type PointerEvent } from "react";
 import { EditorIcon } from "@/src/components/EditorIcon";
+import { LayerSwipeHandle } from "@/src/components/LayerSwipeHandle";
 
 interface MarkupPadProps {
   onAttach: (url: string) => void;
@@ -38,8 +39,9 @@ export function MarkupPad({ onAttach, onClose }: MarkupPadProps): React.JSX.Elem
   };
 
   return (
-    <section aria-label="마크업" className="rounded-t-3xl bg-slate-900 p-3">
-      <div className="mb-2 flex items-center justify-between text-sm">
+    <section aria-label="마크업" className="rounded-t-3xl bg-slate-900 px-3 pt-3 pb-[env(safe-area-inset-bottom)]">
+      <LayerSwipeHandle onClose={onClose} label="마크업 내리기" />
+      <div className="flex items-center justify-between text-sm">
         <h3>마크업</h3>
         <button
           type="button"

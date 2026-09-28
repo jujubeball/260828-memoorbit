@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useCallback,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -163,6 +164,7 @@ export default function Home(): React.JSX.Element {
     timePreset: "all",
   });
   const [filterResetKey, setFilterResetKey] = useState(0);
+  const contentRef = useRef<HTMLElement>(null);
   const [isMemoToolbarStuck, setIsMemoToolbarStuck] = useState(false);
   // 💡 [PC 왼쪽 패널 너비 State]
   // panelWidth는 현재 LNB의 실제 너비를 기억하고, isPanelResizing은 사용자가 구분선을 잡고 있는 동안만 마우스 이동을 너비 변경으로 연결합니다.
@@ -210,9 +212,11 @@ export default function Home(): React.JSX.Element {
 
   // 화면이 1px 이상 움직였는지 기억해 PC 메모 도구 헤더의 테두리와 그림자를 전환합니다.
   useEffect(() => {
-    const trackScroll = (): void => setIsMemoToolbarStuck(window.scrollY > 0);
-    window.addEventListener("scroll", trackScroll, { passive: true });
-    return () => window.removeEventListener("scroll", trackScroll);
+    const content = contentRef.current;
+    if (!content) return;
+    const trackScroll = (): void => setIsMemoToolbarStuck(content.scrollTop > 0);
+    content.addEventListener("scroll", trackScroll, { passive: true });
+    return () => content.removeEventListener("scroll", trackScroll);
   }, []);
 
   // 💡 [PC 패널 드래그 너비 제한]
@@ -412,7 +416,7 @@ export default function Home(): React.JSX.Element {
   const selectNavigation = (section: NavigationSection): void => {
     setActiveSection(section);
     setIsContentHeaderVisible(true);
-    window.scrollTo({ top: 0, behavior: "auto" });
+    contentRef.current?.scrollTo({ top: 0, behavior: "auto" });
   };
   // MemoOrbit 로고는 어느 화면에서 눌러도 검색 조건과 열린 필터 UI를 비우고 전체 메모 목록의 맨 위로 돌아갑니다.
   const resetFiltersAndOpenMemos = (): void => {
@@ -420,7 +424,7 @@ export default function Home(): React.JSX.Element {
     setFilterResetKey((current) => current + 1);
     setActiveSection("memos");
     setIsContentHeaderVisible(true);
-    window.scrollTo({ top: 0, behavior: "auto" });
+    contentRef.current?.scrollTo({ top: 0, behavior: "auto" });
   };
   // 💡 [메모 저장과 자동 저장의 공통 입구]
   // 완료 버튼과 뒤로가기 자동 저장이 모두 이 함수를 사용하며, 기존 메모는 교체하고 새 메모는 목록 맨 앞에 추가합니다.
@@ -530,7 +534,7 @@ export default function Home(): React.JSX.Element {
   return (
     <div
       style={{ "--panel-width": `${panelWidth}px` } as CSSProperties}
-      className={`min-h-dvh bg-[#0f1117] text-[#f3f4f6] md:pl-[min(var(--panel-width),40vw)] ${activeSection === "orbit" ? "md:h-screen md:overflow-hidden" : ""}`}
+      className={`h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-950 text-[#f3f4f6] md:pl-[min(var(--panel-width),40vw)] ${activeSection === "orbit" ? "md:h-screen md:overflow-hidden" : ""}`}
     >
       {storageError && (
         <div role="alert" className="fixed inset-x-4 top-16 z-[150] rounded-xl border border-red-400 bg-[#121318] p-3 text-sm text-red-200">
@@ -613,7 +617,8 @@ export default function Home(): React.JSX.Element {
         hidden={isEditorOpen || Boolean(deleteTarget)}
       />
       <main
-        className={`mx-auto w-full max-w-full overflow-x-clip px-4 pt-[calc(var(--mobile-header-height)+3.5rem)] md:pt-0 ${activeSection === "orbit" ? "pb-0" : activeSection === "timeline" ? "pb-8 md:max-w-5xl" : "pb-24 md:pb-28"} ${activeSection === "memos" ? "md:max-w-5xl" : ""} ${activeSection === "orbit" ? "px-0 md:h-dvh md:overflow-hidden md:pb-0" : ""}`}
+        ref={contentRef}
+        className={`mx-auto min-h-0 flex-1 w-full max-w-full overflow-x-hidden overflow-y-auto px-4 pt-[calc(var(--mobile-header-height)+3.5rem)] md:pt-0 ${activeSection === "orbit" ? "pb-0" : activeSection === "timeline" ? "pb-2 md:max-w-5xl" : "pb-[calc(3.25rem+env(safe-area-inset-bottom))] md:pb-2"} ${activeSection === "memos" ? "md:max-w-5xl" : ""} ${activeSection === "orbit" ? "px-0 md:h-dvh md:overflow-hidden md:pb-0" : ""}`}
       >
         {activeSection === "memos" && (
           <>

@@ -75,7 +75,7 @@ export function ListSearchDock({ keyword, onOpenSearch, onCreate }: ListSearchDo
   return (
     <div
       aria-label="목록 검색 및 작성"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-900/90 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-900/90 px-3 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur-md md:hidden"
     >
       {notice && (
         <p role="status" className="mb-2 text-xs text-amber-300">{notice}</p>
