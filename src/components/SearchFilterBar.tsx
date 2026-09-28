@@ -250,26 +250,26 @@ export function SearchFilterBar({
               event.preventDefault();
               closeSearch();
             }}
-            className="fixed inset-0 z-50 flex h-[var(--search-height)] flex-col overflow-hidden bg-slate-950 px-4 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]"
+            className="fixed inset-0 z-50 flex h-[var(--search-height)] flex-col overflow-hidden bg-slate-950 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]"
             style={{ "--search-height": viewport.height === null ? "100dvh" : `${viewport.height}px` } as CSSProperties}
           >
-            <div className="z-40 flex h-14 w-full flex-shrink-0 shrink-0 items-center gap-2 border-b border-slate-800">
+            <div className="z-40 flex h-14 w-full flex-shrink-0 shrink-0 items-center gap-2 border-b border-slate-800 px-4">
               <label className="relative min-w-0 flex-1">
                 <span className="sr-only">메모 검색어</span>
-                <EditorIcon name="search" className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                <EditorIcon name="search" className="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                 <input
                   ref={searchInputRef}
                   type="search"
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
                   placeholder="제목, 내용, 태그 또는 의미 검색..."
-                  className="[&::-webkit-search-cancel-button]:appearance-none h-11 w-full rounded-xl bg-slate-800 pl-10 pr-11 text-base text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-amber-500"
+                  className="[&::-webkit-search-cancel-button]:appearance-none w-full h-10 px-9 bg-slate-900 border border-slate-800 rounded-xl text-white text-[15px] focus:outline-none focus:border-slate-700 placeholder:text-slate-500"
                 />
                 {keyword && (
                   <button
                     type="button"
                     aria-label="검색어 지우기"
-                    className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-slate-400"
+                    className="absolute right-0 top-0 flex h-10 w-9 items-center justify-center text-slate-400"
                     onPointerDown={(event) => event.preventDefault()}
                     onClick={() => { setKeyword(""); searchInputRef.current?.focus(); }}
                   >
@@ -288,7 +288,7 @@ export function SearchFilterBar({
               </button>
             </div>
             <LayerSwipeHandle onClose={closeSearch} label="검색 내리기" />
-            <div className="mx-auto grid max-h-[42%] w-full max-w-3xl shrink-0 content-start gap-4 overflow-y-auto py-2">
+            <div className="mx-auto grid max-h-[42%] w-full max-w-3xl shrink-0 content-start gap-4 overflow-y-auto px-4 py-2">
               <section aria-label="선택한 필터" className="flex items-start justify-between gap-3 border-b border-[#2a2e3d] pb-3">
                 <div className="min-w-0" aria-live="polite">
                   <h3 className="inline-block rounded-full bg-white/5 px-2 py-1 text-xs font-bold text-[#f3f4f6]">
@@ -432,12 +432,12 @@ export function SearchFilterBar({
               </fieldset>
             </div>
             <section aria-labelledby="search-results-title" className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col border-t border-slate-800 pt-2">
-              <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center justify-between px-4">
                 <h3 id="search-results-title" className="text-sm font-semibold text-white">검색 결과</h3>
                 <span className="text-xs text-slate-400">{liveResults.length}개</span>
               </div>
               {liveResults.length > 0 ? (
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-2xl bg-slate-900/60" aria-label="검색 결과 목록">
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2 overscroll-contain" aria-label="검색 결과 목록">
                   {liveResults.map((memo) => (
                     <button
                       key={memo.id}

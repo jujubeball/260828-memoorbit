@@ -89,7 +89,7 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     const sheet = document.getElementById("memo-format-sheet");
     assert.equal(document.querySelectorAll('[aria-label="서식 도구"]').length, 1);
     assert.equal(sheet.querySelectorAll('[role="group"]').length, 4);
-    assert.equal(sheet.querySelectorAll('button').length, 20);
+    assert.equal(sheet.querySelectorAll('button').length, 19);
     assert.equal(sheet.querySelector('[aria-label="문단 스타일"]').textContent.includes("모노스페이스"), true);
     assert.equal(sheet.closest("form"), null);
     assert.equal(sheet.parentElement.parentElement, document.body);
@@ -148,10 +148,10 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     const toolbar = shell.querySelector('[role="toolbar"]');
     assert(toolbar.classList.contains("overflow-x-auto"));
     assert.match(toolbar.textContent, /BIUS/);
-    assert.equal(toolbar.querySelectorAll("svg").length, 8);
-    assert.equal(toolbar.querySelectorAll("button").length, 12);
+    assert.equal(toolbar.querySelectorAll("svg").length, 7);
+    assert.equal(toolbar.querySelectorAll("button").length, 11);
     assert.equal(toolbar.querySelector('[aria-label="새 메모 작성"]'), null);
-    assert(toolbar.querySelector('[aria-label="마크업"]'));
+    assert.equal(toolbar.querySelector('[aria-label="마크업"]'), null);
     assert.equal(toolbar.querySelector('[aria-label="태그 관리"]'), null);
     assert(toolbar.querySelector('[aria-label="텍스트 서식"]'));
     assert.deepEqual([...shell.querySelector("header").children].map((item) => item.tagName), ["BUTTON", "BUTTON"]);

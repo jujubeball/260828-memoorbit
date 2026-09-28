@@ -1,4 +1,4 @@
-import { useEffect, type PointerEvent } from "react";
+import { useEffect, useState, type PointerEvent } from "react";
 import { EditorLayer } from "@/src/components/EditorLayer";
 import { LayerSwipeHandle } from "@/src/components/LayerSwipeHandle";
 import { InlineFormatTools } from "@/src/components/InlineFormatTools";
@@ -28,31 +28,36 @@ export function IOSFormatSheet({
   const buttonClass = (active: boolean): string =>
     `flex h-11 min-w-11 shrink-0 transition-transform duration-150 active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-2 focus-visible:outline-[#e5a93c] items-center justify-center rounded-lg px-1 text-xs font-semibold disabled:opacity-40 ${active ? "bg-amber-500 text-black" : "text-[#f3f4f6] hover:bg-white/10"}`;
 
+  // 손잡이를 아래로 당긴 거리만 시트에 반영하고, 취소하면 원래 자리로 돌려놓습니다.
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isClosing, setIsClosing] = useState(false);
+
+  // 💡 [시트 닫기 전환]
+  // 배경 터치나 아래 드래그 후 짧은 퇴장 동작을 보여 주고 부모가 선택 복원과 시트 제거를 마무리합니다.
   useEffect(() => {
-    const closeWithEscape = (event: KeyboardEvent): void => {
-      if (event.key !== "Escape") return;
-      if (document.querySelector('[aria-label="글자색 선택"], [aria-label="링크 주소 입력"]')) return;
-      event.preventDefault();
-      onClose();
-    };
-    window.addEventListener("keydown", closeWithEscape);
-    return () => window.removeEventListener("keydown", closeWithEscape);
-  }, [onClose]);
+    if (!isClosing) return;
+    const timer = window.setTimeout(onClose, 160);
+    return () => window.clearTimeout(timer);
+  }, [isClosing, onClose]);
 
   return (
-    <EditorLayer onClose={onClose} className="z-[130]">
+    <EditorLayer onClose={() => setIsClosing(true)} className="z-[130]">
       <section
         id="memo-format-sheet"
+        style={{ transform: `translateY(${dragOffset}px)` }}
         aria-label="서식 도구"
-        className="max-h-[85%] w-full shrink-0 overflow-y-auto touch-pan-y rounded-t-3xl border-t border-white/10 bg-slate-900 px-3 pt-3 pb-[env(safe-area-inset-bottom)] shadow-xl backdrop-blur-md animate-[format-sheet-in_180ms_ease-out] transition-transform motion-reduce:animate-none"
+        className={`max-h-[85%] w-full shrink-0 overflow-y-auto touch-pan-y rounded-t-3xl border-t border-white/10 bg-slate-900 px-3 pt-3 pb-[env(safe-area-inset-bottom)] shadow-xl backdrop-blur-md transition-transform motion-reduce:animate-none ${isClosing ? "pointer-events-none animate-[format-sheet-out_160ms_ease-in_forwards]" : "animate-[format-sheet-in_180ms_ease-out]"}`}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <LayerSwipeHandle onClose={onClose} label="포맷 시트 내리기" />
+        <LayerSwipeHandle
+          onClose={() => setIsClosing(true)}
+          onDrag={setDragOffset}
+          keyboardClose={false}
+          label="포맷 시트 내리기"
+          barClassName="w-10 h-1 bg-slate-700 rounded-full mx-auto my-2"
+        />
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">포맷</h3>
-          <button type="button" onPointerDown={onKeepSelection} onClick={onClose} aria-label="포맷 닫기" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-slate-300">
-            <EditorIcon name="close" className="h-5 w-5" />
-          </button>
         </div>
         <div
           className="flex items-center gap-x-4 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide px-2 py-1 overscroll-x-contain rounded-lg bg-white/5 touch-pan-x"

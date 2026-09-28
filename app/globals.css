@@ -5,6 +5,10 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes format-sheet-out {
+  to { opacity: 0; transform: translateY(100%); }
+}
+
 @keyframes filter-range-enter {
   from {
     opacity: 0;

@@ -86,10 +86,15 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
     assert(overlay.classList.contains("inset-0"));
       assert(overlay.classList.contains("z-50"));
       assert(overlay.classList.contains("bg-slate-950"));
-      assert(overlay.classList.contains("px-4"));
+
     assert.equal(overlay.getAttribute("aria-label"), "통합 검색 및 필터");
     assert.equal(document.activeElement, overlay.querySelector('input[placeholder^="제목"]'));
     const searchHeader = overlay.querySelector("label").parentElement;
+    const cleanInput = searchHeader.querySelector("input");
+    for (const name of ["w-full", "h-10", "px-9", "bg-slate-900", "border", "border-slate-800", "rounded-xl", "text-white", "text-[15px]", "focus:outline-none", "focus:border-slate-700"]) assert(cleanInput.classList.contains(name));
+    assert(!/ring-|border-amber|border-orange/.test(cleanInput.className));
+    const resultFeed = document.querySelector('[aria-label="검색 결과 목록"]');
+    for (const name of ["flex-1", "overflow-y-auto", "px-4", "py-2"]) assert(resultFeed.classList.contains(name));
     assert.deepEqual([...searchHeader.children].map((item) => item.tagName), ["LABEL", "BUTTON"]);
     assert.equal(searchHeader.querySelector('[aria-label="검색 닫기"]').textContent.trim(), "취소");
     const summary = document.querySelector('[aria-label="선택한 필터"]');

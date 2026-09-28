@@ -29,7 +29,7 @@ function loadModal() {
   return load("src/components/MemoModal.tsx").MemoModal;
 }
 
-test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문과 선택 상태를 사용한다", async () => {
+test("연속 가로 툴바·네 기본 도구·링크·핸들 전용 포맷 시트가 선택 상태를 유지한다", async () => {
   const dom = new JSDOM('<div id="root"></div>', { pretendToBeVisual: true, url: "http://localhost" });
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
@@ -41,10 +41,6 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
   dom.window.scrollTo = () => {};
   Object.defineProperty(dom.window.HTMLElement.prototype, "innerText", { configurable: true, get() { return this.textContent; } });
   dom.window.HTMLElement.prototype.setPointerCapture = () => {};
-  const strokes = [];
-  dom.window.HTMLCanvasElement.prototype.getContext = () => ({ beginPath() {}, moveTo() {}, lineTo(x, y) { strokes.push([x, y]); }, stroke() {}, clearRect() {} });
-  dom.window.HTMLCanvasElement.prototype.setPointerCapture = () => {};
-  dom.window.HTMLCanvasElement.prototype.toDataURL = () => "data:image/png;base64,drawn";
   const { createRoot } = await import("react-dom/client");
   const MemoModal = loadModal();
   const root = createRoot(document.getElementById("root"));
@@ -78,19 +74,18 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     assert.equal(button("새 메모"), undefined);
     assert.equal(button("새 메모 작성"), undefined);
     const defaultToolbar = document.querySelector('[role="toolbar"]');
-    assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "마크업", "굵게", "기울임", "밑줄", "취소선", "형광펜", "색상 선택", "링크"]);
+    assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "굵게", "기울임", "밑줄", "취소선", "형광펜", "색상 선택", "링크"]);
     assert(defaultToolbar.classList.contains("overflow-x-auto"));
-    for (const className of ["whitespace-nowrap", "scrollbar-none", "flex", "touch-none", "snap-x", "snap-mandatory"]) {
+    for (const className of ["whitespace-nowrap", "scrollbar-none", "flex", "touch-pan-x", "gap-6", "px-4", "py-2.5"]) {
       assert(defaultToolbar.classList.contains(className));
     }
-    assert.equal(defaultToolbar.querySelectorAll('[data-toolbar-page]').length, 2);
-    assert(defaultToolbar.parentElement.classList.contains("pb-[env(safe-area-inset-bottom)]"));
+    assert.equal(defaultToolbar.querySelectorAll('[data-toolbar-page]').length, 0);
+    assert(!defaultToolbar.className.includes("snap-"));
+    assert.equal(defaultToolbar.querySelectorAll('[data-toolbar-group="main"] button').length, 4);
+    assert.equal(button("마크업"), undefined);
+    assert(defaultToolbar.classList.contains("pb-[env(safe-area-inset-bottom)]"));
     assert(defaultToolbar.parentElement.classList.contains("bottom-0"));
     assert(!document.querySelector(".pb-60"));
-    for (const page of defaultToolbar.querySelectorAll('[data-toolbar-page]')) {
-      for (const name of ["flex", "items-center", "gap-6", "overflow-x-auto", "whitespace-nowrap", "scrollbar-none", "px-4", "py-2.5"]) assert(page.classList.contains(name));
-      assert(!page.classList.contains("flex-wrap"));
-    }
     for (const label of ["굵게", "색상 선택"]) {
       assert.equal(button(label).getAttribute("aria-pressed"), "false");
       assert(!button(label).classList.contains("bg-amber-500"));
@@ -98,52 +93,31 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     assert(!document.body.textContent.includes("https:// 또는 http://로 시작하는"));
     assert([...defaultToolbar.querySelectorAll("button")].every((item) => item.classList.contains("shrink-0")));
     await select();
-    // 실제 포인터 이동은 두 페이지를 넘기되 선택된 글자와 본문을 바꾸지 않고 뒤따르는 클릭도 차단합니다.
-    Object.defineProperty(defaultToolbar, "clientWidth", { value: 375 });
-    const scrolls = [];
-    defaultToolbar.scrollTo = ({ left }) => { scrolls.push(left); defaultToolbar.scrollLeft = left; };
+    // 손가락 이벤트를 취소하지 않으며 브라우저가 정한 임의 스크롤 위치를 페이지 경계로 바꾸지 않습니다.
     const pointer = async (target, type, x, y = 10) => act(async () => {
       const event = new dom.window.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y });
+      Object.defineProperty(event, "pointerType", { value: "touch" });
       target.dispatchEvent(event);
       return event;
     });
-    const beforeSwipe = editor.innerHTML;
-    await pointer(defaultToolbar, "pointerdown", 300);
-    await pointer(defaultToolbar, "pointermove", 100);
-    await pointer(defaultToolbar, "pointerup", 100);
-    await act(async () => button("굵게").click());
-    assert.equal(editor.innerHTML, beforeSwipe);
+    const beforeScroll = editor.innerHTML;
+    const down = new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true });
+    Object.defineProperty(down, "pointerType", { value: "touch" });
+    await act(async () => defaultToolbar.dispatchEvent(down));
+    assert.equal(down.defaultPrevented, false);
+    await act(async () => {
+      defaultToolbar.scrollLeft = 137;
+      defaultToolbar.dispatchEvent(new dom.window.Event("scroll"));
+    });
+    await pointer(defaultToolbar, "pointerup", 137);
+    assert.equal(defaultToolbar.scrollLeft, 137);
+    await act(async () => button("굵게").dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 })));
+    assert.equal(editor.innerHTML, beforeScroll);
     assert.equal(document.getSelection().toString(), "안녕");
-    await pointer(defaultToolbar, "pointerdown", 50);
-    await pointer(defaultToolbar, "pointermove", 250);
-    await pointer(defaultToolbar, "pointerup", 250);
-    assert.deepEqual(scrolls, [375, 0]);
-    await pointer(defaultToolbar, "pointerdown", 50);
-    await pointer(defaultToolbar, "pointermove", 100);
+    await pointer(defaultToolbar, "pointerdown", 100);
     await pointer(defaultToolbar, "pointercancel", 100);
-    assert.equal(defaultToolbar.style.scrollSnapType, "");
+    assert.equal(defaultToolbar.scrollLeft, 137);
     assert.equal(document.activeElement, editor);
-    // 좁은 화면의 두 번째 페이지는 링크까지 내부 스크롤한 뒤에만 페이지 넘김에 남은 이동을 전달합니다.
-    const inlinePage = defaultToolbar.querySelector('[data-toolbar-page="inline"]');
-    Object.defineProperty(inlinePage, "clientWidth", { value: 375 });
-    Object.defineProperty(inlinePage, "scrollWidth", { value: 484 });
-    defaultToolbar.scrollLeft = 375;
-    await pointer(inlinePage, "pointerdown", 250);
-    await pointer(defaultToolbar, "pointermove", 150);
-    await pointer(defaultToolbar, "pointerup", 150);
-    assert.equal(inlinePage.scrollLeft, 100);
-    assert.equal(defaultToolbar.scrollLeft, 375);
-    await pointer(inlinePage, "pointerdown", 100);
-    await pointer(defaultToolbar, "pointermove", 130);
-    await pointer(defaultToolbar, "pointerup", 130);
-    assert.equal(inlinePage.scrollLeft, 70);
-    assert.equal(defaultToolbar.scrollLeft, 375);
-    await pointer(inlinePage, "pointerdown", 100);
-    await pointer(defaultToolbar, "pointermove", 300);
-    await pointer(defaultToolbar, "pointerup", 300);
-    assert.equal(inlinePage.scrollLeft, 0);
-    assert.equal(defaultToolbar.scrollLeft, 0);
-    assert.equal(document.getSelection().toString(), "안녕");
     const toolbar = document.querySelector('[role="toolbar"]');
     assert.match(toolbar.textContent, /BIUS/);
     assert(toolbar.querySelector('[aria-label="표 삽입"]'));
@@ -198,6 +172,8 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     await click("텍스트 서식");
     const formatSheet = document.getElementById("memo-format-sheet");
     assert.match(formatSheet.textContent, /포맷/);
+    assert.equal(button("포맷 닫기"), undefined);
+    assert(!formatSheet.querySelector('[aria-label="포맷 닫기"]'));
     const syncedBoldButtons = [...document.querySelectorAll('[aria-label="굵게"]')];
     assert.equal(syncedBoldButtons.length, 2);
     assert(syncedBoldButtons.every((item) => item.getAttribute("aria-pressed") === "true"));
@@ -262,29 +238,32 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     await act(async () => handle.dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true, clientY: 10 })));
     await act(async () => handle.dispatchEvent(new dom.window.MouseEvent("pointermove", { bubbles: true, cancelable: true, clientY: 100 })));
     await act(async () => handle.dispatchEvent(new dom.window.MouseEvent("pointerup", { bubbles: true, cancelable: true, clientY: 100 })));
+    assert(document.getElementById("memo-format-sheet").className.includes("format-sheet-out"));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 180)); });
     assert.equal(document.getElementById("memo-format-sheet"), null);
     assert.equal(document.getSelection().toString(), "안녕");
     await click("텍스트 서식");
-    await click("포맷 닫기");
+    const reopenedSheet = document.getElementById("memo-format-sheet");
+    const reopenedHandle = button("포맷 시트 내리기");
+    await act(async () => window.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    assert(document.getElementById("memo-format-sheet"));
+    await act(async () => reopenedHandle.click());
+    assert(document.getElementById("memo-format-sheet"));
+    await pointer(reopenedHandle, "pointerdown", 100, 10);
+    await pointer(reopenedHandle, "pointermove", 100, 50);
+    assert.equal(reopenedSheet.style.transform, "translateY(40px)");
+    await pointer(reopenedHandle, "pointercancel", 100, 50);
+    assert.equal(reopenedSheet.style.transform, "translateY(0px)");
+    assert(document.getElementById("memo-format-sheet"));
+    await act(async () => reopenedSheet.closest('[role="presentation"]').dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true })));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 180)); });
     assert.equal(document.getElementById("memo-format-sheet"), null);
     assert.equal(document.getSelection().toString(), "안녕");
-    await select(true);
-    await click("마크업");
-    let canvas = document.querySelector("canvas");
-    const markupBackdrop = canvas.closest('[role="presentation"]');
-    await act(async () => markupBackdrop.dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true })));
-    assert.equal(document.querySelector("canvas"), null);
     assert.equal(document.activeElement, editor);
-    await click("마크업");
-    canvas = document.querySelector("canvas");
-    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 200 });
-    await act(async () => canvas.dispatchEvent(new dom.window.MouseEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 20 })));
-    assert(strokes.length > 0);
-    await click("그림 첨부");
     assert.equal(document.querySelector("canvas"), null);
     await click("편집 완료");
     assert.equal(submissions.length, 1);
-    assert.equal(submissions[0].images[0].name, "마크업 그림");
+    assert.equal(submissions[0].images.length, 0);
     assert.equal(submissions[0].richContent, editor.innerHTML);
     assert.notEqual(document.activeElement, editor);
   } finally {

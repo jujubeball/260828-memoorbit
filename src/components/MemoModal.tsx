@@ -16,9 +16,8 @@ import { enterEditorChecklist, insertEditorChecklist } from "@/src/lib/editorChe
 import { EditorIcon } from "@/src/components/EditorIcon";
 import { EditorLayer, type EditorLayerAnchor } from "@/src/components/EditorLayer";
 import { LayerSwipeHandle } from "@/src/components/LayerSwipeHandle";
-import { EditorToolbarPager } from "@/src/components/EditorToolbarPager";
+import { EditorToolbar } from "@/src/components/EditorToolbar";
 import { InlineFormatTools } from "@/src/components/InlineFormatTools";
-import { MarkupPad } from "@/src/components/MarkupPad";
 import { useEditorHistory } from "@/src/hooks/useEditorHistory";
 import { IOSFormatSheet } from "@/src/components/iOSFormatSheet";
 import { useVisualViewport } from "@/src/hooks/useVisualViewport";
@@ -182,7 +181,6 @@ export function MemoModal({
   const isFormatOpen = formatSheet.mode === "format";
   // 선택 위치의 굵게·크기 등을 담아 툴바와 IOSFormatSheet의 황금색 선택 표시와 aria-pressed로 함께 전달합니다.
   const [isLinkOpen, setIsLinkOpen] = useState(false);
-  const [isMarkupOpen, setIsMarkupOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   // 링크 안내와 오류는 링크 팝오버에만 표시하며, 닫거나 다시 열 때 초기화합니다.
   const [linkError, setLinkError] = useState("");
@@ -344,19 +342,6 @@ export function MemoModal({
     window.addEventListener("keydown", closeWithEscape);
     return () => window.removeEventListener("keydown", closeWithEscape);
   }, [isTagsOpen]);
-
-  useEffect(() => {
-    if (!isMarkupOpen) return;
-    const closeWithEscape = (event: KeyboardEvent): void => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      setIsMarkupOpen(false);
-      const editor = editorRef.current;
-      if (editor) savedRange.current = restoreEditorRange(editor, savedRange.current, true);
-    };
-    window.addEventListener("keydown", closeWithEscape);
-    return () => window.removeEventListener("keydown", closeWithEscape);
-  }, [isMarkupOpen]);
 
   if (!isOpen) return null;
 
@@ -644,10 +629,6 @@ export function MemoModal({
     setLinkError("");
     restoreSelection();
   };
-  const closeMarkup = (): void => {
-    setIsMarkupOpen(false);
-    restoreSelection();
-  };
   const applyLink = (): void => {
     const value = linkUrl.trim();
     try {
@@ -803,7 +784,6 @@ export function MemoModal({
     }
     rememberSelection();
     setIsTagsOpen(false);
-    setIsMarkupOpen(false);
     formatSheet.open();
     restoreSelection();
   };
@@ -819,7 +799,7 @@ export function MemoModal({
     setIsTagsOpen(false);
     restoreSelection();
   };
-  // 다섯 아이콘은 44px 터치 영역을 유지하고 남은 너비를 균등한 간격으로 나눕니다.
+  // 네 기본 도구는 가로 스크롤 중에도 44px 터치 영역을 유지합니다.
   const bottomButton =
     "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#e5a93c] transition-transform duration-150 active:scale-90 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-[#e5a93c] disabled:opacity-40 motion-reduce:transition-none motion-reduce:active:scale-100";
   return (
@@ -957,9 +937,9 @@ export function MemoModal({
           </div>
 
           {/* 💡 [키보드 도킹 툴바]
-              다섯 기본 도구와 일곱 서식 도구를 가시 화면 하단에 두어 키보드 위에 함께 표시합니다. */}
+              네 기본 도구와 일곱 서식 도구를 가시 화면 하단에 두어 키보드 위에 함께 표시합니다. */}
           <div
-            className="fixed bottom-0 left-0 right-0 z-40 w-full bg-slate-900/95 backdrop-blur-md border-t border-slate-800 pb-[env(safe-area-inset-bottom)]"
+            className="fixed bottom-0 left-0 right-0 z-40 w-full backdrop-blur-md"
             ref={dockRef}
           >
             {isLinkOpen && (
@@ -1023,20 +1003,7 @@ export function MemoModal({
                 </section>
               </EditorLayer>
             )}
-            {isMarkupOpen && (
-              <EditorLayer onClose={closeMarkup}>
-                <div className="w-full" onPointerDown={(event) => event.stopPropagation()}>
-                  <MarkupPad
-                    onClose={closeMarkup}
-                    onAttach={(url) => {
-                      setImages((current) => [...current, { url, name: "마크업 그림" }]);
-                      closeMarkup();
-                    }}
-                  />
-                </div>
-              </EditorLayer>
-            )}
-            {isFormatOpen && !isLinkOpen && !isMarkupOpen && (
+            {isFormatOpen && !isLinkOpen && (
               <IOSFormatSheet
                 activeFormat={activeFormat}
                 disabled={isSaving}
@@ -1107,10 +1074,10 @@ export function MemoModal({
                 </section>
               </EditorLayer>
             )}
-            <EditorToolbarPager onPreserveSelection={rememberSelection}>
+            <EditorToolbar onPreserveSelection={rememberSelection}>
               <div
-                className="flex items-center gap-6 overflow-x-auto whitespace-nowrap scrollbar-none px-4 py-2.5 w-full shrink-0 snap-start"
-                data-toolbar-page="main"
+                className="flex shrink-0 items-center gap-6"
+                data-toolbar-group="main"
               >
                 <button
                   type="button"
@@ -1158,24 +1125,8 @@ export function MemoModal({
                 >
                   <EditorIcon name="clip" />
                 </button>
-                <button
-                  type="button"
-                  onPointerDown={keepSelection}
-                  onClick={() => {
-                    rememberSelection();
-                    closeFormatLayer();
-                    setIsTagsOpen(false);
-                    setIsMarkupOpen(true);
-                  }}
-                  disabled={isSaving}
-                  className={bottomButton}
-                  aria-label="마크업"
-                  title="마크업"
-                >
-                  <EditorIcon name="pen" />
-                </button>
               </div>
-              <div className="flex items-center gap-6 overflow-x-auto whitespace-nowrap scrollbar-none px-4 py-2.5 w-full shrink-0 snap-start" data-toolbar-page="inline">
+              <div className="flex shrink-0 items-center gap-6" data-toolbar-group="inline">
                 <InlineFormatTools
                   activeFormat={activeFormat}
                   disabled={isSaving}
@@ -1196,7 +1147,7 @@ export function MemoModal({
                 }}
                 className="hidden"
               />
-            </EditorToolbarPager>
+            </EditorToolbar>
           </div>
           {/* 고정 도구의 실제 높이만 확보하여 마지막 문단이 도구에 가리지 않게 합니다. */}
           <div aria-hidden="true" className="h-[var(--editor-dock-height,calc(4rem+env(safe-area-inset-bottom)))] shrink-0" />
