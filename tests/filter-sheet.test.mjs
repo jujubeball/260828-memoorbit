@@ -184,6 +184,9 @@ test("목록 도킹 검색은 입력·음성 결과를 반영하고 편집기 �
     const dock = document.querySelector('[aria-label="목록 검색 및 작성"]');
     assert(dock);
     assert(dock.classList.contains("bottom-0"));
+    assert(dock.classList.contains("pb-[env(safe-area-inset-bottom)]"));
+    const controls = dock.querySelector("input").closest("label").parentElement.parentElement;
+    for (const name of ["px-4", "py-2.5", "flex", "items-center", "justify-between", "gap-3"]) assert(controls.classList.contains(name));
     await act(async () => dock.querySelector("input").focus());
     const overlay = document.getElementById("advanced-search-filters");
     assert(overlay);

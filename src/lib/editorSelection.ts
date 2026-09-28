@@ -76,7 +76,12 @@ const formatAtNode = (editor: HTMLElement, node: Node): EditorFormatState => {
         : element.parentElement?.classList.contains("dashed-list") ? "insertDashedList" : "insertUnorderedList";
     }
     if (element.classList.contains("editor-inset")) result.inset = true;
-    const color = element.dataset.formatColor ?? Object.entries(COLOR_STYLES).find(([, name]) => element!.classList.contains(name))?.[0];
+    // 제목·본문 블록의 기본 흰색은 사용자가 적용한 글자색이 아닙니다. 명시적 색상 데이터나 인라인 색상만 읽습니다.
+    const isBlockStyle = element.dataset.formatBlock !== undefined
+      || Object.values(BLOCK_STYLES).some((classes) => classes.split(" ").every((name) => element!.classList.contains(name)));
+    const color = element.dataset.formatColor ?? (element.tagName === "SPAN" && !isBlockStyle
+      ? Object.entries(COLOR_STYLES).find(([, name]) => element!.classList.contains(name))?.[0]
+      : undefined);
     if (!found.has("color") && color !== undefined) {
       result.color = color || null;
       found.add("color");

@@ -9,7 +9,7 @@ interface IOSFormatSheetProps {
   activeFormat: EditorFormatState;
   disabled: boolean;
   onClose: () => void;
-  onLink: () => void;
+  onLink: (anchor: HTMLButtonElement) => void;
   onRestoreSelection: () => void;
   onKeepSelection: (event: PointerEvent<HTMLButtonElement>) => void;
   onFormat: (command: string, value?: string) => void;

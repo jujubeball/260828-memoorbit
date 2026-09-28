@@ -618,7 +618,7 @@ export default function Home(): React.JSX.Element {
       />
       <main
         ref={contentRef}
-        className={`mx-auto min-h-0 flex-1 w-full max-w-full overflow-x-hidden overflow-y-auto px-4 pt-[calc(var(--mobile-header-height)+3.5rem)] md:pt-0 ${activeSection === "orbit" ? "pb-0" : activeSection === "timeline" ? "pb-2 md:max-w-5xl" : "pb-[calc(3.25rem+env(safe-area-inset-bottom))] md:pb-2"} ${activeSection === "memos" ? "md:max-w-5xl" : ""} ${activeSection === "orbit" ? "px-0 md:h-dvh md:overflow-hidden md:pb-0" : ""}`}
+        className={`mx-auto min-h-0 flex-1 w-full max-w-full overflow-x-hidden overflow-y-auto px-4 pt-[calc(var(--mobile-header-height)+3.5rem)] md:pt-0 ${activeSection === "orbit" ? "pb-0" : activeSection === "timeline" ? "pb-2 md:max-w-5xl" : "pb-[calc(4rem+1px+env(safe-area-inset-bottom))] md:pb-2"} ${activeSection === "memos" ? "md:max-w-5xl" : ""} ${activeSection === "orbit" ? "px-0 md:h-dvh md:overflow-hidden md:pb-0" : ""}`}
       >
         {activeSection === "memos" && (
           <>

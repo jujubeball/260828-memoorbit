@@ -14,7 +14,7 @@ import {
 } from "react";
 import { enterEditorChecklist, insertEditorChecklist } from "@/src/lib/editorChecklist";
 import { EditorIcon } from "@/src/components/EditorIcon";
-import { EditorLayer } from "@/src/components/EditorLayer";
+import { EditorLayer, type EditorLayerAnchor } from "@/src/components/EditorLayer";
 import { LayerSwipeHandle } from "@/src/components/LayerSwipeHandle";
 import { EditorToolbarPager } from "@/src/components/EditorToolbarPager";
 import { InlineFormatTools } from "@/src/components/InlineFormatTools";
@@ -184,7 +184,9 @@ export function MemoModal({
   const [isLinkOpen, setIsLinkOpen] = useState(false);
   const [isMarkupOpen, setIsMarkupOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
-  const [actionNotice, setActionNotice] = useState("");
+  // 링크 안내와 오류는 링크 팝오버에만 표시하며, 닫거나 다시 열 때 초기화합니다.
+  const [linkError, setLinkError] = useState("");
+  const [linkAnchor, setLinkAnchor] = useState<EditorLayerAnchor>({ top: 0, right: 0 });
   const { record: recordHistory, travel: travelHistory } = useEditorHistory(editorRef, initialHtml);
   const [activeFormat, setActiveFormat] = useState(EMPTY_EDITOR_FORMAT);
   // 선택 위치의 서식이 달라진 경우에만 버튼 상태를 갱신해 드래그 중 불필요한 렌더링을 줄입니다.
@@ -629,14 +631,17 @@ export function MemoModal({
     setPlainText(editorRef.current?.innerText ?? "");
   };
   // 링크 입력창에 포커스를 옮기기 전에 본문 책갈피를 보관합니다. 적용 후 본문 선택으로 돌아갑니다.
-  const openLink = (): void => {
+  const openLink = (anchor: HTMLButtonElement): void => {
+    const bounds = anchor.getBoundingClientRect();
+    setLinkAnchor({ top: bounds.top, right: bounds.right });
     rememberSelection();
     setLinkUrl(activeFormat.link ?? "");
     setIsLinkOpen(true);
-    setActionNotice("");
+    setLinkError("");
   };
   const closeLink = (): void => {
     setIsLinkOpen(false);
+    setLinkError("");
     restoreSelection();
   };
   const closeMarkup = (): void => {
@@ -648,7 +653,7 @@ export function MemoModal({
     try {
       if (!["http:", "https:"].includes(new URL(value).protocol)) throw new Error("주소 오류");
     } catch {
-      setActionNotice("https:// 또는 http://로 시작하는 웹 주소를 입력해 주세요.");
+      setLinkError("올바른 웹 주소를 입력해 주세요.");
       return;
     }
     applyFormat("createLink", value);
@@ -957,11 +962,8 @@ export function MemoModal({
             className="fixed bottom-0 left-0 right-0 z-40 w-full bg-slate-900/95 backdrop-blur-md border-t border-slate-800 pb-[env(safe-area-inset-bottom)]"
             ref={dockRef}
           >
-            {actionNotice && (
-              <p role="status" className="px-4 py-2 text-xs text-amber-300">{actionNotice}</p>
-            )}
             {isLinkOpen && (
-              <EditorLayer onClose={closeLink}>
+              <EditorLayer onClose={closeLink} anchor={linkAnchor}>
                 <section
                   aria-label="링크 주소 입력"
                   role="dialog"
@@ -982,7 +984,13 @@ export function MemoModal({
                       autoFocus
                       type="url"
                       value={linkUrl}
-                      onChange={(event) => setLinkUrl(event.target.value)}
+                      onChange={(event) => {
+                        setLinkUrl(event.target.value);
+                        setLinkError("");
+                      }}
+                      aria-describedby="memo-link-help"
+                      aria-invalid={Boolean(linkError)}
+                      aria-errormessage={linkError ? "memo-link-error" : undefined}
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
                           event.preventDefault();
@@ -997,6 +1005,14 @@ export function MemoModal({
                       className="mt-2 h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-base"
                     />
                   </label>
+                  <p id="memo-link-help" className="mt-2 whitespace-normal text-xs text-slate-400">
+                    https:// 또는 http://로 시작하는 웹 주소를 입력해 주세요.
+                  </p>
+                  {linkError && (
+                    <p id="memo-link-error" role="alert" className="mt-2 whitespace-normal text-xs text-amber-400">
+                      {linkError}
+                    </p>
+                  )}
                   <div className="mt-2 flex justify-end gap-3">
                     <button type="button" onPointerDown={keepSelection} onClick={closeLink} className="min-h-11">취소</button>
                     {activeFormat.link && (
@@ -1093,7 +1109,7 @@ export function MemoModal({
             )}
             <EditorToolbarPager onPreserveSelection={rememberSelection}>
               <div
-                className="flex w-full shrink-0 snap-start items-center justify-around px-4 py-2.5"
+                className="flex items-center gap-6 overflow-x-auto whitespace-nowrap scrollbar-none px-4 py-2.5 w-full shrink-0 snap-start"
                 data-toolbar-page="main"
               >
                 <button
@@ -1159,7 +1175,7 @@ export function MemoModal({
                   <EditorIcon name="pen" />
                 </button>
               </div>
-              <div className="flex w-full shrink-0 snap-start items-center justify-between px-1 py-2.5" data-toolbar-page="inline">
+              <div className="flex items-center gap-6 overflow-x-auto whitespace-nowrap scrollbar-none px-4 py-2.5 w-full shrink-0 snap-start" data-toolbar-page="inline">
                 <InlineFormatTools
                   activeFormat={activeFormat}
                   disabled={isSaving}

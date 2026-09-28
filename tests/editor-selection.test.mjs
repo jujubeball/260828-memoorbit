@@ -288,6 +288,21 @@ test("제목은 행 스타일을 유지하고 색상은 다시 누르면 선택 
   dom.window.close();
 });
 
+test("기본 블록의 흰색과 명시적 글자색을 구분하고 혼합 선택에서는 활성 색상을 비운다", () => {
+  const { editor, range, dom } = setup('<h1 class="text-2xl font-bold text-white">제목</h1><p class="text-[15px] font-normal text-white">본문<span data-format-color="#ffffff" class="text-white">흰색 지정</span></p><span data-format-block="h1" class="text-2xl font-bold text-white">이전 제목</span>');
+  range.selectNodeContents(editor.querySelector("h1"));
+  assert.equal(readEditorFormat(editor, range).bold, true);
+  assert.equal(readEditorFormat(editor, range).color, null);
+  range.selectNodeContents(editor.querySelector("[data-format-block]"));
+  assert.equal(readEditorFormat(editor, range).color, null);
+  range.selectNodeContents(editor.querySelector("[data-format-color]"));
+  assert.equal(readEditorFormat(editor, range).color, "#ffffff");
+  range.selectNodeContents(editor.querySelector("p"));
+  assert.equal(readEditorFormat(editor, range).bold, false);
+  assert.equal(readEditorFormat(editor, range).color, null);
+  dom.window.close();
+});
+
 test("대시 목록은 점 목록으로 전환·해제되고 선택 텍스트가 유지된다", () => {
   const { editor, range, dom } = setup("<p>안녕 테스트</p>");
   range.setStart(editor.firstChild.firstChild, 0);

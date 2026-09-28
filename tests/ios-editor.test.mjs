@@ -80,13 +80,22 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     const defaultToolbar = document.querySelector('[role="toolbar"]');
     assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "마크업", "굵게", "기울임", "밑줄", "취소선", "형광펜", "색상 선택", "링크"]);
     assert(defaultToolbar.classList.contains("overflow-x-auto"));
-    for (const className of ["whitespace-nowrap", "scrollbar-hide", "flex", "touch-none", "snap-x", "snap-mandatory"]) {
+    for (const className of ["whitespace-nowrap", "scrollbar-none", "flex", "touch-none", "snap-x", "snap-mandatory"]) {
       assert(defaultToolbar.classList.contains(className));
     }
     assert.equal(defaultToolbar.querySelectorAll('[data-toolbar-page]').length, 2);
     assert(defaultToolbar.parentElement.classList.contains("pb-[env(safe-area-inset-bottom)]"));
     assert(defaultToolbar.parentElement.classList.contains("bottom-0"));
     assert(!document.querySelector(".pb-60"));
+    for (const page of defaultToolbar.querySelectorAll('[data-toolbar-page]')) {
+      for (const name of ["flex", "items-center", "gap-6", "overflow-x-auto", "whitespace-nowrap", "scrollbar-none", "px-4", "py-2.5"]) assert(page.classList.contains(name));
+      assert(!page.classList.contains("flex-wrap"));
+    }
+    for (const label of ["굵게", "색상 선택"]) {
+      assert.equal(button(label).getAttribute("aria-pressed"), "false");
+      assert(!button(label).classList.contains("bg-amber-500"));
+    }
+    assert(!document.body.textContent.includes("https:// 또는 http://로 시작하는"));
     assert([...defaultToolbar.querySelectorAll("button")].every((item) => item.classList.contains("shrink-0")));
     await select();
     // 실제 포인터 이동은 두 페이지를 넘기되 선택된 글자와 본문을 바꾸지 않고 뒤따르는 클릭도 차단합니다.
@@ -114,6 +123,27 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     await pointer(defaultToolbar, "pointercancel", 100);
     assert.equal(defaultToolbar.style.scrollSnapType, "");
     assert.equal(document.activeElement, editor);
+    // 좁은 화면의 두 번째 페이지는 링크까지 내부 스크롤한 뒤에만 페이지 넘김에 남은 이동을 전달합니다.
+    const inlinePage = defaultToolbar.querySelector('[data-toolbar-page="inline"]');
+    Object.defineProperty(inlinePage, "clientWidth", { value: 375 });
+    Object.defineProperty(inlinePage, "scrollWidth", { value: 484 });
+    defaultToolbar.scrollLeft = 375;
+    await pointer(inlinePage, "pointerdown", 250);
+    await pointer(defaultToolbar, "pointermove", 150);
+    await pointer(defaultToolbar, "pointerup", 150);
+    assert.equal(inlinePage.scrollLeft, 100);
+    assert.equal(defaultToolbar.scrollLeft, 375);
+    await pointer(inlinePage, "pointerdown", 100);
+    await pointer(defaultToolbar, "pointermove", 130);
+    await pointer(defaultToolbar, "pointerup", 130);
+    assert.equal(inlinePage.scrollLeft, 70);
+    assert.equal(defaultToolbar.scrollLeft, 375);
+    await pointer(inlinePage, "pointerdown", 100);
+    await pointer(defaultToolbar, "pointermove", 300);
+    await pointer(defaultToolbar, "pointerup", 300);
+    assert.equal(inlinePage.scrollLeft, 0);
+    assert.equal(defaultToolbar.scrollLeft, 0);
+    assert.equal(document.getSelection().toString(), "안녕");
     const toolbar = document.querySelector('[role="toolbar"]');
     assert.match(toolbar.textContent, /BIUS/);
     assert(toolbar.querySelector('[aria-label="표 삽입"]'));
@@ -131,10 +161,19 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     assert.equal(button("형광펜").getAttribute("aria-pressed"), "false");
     await click("링크");
     let input = document.querySelector('input[type="url"]');
+    const linkDialog = input.closest('[aria-label="링크 주소 입력"]');
+    assert(linkDialog.textContent.includes("https:// 또는 http://로 시작하는"));
+    assert(linkDialog.closest('[data-layer-anchor="true"]'));
+    assert(!defaultToolbar.parentElement.textContent.includes("https:// 또는 http://로 시작하는"));
+    await click("적용");
+    assert.equal(input.getAttribute("aria-invalid"), "true");
+    assert(linkDialog.querySelector('[role="alert"]'));
     const linkBackdrop = input.closest('[role="presentation"]');
     const outsidePress = new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true });
     await act(async () => linkBackdrop.dispatchEvent(outsidePress));
     assert(outsidePress.defaultPrevented);
+    assert(!document.body.textContent.includes("https:// 또는 http://로 시작하는"));
+    assert(!document.body.textContent.includes("올바른 웹 주소를 입력해 주세요."));
     assert.equal(document.querySelector('input[type="url"]'), null);
     assert.equal(document.getSelection().toString(), "안녕");
     await click("링크");
@@ -172,6 +211,7 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     }
     await click("제목");
     assert.equal(button("제목").getAttribute("aria-pressed"), "true");
+    assert([...document.querySelectorAll('[aria-label="색상 선택"]')].every((item) => item.getAttribute("aria-pressed") === "false" && !item.classList.contains("bg-amber-500")));
     await click("색상 선택");
     assert(document.querySelector('[aria-label="글자색 선택"]'));
     await act(async () => window.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
@@ -193,6 +233,27 @@ test("클린 헤더·2페이지 서식·링크·포맷·완료가 같은 본문�
     await click("색상 선택");
     await click("빨간색 글자");
     assert.equal(button("색상 선택").getAttribute("aria-pressed"), "true");
+    assert([...document.querySelectorAll('[aria-label="색상 선택"]')].every((item) => item.classList.contains("bg-amber-500")));
+    // 색상 없는 나머지 글자로 커서를 옮기면 두 도구의 활성 표시가 함께 꺼지고 돌아오면 다시 켜집니다.
+    const coloredRange = document.getSelection().getRangeAt(0).cloneRange();
+    await act(async () => {
+      const walker = document.createTreeWalker(editor, 4);
+      let lastText;
+      while (walker.nextNode()) lastText = walker.currentNode;
+      const plainRange = document.createRange();
+      plainRange.setStart(lastText, lastText.length);
+      plainRange.collapse(true);
+      document.getSelection().removeAllRanges();
+      document.getSelection().addRange(plainRange);
+      document.dispatchEvent(new dom.window.Event("selectionchange"));
+    });
+    assert([...document.querySelectorAll('[aria-label="색상 선택"]')].every((item) => !item.classList.contains("bg-amber-500")));
+    await act(async () => {
+      document.getSelection().removeAllRanges();
+      document.getSelection().addRange(coloredRange);
+      document.dispatchEvent(new dom.window.Event("selectionchange"));
+    });
+    assert([...document.querySelectorAll('[aria-label="색상 선택"]')].every((item) => item.classList.contains("bg-amber-500")));
     await click("인셋 컨테이너");
     assert(editor.querySelector(".editor-inset"));
     await click("인셋 컨테이너");

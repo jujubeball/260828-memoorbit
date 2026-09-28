@@ -75,12 +75,13 @@ export function ListSearchDock({ keyword, onOpenSearch, onCreate }: ListSearchDo
   return (
     <div
       aria-label="목록 검색 및 작성"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-900/90 px-3 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur-md md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
     >
       {notice && (
-        <p role="status" className="mb-2 text-xs text-amber-300">{notice}</p>
+        <p role="status" className="px-4 pt-2 text-xs text-amber-300">{notice}</p>
       )}
-      <div className="flex items-center gap-3">
+      {/* 컨트롤의 상하 간격은 이 행에서, 홈 표시기 안전 영역은 바깥 컨테이너에서 한 번씩 확보합니다. */}
+      <div className="px-4 py-2.5 flex items-center justify-between gap-3">
         <div className="flex h-11 min-w-0 flex-1 items-center rounded-full bg-slate-800 px-3">
           <EditorIcon name="search" className="h-5 w-5 shrink-0 text-slate-400" />
           <label className="min-w-0 flex-1">

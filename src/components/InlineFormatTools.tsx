@@ -9,11 +9,11 @@ interface InlineFormatToolsProps {
   disabled: boolean;
   onKeepSelection: (event: PointerEvent<HTMLButtonElement>) => void;
   onFormat: (command: string, value?: string) => void;
-  onLink: () => void;
+  onLink: (anchor: HTMLButtonElement) => void;
   onRestoreSelection: () => void;
 }
 
-export function InlineFormatTools({ activeFormat, disabled, onKeepSelection, onFormat, onLink, onRestoreSelection }: InlineFormatToolsProps): React.JSX.Element {
+export function InlineFormatTools({ activeFormat: activeStyles, disabled, onKeepSelection, onFormat, onLink, onRestoreSelection }: InlineFormatToolsProps): React.JSX.Element {
   // 색상 입력창 대신 프리셋 버튼을 펼쳐 본문 포커스와 선택을 계속 유지합니다.
   const [colorsOpen, setColorsOpen] = useState(false);
   const closeColors = (): void => {
@@ -30,7 +30,8 @@ export function InlineFormatTools({ activeFormat, disabled, onKeepSelection, onF
     window.addEventListener("keydown", closeWithEscape);
     return () => window.removeEventListener("keydown", closeWithEscape);
   });
-  const buttonClass = (active: boolean): string => `flex h-11 min-w-11 shrink-0 items-center justify-center rounded-lg px-2 text-lg ${active ? "bg-amber-500 text-black" : "text-amber-400 hover:bg-white/10"} disabled:opacity-40`;
+  // 버튼 배경은 공유된 선택 상태가 활성일 때만 노란색이며, 팝오버를 여는 것만으로 활성화하지 않습니다.
+  const buttonClass = (active: boolean): string => `flex h-11 min-w-11 shrink-0 items-center justify-center rounded-lg px-2 text-lg ${active ? "bg-amber-500 text-black" : "text-slate-300 hover:bg-white/10"} disabled:opacity-40`;
   return (
     <>
       {/* 같은 명령을 퀵 서식 바와 포맷 시트에서 공유해 선택·토글 방식이 달라지지 않게 합니다. */}
@@ -40,17 +41,17 @@ export function InlineFormatTools({ activeFormat, disabled, onKeepSelection, onF
         ["U", "underline", "밑줄", "underline"],
         ["S", "strikeThrough", "취소선", "line-through"],
       ] as const).map(([label, command, name, typography]) => (
-        <button key={command} type="button" disabled={disabled} onPointerDown={onKeepSelection} onClick={() => onFormat(command)} aria-label={name} aria-pressed={activeFormat[command]} className={`${buttonClass(activeFormat[command])} flex-1 ${typography}`}>
+        <button key={command} type="button" disabled={disabled} onPointerDown={onKeepSelection} onClick={() => onFormat(command)} aria-label={name} aria-pressed={activeStyles[command]} className={`${buttonClass(activeStyles[command])} ${typography}`}>
           {label}
         </button>
       ))}
-      <button type="button" disabled={disabled} onPointerDown={onKeepSelection} onClick={() => onFormat("highlight")} aria-label="형광펜" aria-pressed={activeFormat.highlight} className={buttonClass(activeFormat.highlight)}>
+      <button type="button" disabled={disabled} onPointerDown={onKeepSelection} onClick={() => onFormat("highlight")} aria-label="형광펜" aria-pressed={activeStyles.highlight} className={buttonClass(activeStyles.highlight)}>
         <EditorIcon name="pen" className="h-5 w-5" />
       </button>
-      <button type="button" disabled={disabled} onPointerDown={onKeepSelection} onClick={() => setColorsOpen(true)} aria-label="색상 선택" aria-expanded={colorsOpen} aria-pressed={Boolean(activeFormat.color)} className={buttonClass(Boolean(activeFormat.color))}>
+      <button type="button" disabled={disabled} onPointerDown={onKeepSelection} onClick={() => setColorsOpen(true)} aria-label="색상 선택" aria-expanded={colorsOpen} aria-pressed={Boolean(activeStyles.color)} className={buttonClass(Boolean(activeStyles.color))}>
         <EditorIcon name="palette" className="h-5 w-5" />
       </button>
-      <button type="button" disabled={disabled} onPointerDown={onKeepSelection} onClick={onLink} aria-label="링크" aria-pressed={Boolean(activeFormat.link)} className={buttonClass(Boolean(activeFormat.link))}>
+      <button type="button" disabled={disabled} onPointerDown={onKeepSelection} onClick={(event) => onLink(event.currentTarget)} aria-label="링크" aria-pressed={Boolean(activeStyles.link)} className={buttonClass(Boolean(activeStyles.link))}>
         <EditorIcon name="link" className="h-5 w-5" />
       </button>
       {colorsOpen && (
@@ -68,7 +69,7 @@ export function InlineFormatTools({ activeFormat, disabled, onKeepSelection, onF
                 ["#ffffff", "흰색", "bg-white"], ["#e5a93c", "노란색", "bg-amber-500"],
                 ["#ff453a", "빨간색", "bg-red-500"], ["#0a84ff", "파란색", "bg-blue-500"], ["#30d158", "초록색", "bg-green-500"],
               ] as const).map(([color, label, className]) => (
-                <button key={color} type="button" disabled={disabled} onPointerDown={onKeepSelection} onClick={() => { onFormat("foreColor", color); setColorsOpen(false); }} aria-label={`${label} 글자`} aria-pressed={activeFormat.color === color} className={`${buttonClass(activeFormat.color === color)} border border-white/20`}>
+                <button key={color} type="button" disabled={disabled} onPointerDown={onKeepSelection} onClick={() => { onFormat("foreColor", color); setColorsOpen(false); }} aria-label={`${label} 글자`} aria-pressed={activeStyles.color === color} className={`${buttonClass(activeStyles.color === color)} border border-white/20`}>
                   <span className={`h-5 w-5 rounded-full ${className}`} />
                 </button>
               ))}

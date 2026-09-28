@@ -217,10 +217,12 @@ button:disabled {
   display: none;
 }
 
+.scrollbar-none,
 .scrollbar-hide {
   scrollbar-width: none;
 }
 
+.scrollbar-none::-webkit-scrollbar,
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
