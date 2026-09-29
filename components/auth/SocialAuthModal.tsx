@@ -4,6 +4,7 @@ import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
+import { LayerCloseButton } from "@/src/components/LayerCloseButton";
 
 interface SocialAuthModalProps {
   onClose: () => void;
@@ -62,9 +63,10 @@ export function SocialAuthModal({ onClose }: SocialAuthModalProps): React.JSX.El
           <h2 id={titleId} className="text-lg font-bold">
             클라우드 동기화 및 로그인
           </h2>
-          <button type="button" onClick={onClose} aria-label="로그인 모달 닫기" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-white/10">
-            ✕
-          </button>
+          <LayerCloseButton
+            onClick={onClose}
+            aria-label="로그인 모달 닫기"
+          />
         </div>
         <p id={descriptionId} className="mb-4 text-sm leading-6 text-[#9ca3af]">
           로그인 없이도 메모를 작성할 수 있습니다. 로그인하면 작성한 메모가 클라우드에 안전하게 백업되어 모든 기기에서 사용할 수 있습니다.

@@ -5,6 +5,8 @@ import { useVisualViewport } from "@/src/hooks/useVisualViewport";
 export interface EditorLayerAnchor {
   top: number;
   right: number;
+  width?: number;
+  height?: number;
 }
 
 interface EditorLayerProps {
@@ -35,12 +37,13 @@ export function EditorLayer({ children, onClose, className = "z-[140]", anchor }
       {anchor ? (
         <div
           data-layer-anchor="true"
-          className="absolute w-full max-w-lg overflow-y-auto max-h-[calc(var(--layer-height)-var(--popover-bottom)-0.5rem)] bottom-[var(--popover-bottom)]"
+          className="absolute w-[var(--popover-width)] max-w-full overflow-y-auto max-h-[calc(var(--layer-height)-var(--popover-bottom)-0.5rem)] bottom-[var(--popover-bottom)]"
           style={{
-            // 💡 [터치한 링크 버튼 위에 배치]
+            // 💡 [터치한 도구 버튼 위에 배치]
             // 키보드가 화면을 줄이면 위쪽과 좌우 경계를 보정하고, 긴 안내는 팝오버 안에서만 스크롤합니다.
-            "--popover-bottom": `clamp(0px, calc(var(--layer-height) - min(${anchor.top}px, calc(var(--layer-height) - 4rem)) + 0.5rem), max(0px, calc(var(--layer-height) - 20rem)))`,
-            left: `clamp(0px, calc(${anchor.right}px - 32rem), max(0px, calc(100% - 32rem)))`,
+            "--popover-bottom": `clamp(0px, calc(var(--layer-height) - min(${anchor.top}px, calc(var(--layer-height) - 4rem)) + 0.5rem), max(0px, calc(var(--layer-height) - ${anchor.height ?? 320}px)))`,
+            "--popover-width": `${anchor.width ?? 512}px`,
+            left: `clamp(0px, calc(${anchor.right}px - var(--popover-width)), max(0px, calc(100% - var(--popover-width))))`,
           } as CSSProperties}
         >
           {children}

@@ -66,6 +66,20 @@ test("연속 가로 툴바·네 기본 도구·링크·포맷 시트의 세 닫�
   });
   let editor;
   try {
+    await act(async () => root.render(React.createElement(MemoModal, { isOpen: true, editingMemo: null, onClose() {}, onSubmit() {} })));
+    const blankEditor = document.querySelector('[aria-label="메모 내용"]');
+    await act(async () => {
+      blankEditor.focus();
+      const range = document.createRange();
+      range.selectNodeContents(blankEditor.firstElementChild);
+      range.collapse(true);
+      document.getSelection().removeAllRanges();
+      document.getSelection().addRange(range);
+      document.dispatchEvent(new dom.window.Event("selectionchange"));
+    });
+    assert.equal(button("굵게").getAttribute("aria-pressed"), "false");
+    assert(!button("굵게").classList.contains("bg-amber-500"));
+    await act(async () => root.render(null));
     await act(async () => root.render(React.createElement(MemoModal, { isOpen: true, editingMemo: memo, onClose() {}, onSubmit(draft) { submissions.push(draft); } })));
     editor = document.querySelector('[aria-label="메모 내용"]');
     const header = document.querySelector("header");
@@ -74,7 +88,7 @@ test("연속 가로 툴바·네 기본 도구·링크·포맷 시트의 세 닫�
     assert.equal(button("새 메모"), undefined);
     assert.equal(button("새 메모 작성"), undefined);
     const defaultToolbar = document.querySelector('[role="toolbar"]');
-    assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "굵게", "기울임", "밑줄", "취소선", "형광펜", "색상 선택", "링크"]);
+    assert.deepEqual([...defaultToolbar.querySelectorAll("button")].map((item) => item.getAttribute("aria-label")), ["텍스트 서식", "체크리스트", "표 삽입", "사진 또는 파일 첨부", "굵게", "기울임", "밑줄", "취소선", "색상 선택", "링크"]);
     assert(defaultToolbar.classList.contains("overflow-x-auto"));
     for (const className of ["whitespace-nowrap", "scrollbar-none", "flex", "touch-pan-x", "gap-6", "px-4", "py-2.5"]) {
       assert(defaultToolbar.classList.contains(className));
@@ -130,10 +144,7 @@ test("연속 가로 툴바·네 기본 도구·링크·포맷 시트의 세 닫�
     assert.equal(editor.innerHTML, memo.richContent);
     await act(async () => editor.dispatchEvent(new dom.window.InputEvent("beforeinput", { inputType: "historyRedo", bubbles: true, cancelable: true })));
     assert.equal(document.getSelection().toString(), "안녕");
-    await click("형광펜");
-    assert.equal(editor.querySelector("mark").textContent, "안녕");
-    await click("형광펜");
-    assert.equal(button("형광펜").getAttribute("aria-pressed"), "false");
+    assert.equal(button("형광펜"), undefined);
     await click("링크");
     let input = document.querySelector('input[type="url"]');
     const linkDialog = input.closest('[aria-label="링크 주소 입력"]');
@@ -187,6 +198,8 @@ test("연속 가로 툴바·네 기본 도구·링크·포맷 시트의 세 닫�
     assert.equal(syncedBoldButtons.length, 2);
     assert(syncedBoldButtons.every((item) => item.getAttribute("aria-pressed") === "true"));
     const formatRows = [...document.getElementById("memo-format-sheet").querySelectorAll('[role="group"]')];
+    assert.equal(formatRows[1].querySelectorAll("button").length, 6);
+    assert.equal(document.querySelector('[aria-label="형광펜"]'), null);
     assert.equal(formatRows.length, 4);
     for (const row of [formatRows[0], formatRows[1], formatRows[2].parentElement]) {
       for (const className of ["flex", "items-center", "gap-x-4", "overflow-x-auto", "whitespace-nowrap", "flex-nowrap", "scrollbar-hide", "px-2", "py-1"]) {
@@ -204,7 +217,8 @@ test("연속 가로 툴바·네 기본 도구·링크·포맷 시트의 세 닫�
     assert.equal(document.getSelection().toString(), "안녕");
     await click("색상 선택");
     const colorDialog = document.querySelector('[aria-label="글자색 선택"]');
-    assert.equal(colorDialog.parentElement.parentElement, document.body);
+    assert(colorDialog.closest('[data-layer-anchor="true"]'));
+    assert.equal(colorDialog.parentElement.style.getPropertyValue("--popover-width"), "256px");
     const colorHandle = button("색상 선택 내리기");
     await pointer(colorHandle, "pointerdown", 100, 10);
     await pointer(colorHandle, "pointercancel", 100, 100);
@@ -217,6 +231,17 @@ test("연속 가로 툴바·네 기본 도구·링크·포맷 시트의 세 닫�
     assert.equal(document.getSelection().toString(), "안녕");
     await click("색상 선택");
     await click("빨간색 글자");
+    await click("색상 선택");
+    const redChip = button("빨간색 글자");
+    for (const name of ["w-6", "h-6", "rounded-full", "ring-2", "ring-amber-400", "ring-offset-2", "ring-offset-slate-900"]) assert(redChip.classList.contains(name));
+    assert(!button("흰색 글자").classList.contains("ring-2"));
+    for (const name of ["w-7", "h-7", "rounded-full", "bg-slate-800"]) {
+      assert(button("색상 선택 닫기").classList.contains(name));
+      assert(button("포맷 닫기").classList.contains(name));
+    }
+    await click("색상 선택 닫기");
+    assert.equal(document.activeElement, editor);
+    assert.equal(document.getSelection().toString(), "안녕");
     assert.equal(button("색상 선택").getAttribute("aria-pressed"), "true");
     assert([...document.querySelectorAll('[aria-label="색상 선택"]')].every((item) => item.classList.contains("bg-amber-500")));
     // 색상 없는 나머지 글자로 커서를 옮기면 두 도구의 활성 표시가 함께 꺼지고 돌아오면 다시 켜집니다.

@@ -3,6 +3,7 @@ import { EditorLayer } from "@/src/components/EditorLayer";
 import { LayerSwipeHandle } from "@/src/components/LayerSwipeHandle";
 import { InlineFormatTools } from "@/src/components/InlineFormatTools";
 import { EditorIcon } from "@/src/components/EditorIcon";
+import { LayerCloseButton } from "@/src/components/LayerCloseButton";
 import type { EditorFormatState } from "@/src/lib/editorSelection";
 
 interface IOSFormatSheetProps {
@@ -58,15 +59,11 @@ export function IOSFormatSheet({
         />
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">포맷</h3>
-          <button
-            type="button"
+          <LayerCloseButton
             aria-label="포맷 닫기"
-            className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white"
             onPointerDown={onKeepSelection}
             onClick={() => setIsClosing(true)}
-          >
-            <EditorIcon name="close" className="w-4 h-4" />
-          </button>
+          />
         </div>
         <div
           className="flex items-center gap-x-4 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide px-2 py-1 overscroll-x-contain rounded-lg bg-white/5 touch-pan-x"

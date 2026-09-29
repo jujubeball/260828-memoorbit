@@ -20,6 +20,7 @@ import { EditorToolbar } from "@/src/components/EditorToolbar";
 import { InlineFormatTools } from "@/src/components/InlineFormatTools";
 import { useEditorHistory } from "@/src/hooks/useEditorHistory";
 import { IOSFormatSheet } from "@/src/components/iOSFormatSheet";
+import { LayerCloseButton } from "@/src/components/LayerCloseButton";
 import { useVisualViewport } from "@/src/hooks/useVisualViewport";
 import { useKeyboardFormatSheet } from "@/src/hooks/useKeyboardFormatSheet";
 import { formatEditorList } from "@/src/lib/editorLists";
@@ -71,7 +72,8 @@ const escapeHtml = (value: string): string =>
 // richContent가 있으면 그대로 복원하고, 없으면 일반 제목과 본문을 HTML로 변환합니다. 이 함수 자체는 DOM에 쓰지 않습니다.
 const createInitialHtml = (memo: Memo | null): string => {
   if (memo?.richContent) return memo.richContent;
-  if (!memo) return '<h1 class="text-2xl font-bold text-white"><br></h1>';
+  // 빈 메모는 일반 문단에서 시작하므로 사용자가 굵게를 선택하기 전에는 B가 켜지지 않습니다.
+  if (!memo) return '<p><br></p>';
   // 일반 본문의 각 줄을 편집 가능한 문단으로 감싼 초기 본문 HTML입니다.
   const body = memo.content
     .split("\n")
@@ -937,7 +939,7 @@ export function MemoModal({
           </div>
 
           {/* 💡 [키보드 도킹 툴바]
-              네 기본 도구와 일곱 서식 도구를 가시 화면 하단에 두어 키보드 위에 함께 표시합니다. */}
+              네 기본 도구와 여섯 서식 도구를 가시 화면 하단에 두어 키보드 위에 함께 표시합니다. */}
           <div
             className="fixed bottom-0 left-0 right-0 z-40 w-full bg-slate-900/95 backdrop-blur-md border-t border-slate-800 pb-[env(safe-area-inset-bottom)]"
             ref={dockRef}
@@ -954,9 +956,11 @@ export function MemoModal({
                   <LayerSwipeHandle onClose={closeLink} label="링크 입력 내리기" />
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold">링크</h3>
-                    <button type="button" onPointerDown={keepSelection} onClick={closeLink} aria-label="링크 입력 닫기" className={bottomButton}>
-                      <EditorIcon name="close" className="h-5 w-5" />
-                    </button>
+                    <LayerCloseButton
+                      onPointerDown={keepSelection}
+                      onClick={closeLink}
+                      aria-label="링크 입력 닫기"
+                    />
                   </div>
                   <label className="block text-sm">
                     웹 주소
@@ -1027,9 +1031,11 @@ export function MemoModal({
                   <LayerSwipeHandle onClose={closeTags} label="태그 관리 내리기" />
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold text-[#9ca3af]">🏷️ 태그 관리</h3>
-                    <button type="button" onPointerDown={keepSelection} onClick={closeTags} aria-label="태그 관리 닫기" className={bottomButton}>
-                      <EditorIcon name="close" className="h-5 w-5" />
-                    </button>
+                    <LayerCloseButton
+                      onPointerDown={keepSelection}
+                      onClick={closeTags}
+                      aria-label="태그 관리 닫기"
+                    />
                   </div>
                   <input
                     ref={tagInputRef}

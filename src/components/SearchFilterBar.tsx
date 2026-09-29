@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { EditorIcon } from "@/src/components/EditorIcon";
+import { LayerCloseButton } from "@/src/components/LayerCloseButton";
 import { LayerSwipeHandle } from "@/src/components/LayerSwipeHandle";
 import { useVisualViewport } from "@/src/hooks/useVisualViewport";
 import { ListSearchDock } from "@/src/components/ListSearchDock";
@@ -277,15 +278,11 @@ export function SearchFilterBar({
                   </button>
                 )}
               </label>
-              <button
-                type="button"
+              <LayerCloseButton
                 onPointerDown={(event) => event.preventDefault()}
                 onClick={closeSearch}
-                className="flex h-11 shrink-0 items-center px-1 text-sm font-semibold text-amber-400"
                 aria-label="검색 닫기"
-              >
-                취소
-              </button>
+              />
             </div>
             {keyword === "" && (
               <LayerSwipeHandle onClose={closeSearch} label="검색 내리기" />

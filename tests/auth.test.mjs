@@ -12,7 +12,13 @@ function load(file, mocks) {
   const code = ts.transpileModule(readFileSync(file, "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
-  new Function("require", "module", "exports", code)((name) => mocks[name] ?? require(name), compiled, compiled.exports);
+  new Function("require", "module", "exports", code)((name) => {
+    if (mocks[name]) return mocks[name];
+    if (["@/src/components/LayerCloseButton", "@/src/components/EditorIcon"].includes(name)) {
+      return load(`${name.slice(2)}.tsx`, mocks);
+    }
+    return require(name);
+  }, compiled, compiled.exports);
   return compiled.exports;
 }
 
@@ -163,6 +169,9 @@ test("소셜 모달은 경고 없이 매 클릭마다 공급자를 호출하고 
     });
     assert.equal(document.querySelectorAll("dialog input, dialog textarea").length, 0);
     let buttons = [...document.querySelectorAll("dialog button")];
+    for (const name of ["w-7", "h-7", "rounded-full", "bg-slate-800"]) {
+      assert(document.querySelector('[aria-label="로그인 모달 닫기"]').classList.contains(name));
+    }
     assert.deepEqual(buttons.slice(1).map((button) => button.textContent), ["Google 로그인", "Apple 로그인"]);
     assert(buttons.slice(1).every((button) => !button.disabled));
     authState.isLoading = true;

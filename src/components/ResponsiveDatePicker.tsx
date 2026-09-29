@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePageScrollLock } from "@/src/hooks/usePageScrollLock";
+import { LayerCloseButton } from "@/src/components/LayerCloseButton";
 
 interface ResponsiveDatePickerProps {
   id: string;
@@ -329,14 +330,10 @@ export function ResponsiveDatePicker({
               >
                 <div className="mb-4 flex justify-between">
                   <strong>{label}</strong>
-                  <button
-                    type="button"
+                  <LayerCloseButton
                     onClick={closePicker}
-                    className="glass-icon-button"
                     aria-label="달력 닫기"
-                  >
-                    ×
-                  </button>
+                  />
                 </div>
                 {calendar}
               </div>
