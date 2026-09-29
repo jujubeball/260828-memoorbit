@@ -7,11 +7,12 @@ interface EditorToolbarProps {
 
 // 💡 [브라우저 기본 가로 스크롤]
 // 손가락 이동과 관성은 브라우저가 처리합니다. 선택 범위 보관과 스크롤 직후 오클릭 차단만 담당합니다.
+// 내부 상하 간격은 이 행이, 홈 표시기 안전 영역은 부모의 고정 도킹 영역이 담당합니다.
 export function EditorToolbar({ children, onPreserveSelection }: EditorToolbarProps): React.JSX.Element {
   const suppressClick = useRef(false);
   return (
     <div
-      className="flex items-center gap-6 overflow-x-auto whitespace-nowrap scrollbar-none px-4 py-2.5 bg-slate-900/95 border-t border-slate-800 pb-[env(safe-area-inset-bottom)] w-full touch-pan-x overscroll-x-contain"
+      className="flex items-center gap-6 overflow-x-auto whitespace-nowrap scrollbar-none px-4 py-2.5 w-full touch-pan-x overscroll-x-contain"
       role="toolbar"
       aria-label="메모 작성 도구"
       onPointerDown={(event) => {

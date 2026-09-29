@@ -29,7 +29,7 @@ function loadModal() {
   return load("src/components/MemoModal.tsx").MemoModal;
 }
 
-test("연속 가로 툴바·네 기본 도구·링크·핸들 전용 포맷 시트가 선택 상태를 유지한다", async () => {
+test("연속 가로 툴바·네 기본 도구·링크·포맷 시트의 세 닫기 경로가 선택 상태를 유지한다", async () => {
   const dom = new JSDOM('<div id="root"></div>', { pretendToBeVisual: true, url: "http://localhost" });
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
@@ -83,7 +83,8 @@ test("연속 가로 툴바·네 기본 도구·링크·핸들 전용 포맷 시�
     assert(!defaultToolbar.className.includes("snap-"));
     assert.equal(defaultToolbar.querySelectorAll('[data-toolbar-group="main"] button').length, 4);
     assert.equal(button("마크업"), undefined);
-    assert(defaultToolbar.classList.contains("pb-[env(safe-area-inset-bottom)]"));
+    assert(defaultToolbar.parentElement.classList.contains("pb-[env(safe-area-inset-bottom)]"));
+    assert(!defaultToolbar.classList.contains("pb-[env(safe-area-inset-bottom)]"));
     assert(defaultToolbar.parentElement.classList.contains("bottom-0"));
     assert(!document.querySelector(".pb-60"));
     for (const label of ["굵게", "색상 선택"]) {
@@ -172,12 +173,20 @@ test("연속 가로 툴바·네 기본 도구·링크·핸들 전용 포맷 시�
     await click("텍스트 서식");
     const formatSheet = document.getElementById("memo-format-sheet");
     assert.match(formatSheet.textContent, /포맷/);
-    assert.equal(button("포맷 닫기"), undefined);
-    assert(!formatSheet.querySelector('[aria-label="포맷 닫기"]'));
+    assert(formatSheet.querySelector('[aria-label="포맷 닫기"]'));
+    await click("포맷 닫기");
+    assert.equal(document.activeElement, editor);
+    assert.equal(document.getSelection().toString(), "안녕");
+    assert(formatSheet.className.includes("format-sheet-out"));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 180)); });
+    assert.equal(document.getElementById("memo-format-sheet"), null);
+    assert.equal(document.activeElement, editor);
+    assert.equal(document.getSelection().toString(), "안녕");
+    await click("텍스트 서식");
     const syncedBoldButtons = [...document.querySelectorAll('[aria-label="굵게"]')];
     assert.equal(syncedBoldButtons.length, 2);
     assert(syncedBoldButtons.every((item) => item.getAttribute("aria-pressed") === "true"));
-    const formatRows = [...formatSheet.querySelectorAll('[role="group"]')];
+    const formatRows = [...document.getElementById("memo-format-sheet").querySelectorAll('[role="group"]')];
     assert.equal(formatRows.length, 4);
     for (const row of [formatRows[0], formatRows[1], formatRows[2].parentElement]) {
       for (const className of ["flex", "items-center", "gap-x-4", "overflow-x-auto", "whitespace-nowrap", "flex-nowrap", "scrollbar-hide", "px-2", "py-1"]) {

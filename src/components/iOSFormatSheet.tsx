@@ -33,7 +33,7 @@ export function IOSFormatSheet({
   const [isClosing, setIsClosing] = useState(false);
 
   // 💡 [시트 닫기 전환]
-  // 배경 터치나 아래 드래그 후 짧은 퇴장 동작을 보여 주고 부모가 선택 복원과 시트 제거를 마무리합니다.
+  // X·배경 터치·아래 드래그는 같은 퇴장 동작을 거친 뒤 부모가 선택 복원과 시트 제거를 마무리합니다.
   useEffect(() => {
     if (!isClosing) return;
     const timer = window.setTimeout(onClose, 160);
@@ -46,7 +46,7 @@ export function IOSFormatSheet({
         id="memo-format-sheet"
         style={{ transform: `translateY(${dragOffset}px)` }}
         aria-label="서식 도구"
-        className={`max-h-[85%] w-full shrink-0 overflow-y-auto touch-pan-y rounded-t-3xl border-t border-white/10 bg-slate-900 px-3 pt-3 pb-[env(safe-area-inset-bottom)] shadow-xl backdrop-blur-md transition-transform motion-reduce:animate-none ${isClosing ? "pointer-events-none animate-[format-sheet-out_160ms_ease-in_forwards]" : "animate-[format-sheet-in_180ms_ease-out]"}`}
+        className={`fixed bottom-0 left-0 right-0 z-40 w-full bg-slate-900/95 backdrop-blur-md border-t border-slate-800 pb-[env(safe-area-inset-bottom)] max-h-[85%] overflow-y-auto touch-pan-y rounded-t-3xl px-3 pt-3 shadow-xl transition-transform motion-reduce:animate-none ${isClosing ? "pointer-events-none animate-[format-sheet-out_160ms_ease-in_forwards]" : "animate-[format-sheet-in_180ms_ease-out]"}`}
         onPointerDown={(event) => event.stopPropagation()}
       >
         <LayerSwipeHandle
@@ -58,6 +58,15 @@ export function IOSFormatSheet({
         />
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">포맷</h3>
+          <button
+            type="button"
+            aria-label="포맷 닫기"
+            className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white"
+            onPointerDown={onKeepSelection}
+            onClick={() => setIsClosing(true)}
+          >
+            <EditorIcon name="close" className="w-4 h-4" />
+          </button>
         </div>
         <div
           className="flex items-center gap-x-4 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide px-2 py-1 overscroll-x-contain rounded-lg bg-white/5 touch-pan-x"

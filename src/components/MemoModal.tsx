@@ -939,7 +939,7 @@ export function MemoModal({
           {/* 💡 [키보드 도킹 툴바]
               네 기본 도구와 일곱 서식 도구를 가시 화면 하단에 두어 키보드 위에 함께 표시합니다. */}
           <div
-            className="fixed bottom-0 left-0 right-0 z-40 w-full backdrop-blur-md"
+            className="fixed bottom-0 left-0 right-0 z-40 w-full bg-slate-900/95 backdrop-blur-md border-t border-slate-800 pb-[env(safe-area-inset-bottom)]"
             ref={dockRef}
           >
             {isLinkOpen && (

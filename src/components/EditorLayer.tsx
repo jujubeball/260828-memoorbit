@@ -21,7 +21,7 @@ export function EditorLayer({ children, onClose, className = "z-[140]", anchor }
   const viewport = useVisualViewport();
   return createPortal(
     <div
-      className={`fixed left-0 right-0 top-0 flex h-[var(--layer-height)] items-end bg-black/40 ${className}`}
+      className={`fixed left-0 right-0 top-0 flex h-[var(--layer-height)] items-end bg-black/40 [transform:translateZ(0)] ${className}`}
       style={{ "--layer-height": viewport.height === null ? "100dvh" : `${viewport.height}px` } as CSSProperties}
       role="presentation"
       onClick={(event) => event.stopPropagation()}

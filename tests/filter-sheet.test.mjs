@@ -118,7 +118,15 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
       assert(resultCard.children[1].classList.contains(className));
     }
     const searchInput = overlay.querySelector('input[placeholder^="제목"]');
+    const filterPanel = overlay.querySelector('[aria-label="검색 조건 필터"]');
+    assert.equal(filterPanel.hidden, true);
+    const preservedTags = [...options.tags];
+    await click(overlay.querySelector('[aria-label="검색어 지우기"]'));
+    assert.equal(filterPanel.hidden, false);
+    assert.deepEqual(options.tags, preservedTags);
+    assert.equal(document.activeElement, searchInput);
     await change(searchInput, "일치하지 않는 검색어");
+    assert.equal(filterPanel.hidden, true);
     assert.match(overlay.textContent, /일치하는 메모가 없습니다/);
     await change(searchInput, "검색 유지");
     assert.equal(document.querySelectorAll('[aria-label="검색 결과 목록"] button').length, 1);

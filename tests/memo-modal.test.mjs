@@ -89,7 +89,8 @@ test("태그 통합·부분 서식·키보드 갱신 동안 편집 DOM과 선택
     const sheet = document.getElementById("memo-format-sheet");
     assert.equal(document.querySelectorAll('[aria-label="서식 도구"]').length, 1);
     assert.equal(sheet.querySelectorAll('[role="group"]').length, 4);
-    assert.equal(sheet.querySelectorAll('button').length, 19);
+    assert.equal(sheet.querySelectorAll('button').length, 20);
+    assert(sheet.querySelector('[aria-label="포맷 닫기"]'));
     assert.equal(sheet.querySelector('[aria-label="문단 스타일"]').textContent.includes("모노스페이스"), true);
     assert.equal(sheet.closest("form"), null);
     assert.equal(sheet.parentElement.parentElement, document.body);

@@ -287,8 +287,15 @@ export function SearchFilterBar({
                 취소
               </button>
             </div>
-            <LayerSwipeHandle onClose={closeSearch} label="검색 내리기" />
-            <div className="mx-auto grid max-h-[42%] w-full max-w-3xl shrink-0 content-start gap-4 overflow-y-auto px-4 py-2">
+            {keyword === "" && (
+              <LayerSwipeHandle onClose={closeSearch} label="검색 내리기" />
+            )}
+            {/* 입력 상태만으로 필터의 표시를 바꾸므로 선택한 조건은 유지되고 지우기 직후 다시 나타납니다. */}
+            <div
+              hidden={keyword !== ""}
+              aria-label="검색 조건 필터"
+              className={`mx-auto max-h-[42%] w-full max-w-3xl shrink-0 content-start gap-4 overflow-y-auto px-4 py-2 ${keyword === "" ? "grid animate-[format-sheet-in_180ms_ease-out] motion-reduce:animate-none" : "hidden"}`}
+            >
               <section aria-label="선택한 필터" className="flex items-start justify-between gap-3 border-b border-[#2a2e3d] pb-3">
                 <div className="min-w-0" aria-live="polite">
                   <h3 className="inline-block rounded-full bg-white/5 px-2 py-1 text-xs font-bold text-[#f3f4f6]">
