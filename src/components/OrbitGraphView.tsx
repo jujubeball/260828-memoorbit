@@ -70,6 +70,23 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
   const contextMemo = memos.find((memo) => memo.id === contextMenu?.id);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [orbitQuery, setOrbitQuery] = useState("");
+  const searchMatchesRef = useRef<ReadonlySet<string> | null>(null);
+  // 💡 [검색과 물리 배치 분리]
+  // 입력마다 일치하는 메모 ID만 계산합니다. null은 검색 해제, 빈 집합은 일치 없음이므로 모든 노드를 흐리게 표시합니다.
+  const searchMatches = useMemo(() => {
+    const query = orbitQuery.trim().toLowerCase();
+    if (!query) return null;
+    return new Set(memos.filter((memo) =>
+      memo.title.toLowerCase().includes(query)
+      || memo.content.toLowerCase().includes(query)
+      || memo.tags.some((tag) => tag.toLowerCase().includes(query)))
+      .map((memo) => memo.id));
+  }, [memos, orbitQuery]);
+  // 검색 결과만 프레임에 전달하여 확대·이동 좌표와 기존 노드 배치를 유지한 채 다시 그립니다.
+  useEffect(() => {
+    searchMatchesRef.current = searchMatches;
+    redrawRef.current();
+  }, [searchMatches]);
   const [discoveryMemoIds, setDiscoveryMemoIds] = useState<string[]>([]);
   const [analysisState, setAnalysisState] = useState("저장된 AI 연결을 표시합니다.");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -92,16 +109,6 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
   const discoveryMemos = discoveryMemoIds
     .map((id) => memos.find((memo) => memo.id === id))
     .filter((memo): memo is Memo => memo !== undefined);
-  const topTags = useMemo(() => {
-    const counts = new Map<string, number>();
-    memos.forEach((memo) => memo.tags.forEach((tag) => {
-      const normalized = tag.trim();
-      if (normalized) counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
-    }));
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .slice(0, 6);
-  }, [memos]);
   const analysisKey = memos.map((memo) => `${memo.id}:${memo.updatedAt}`).join("|");
   const seedLayout = useEffectEvent(() => createOrbitLayout(memos));
   const analyze = useEffectEvent(async (signal: AbortSignal, force = false) => {
@@ -209,6 +216,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
           hoveredClusterIdRef.current,
           hoveredIdRef.current,
           focusProgress,
+          searchMatchesRef.current,
         );
         dirty = false;
       }
@@ -400,32 +408,11 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
     focusMemoGroup(memberIds, selectedNodeId ? 1.45 : 1.15);
   };
 
-  const focusTag = (tag: string): void => {
-    const normalizedTag = tag.toLowerCase();
-    const memberIds = memos
-      .filter((memo) => memo.tags.some((memoTag) => memoTag.trim().toLowerCase() === normalizedTag))
-      .map((memo) => memo.id);
-    setSelectedId(null);
-    setDiscoveryMemoIds(memberIds);
-    focusMemoGroup(memberIds, 1.15);
-  };
-
+  // 이동 버튼은 일치한 별로 카메라만 옮기며 검색용 하단 목록을 열지 않습니다.
   const searchOrbit = (): void => {
-    const query = orbitQuery.trim().toLowerCase();
-    if (!query) return;
-    const matches = memos.filter((memo) =>
-      memo.title.toLowerCase().includes(query)
-      || memo.content.toLowerCase().includes(query)
-      || memo.tags.some((tag) => tag.toLowerCase().includes(query)));
-    if (matches.length === 0) {
-      setSelectedId(null);
-      setDiscoveryMemoIds([]);
-      setAnalysisState(`“${orbitQuery.trim()}” 검색 결과가 없습니다.`);
-      return;
-    }
-    setSelectedId(matches.length === 1 ? matches[0].id : null);
-    setDiscoveryMemoIds(matches.map((memo) => memo.id));
-    focusMemoGroup(matches.map((memo) => memo.id), matches.length === 1 ? 1.55 : 1.2);
+    closeDiscovery();
+    if (!searchMatches?.size) return;
+    focusMemoGroup([...searchMatches], searchMatches.size === 1 ? 1.55 : 1.2);
   };
 
   return (
@@ -462,7 +449,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
             else closeContextMenu();
           }}
           className="h-full w-full touch-none cursor-grab active:cursor-grabbing"
-          aria-label={`${memos.length}개 메모 성운. 상단 검색과 태그 칩 또는 성운의 별을 눌러 탐색할 수 있습니다.`}
+          aria-label={`${memos.length}개 메모 성운. 상단 검색으로 일치하는 별을 강조하거나 성운의 별을 눌러 탐색할 수 있습니다.`}
           onPointerDown={pointerDown}
           onPointerMove={pointerMove}
           onPointerUp={(event) => pointerEnd(event)}
@@ -471,7 +458,7 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
           onLostPointerCapture={(event) => pointerEnd(event, true)}
         />
 
-        <div className="absolute left-1/2 top-3 z-20 w-[min(92%,42rem)] -translate-x-1/2 rounded-2xl border border-white/15 bg-[#121318]/72 p-2.5 shadow-[0_16px_45px_rgb(0_0_0/0.42)] backdrop-blur-xl">
+        <div className="absolute left-1/2 top-1 z-20 w-[min(96%,42rem)] -translate-x-1/2 rounded-xl px-2 py-1 backdrop-blur-md bg-slate-900/60 border-b border-slate-800/50">
           <form
             className="flex items-center gap-2"
             onSubmit={(event) => {
@@ -485,9 +472,14 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
             <input
               type="search"
               value={orbitQuery}
-              onChange={(event) => setOrbitQuery(event.target.value)}
+              onChange={(event) => {
+                // 새 입력은 탐색 시트를 접고 캔버스의 검색 강조만 갱신합니다.
+                setOrbitQuery(event.target.value);
+                closeDiscovery();
+              }}
+              aria-label="태그 궤도 검색어"
               placeholder="성운에서 제목, 내용, 태그 검색"
-              className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-base md:text-sm text-white outline-none placeholder:text-[#7f8798]"
+              className="h-8 min-w-0 flex-1 bg-transparent px-1 py-1 text-base md:text-sm text-white outline-none placeholder:text-[#7f8798]"
             />
             <button
               type="submit"
@@ -496,20 +488,6 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
               이동
             </button>
           </form>
-          {topTags.length > 0 && (
-            <div className="scrollbar-hidden mt-2 flex gap-1.5 overflow-x-auto border-t border-white/10 pt-2">
-              {topTags.map(([tag, count]) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => focusTag(tag)}
-                  className="shrink-0 rounded-full border border-sky-300/20 bg-sky-300/8 px-2.5 py-1 text-xs text-sky-100 transition hover:border-sky-300/50 hover:bg-sky-300/15"
-                >
-                  #{tag} {count}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {memos.length === 0 && (
@@ -521,7 +499,9 @@ export function OrbitGraphView({ memos, onOpenMemo, onHeaderVisibilityChange, on
         {discoveryMemos.length === 0 && (
           <div className="absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#121318]/70 px-3 py-2 text-xs text-[#9ca3af] shadow-xl backdrop-blur-md sm:left-auto sm:w-auto">
             <p role="status" aria-live="polite" className="truncate">
-              {analysisState}
+              {searchMatches === null ? analysisState : searchMatches.size > 0
+                ? `${searchMatches.size}개 메모가 일치합니다.`
+                : "일치하는 메모가 없습니다."}
             </p>
             <button
               type="button"

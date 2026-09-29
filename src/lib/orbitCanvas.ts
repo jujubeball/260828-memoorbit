@@ -27,6 +27,7 @@ export const drawOrbitCanvas = (
   focusedClusterId: string | null = null,
   hoveredId: string | null = null,
   focusProgress = 1,
+  searchMatches: ReadonlySet<string> | null = null,
 ): void => {
   const context = canvas.getContext("2d");
   if (!context) return;
@@ -58,7 +59,7 @@ export const drawOrbitCanvas = (
     clusters = getOrbitClusterSummaries(layout);
     clusterCache.set(layout, clusters);
   }
-  context.globalAlpha = hasFocus ? 0.15 : 1;
+  context.globalAlpha = searchMatches !== null ? 0.2 : hasFocus ? 0.15 : 1;
   clusters.forEach((cluster) => {
     const isFocusedCluster = cluster.id === focusedClusterId;
     const glow = context.createRadialGradient(
@@ -110,8 +111,9 @@ export const drawOrbitCanvas = (
     degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
     const a = nodes[edge.source];
     const b = nodes[edge.target];
-    const selectionOpacity = hasFocus && !isSelectedEdge ? 0.15 : 1;
-    const isHighlightedEdge = isSelectedEdge;
+    const matchesSearch = searchMatches?.has(a.id) && searchMatches.has(b.id);
+    const selectionOpacity = searchMatches !== null ? (matchesSearch ? 1 : 0.2) : hasFocus && !isSelectedEdge ? 0.15 : 1;
+    const isHighlightedEdge = searchMatches !== null ? matchesSearch : isSelectedEdge;
     const edgeOpacity = edge.weight * 0.65 * edgeRevealProgress * selectionOpacity;
     const gradient = context.createLinearGradient(a.x, a.y, b.x, b.y);
     gradient.addColorStop(0, `rgba(125,211,252,${edgeOpacity * 0.55})`);
@@ -128,10 +130,11 @@ export const drawOrbitCanvas = (
   });
   context.shadowBlur = 0;
   nodes.forEach((node, index) => {
-    const isSelected = isFocusIndex(index);
-    const isRelated = relatedNodeIndices.has(index);
-    const isDimmed = hasFocus && !isSelected && !isRelated;
-    context.globalAlpha = isDimmed ? 0.15 : 1;
+    // 검색 중에는 호버·연관 노드보다 검색 일치를 우선하고, 지우면 기존 선택 강조로 돌아갑니다.
+    const isSelected = searchMatches !== null ? searchMatches.has(node.id) : isFocusIndex(index);
+    const isRelated = searchMatches === null && relatedNodeIndices.has(index);
+    const isDimmed = searchMatches !== null ? !isSelected : hasFocus && !isSelected && !isRelated;
+    context.globalAlpha = isDimmed ? (searchMatches !== null ? 0.2 : 0.15) : 1;
     const baseRadius = Number.isFinite(node.radius) ? node.radius : 8;
     const pulse = node.isPinned
       ? (Math.sin(performance.now() / 360) + 1) * 1.2
@@ -193,7 +196,7 @@ export const drawOrbitCanvas = (
       return dx * dx + dy * dy < (other.radius + padding) ** 2;
     })) return;
     labelBoxes.push(box);
-    context.globalAlpha = focusProgress;
+    context.globalAlpha = searchMatches !== null ? 1 : focusProgress;
     context.shadowBlur = 5;
     context.shadowColor = "#07090f";
     context.fillStyle = "#e5e7eb";
@@ -201,7 +204,12 @@ export const drawOrbitCanvas = (
     context.textBaseline = "middle";
     context.fillText(title, box.left, node.y);
   };
-  if (hasFocus) {
+  if (searchMatches !== null) {
+    // 일치하는 제목만 기존 충돌 검사를 거쳐 표시하여 검색 결과가 많은 경우에도 겹침을 막습니다.
+    nodes.forEach((node, index) => {
+      if (searchMatches.has(node.id)) drawLabel(index);
+    });
+  } else if (hasFocus) {
     drawLabel(selectedIndex);
     if (hoveredIndex !== selectedIndex) drawLabel(hoveredIndex);
     relatedNodeIndices.forEach((index) => {
@@ -209,7 +217,7 @@ export const drawOrbitCanvas = (
     });
   }
 
-  if (!hasFocus && transform.scale < 1.35) {
+  if (searchMatches === null && !hasFocus && transform.scale < 1.35) {
     clusters.forEach((cluster) => {
       const isFocused = cluster.id === focusedClusterId;
       const fontSize = (isFocused ? 15 : 13) / transform.scale;

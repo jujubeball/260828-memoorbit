@@ -63,6 +63,20 @@ test("확대만으로 제목이 나타나지 않고 선택·호버와 1단계 �
   assert(texts.every((entry) => entry.alpha === 0.5));
   assert.equal(circles[2].alpha, 0.15);
   texts.length = 0;
+  circles.length = 0;
+  // 검색은 기존 선택·호버보다 우선하고 일치하지 않는 이웃도 0.2로 낮춥니다.
+  drawOrbitCanvas(canvas, layout, transform, 1, "a", null, "d", 1, new Set(["b"]));
+  assert.deepEqual(circles.map((entry) => entry.alpha), [0.2, 1, 0.2, 0.2]);
+  assert.deepEqual(texts.map((entry) => entry.text), ["메모 b"]);
+  circles.length = 0;
+  texts.length = 0;
+  drawOrbitCanvas(canvas, layout, transform, 1, null, null, null, 1, new Set());
+  assert(circles.every((entry) => entry.alpha === 0.2));
+  assert.equal(texts.length, 0);
+  circles.length = 0;
+  drawOrbitCanvas(canvas, layout, transform);
+  assert(circles.every((entry) => entry.alpha === 1));
+  texts.length = 0;
   drawOrbitCanvas(canvas, layout, transform, 1, "a", null, "d", 1);
   assert.deepEqual(new Set(texts.map((entry) => entry.text)), new Set(["메모 a", "메모 b", "메모 d"]));
   texts.length = 0;
@@ -71,6 +85,80 @@ test("확대만으로 제목이 나타나지 않고 선택·호버와 1단계 �
   layout.nodes[1].y = layout.nodes[0].y;
   drawOrbitCanvas(canvas, layout, transform, 1, "a");
   assert.deepEqual(texts.map((entry) => entry.text), ["메모 a"]);
+});
+
+test("태그 궤도 검색은 입력 즉시 캔버스를 강조하고 제출해도 결과 시트를 열지 않는다", async () => {
+  const dom = new JSDOM('<div id="root"></div>', { pretendToBeVisual: true, url: "http://localhost" });
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  globalThis.HTMLElement = dom.window.HTMLElement;
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+  window.matchMedia = () => ({ matches: true });
+  const frames = new Map();
+  let frameId = 0;
+  window.requestAnimationFrame = (callback) => { frames.set(++frameId, callback); return frameId; };
+  window.cancelAnimationFrame = (id) => frames.delete(id);
+  const alphas = [];
+  const context = new Proxy({
+    globalAlpha: 1,
+    clearRect() { alphas.length = 0; },
+    arc(x, y, radius) { if (radius < 30) alphas.push(this.globalAlpha); },
+    measureText(text) { return { width: text.length * 5 }; },
+    createRadialGradient() { return { addColorStop() {} }; },
+    createLinearGradient() { return { addColorStop() {} }; },
+  }, { get(target, name) { return name in target ? target[name] : () => {}; } });
+  dom.window.HTMLCanvasElement.prototype.getContext = () => context;
+  dom.window.HTMLCanvasElement.prototype.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 });
+  const flushFrames = async () => act(async () => {
+    for (let round = 0; round < 3; round++) {
+      const current = [...frames.values()];
+      frames.clear();
+      current.forEach((callback) => callback(performance.now()));
+    }
+  });
+  const { OrbitGraphView } = loader()("src/components/OrbitGraphView.tsx");
+  const { createRoot } = await import("react-dom/client");
+  const root = createRoot(document.getElementById("root"));
+  const memos = [
+    { ...memo("a"), title: "운동 계획", content: "달리기", tags: ["Health"], links: [] },
+    { ...memo("b"), title: "독서 기록", content: "소설", tags: ["책"], links: [] },
+  ];
+  try {
+    await act(async () => root.render(React.createElement(OrbitGraphView, {
+      memos, onOpenMemo() {}, onLinksAnalyzed() {}, onTogglePin() {}, onDelete() {}, onEditTags() {},
+    })));
+    await flushFrames();
+    const canvas = document.querySelector("canvas");
+    const input = document.querySelector('[aria-label="태그 궤도 검색어"]');
+    const overlay = input.closest("form").parentElement;
+    for (const name of ["backdrop-blur-md", "bg-slate-900/60", "border-b", "border-slate-800/50", "py-1"]) assert(overlay.classList.contains(name));
+    assert.equal(overlay.querySelectorAll("button").length, 1);
+    const change = async (value) => {
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value").set.call(input, value);
+        input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+      });
+      await flushFrames();
+    };
+    for (const query of ["운동", "달리", "HEALTH"]) {
+      await change(query);
+      // 성운 배경 원을 먼저 그린 뒤 마지막 두 원이 실제 메모 노드입니다.
+      assert.deepEqual(alphas.slice(-2), [1, 0.2]);
+      assert.equal(document.querySelector("canvas"), canvas);
+      assert.equal(document.getElementById("orbit-sheet-memos"), null);
+    }
+    await act(async () => input.closest("form").dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true })));
+    assert.equal(document.getElementById("orbit-sheet-memos"), null);
+    await change("없는 검색어");
+    assert.deepEqual(alphas.slice(-2), [0.2, 0.2]);
+    assert.match(document.querySelector('[role="status"]').textContent, /일치하는 메모가 없습니다/);
+    await change("");
+    assert.deepEqual(alphas.slice(-2), [1, 1]);
+  } finally {
+    await act(async () => root.unmount());
+    dom.window.close();
+  }
 });
 
 test("밀집 성운의 노드가 분산되고 호버 탐색은 확대·이동 좌표와 빈 영역을 구분한다", () => {

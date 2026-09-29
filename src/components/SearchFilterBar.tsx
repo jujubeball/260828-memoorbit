@@ -291,7 +291,7 @@ export function SearchFilterBar({
             <div
               hidden={keyword !== ""}
               aria-label="검색 조건 필터"
-              className={`mx-auto max-h-[42%] w-full max-w-3xl shrink-0 content-start gap-4 overflow-y-auto px-4 py-2 ${keyword === "" ? "grid animate-[format-sheet-in_180ms_ease-out] motion-reduce:animate-none" : "hidden"}`}
+              className={`mx-auto min-h-0 w-full max-w-3xl flex-1 content-start gap-4 overflow-y-auto px-4 py-2 ${keyword === "" ? "grid animate-[format-sheet-in_180ms_ease-out] motion-reduce:animate-none" : "hidden"}`}
             >
               <section aria-label="선택한 필터" className="flex items-start justify-between gap-3 border-b border-[#2a2e3d] pb-3">
                 <div className="min-w-0" aria-live="polite">
@@ -435,7 +435,11 @@ export function SearchFilterBar({
                 )}
               </fieldset>
             </div>
-            <section aria-labelledby="search-results-title" className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col border-t border-slate-800 pt-2">
+            <section
+              hidden={keyword === ""}
+              aria-labelledby="search-results-title"
+              className={`mx-auto min-h-0 w-full max-w-3xl flex-1 flex-col border-t border-slate-800 pt-2 ${keyword === "" ? "hidden" : "flex"}`}
+            >
               <div className="flex items-center justify-between px-4">
                 <h3 id="search-results-title" className="text-sm font-semibold text-white">검색 결과</h3>
                 <span className="text-xs text-slate-400">{liveResults.length}개</span>

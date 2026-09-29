@@ -121,15 +121,24 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
     }
     const searchInput = overlay.querySelector('input[placeholder^="제목"]');
     const filterPanel = overlay.querySelector('[aria-label="검색 조건 필터"]');
+    const resultPanel = overlay.querySelector('[aria-labelledby="search-results-title"]');
     assert.equal(filterPanel.hidden, true);
+    assert.equal(resultPanel.hidden, false);
     const preservedTags = [...options.tags];
     await click(overlay.querySelector('[aria-label="검색어 지우기"]'));
     assert.equal(filterPanel.hidden, false);
+    assert.equal(resultPanel.hidden, true);
+    assert(filterPanel.classList.contains("flex-1"));
     assert.deepEqual(options.tags, preservedTags);
     assert.equal(document.activeElement, searchInput);
     await change(searchInput, "일치하지 않는 검색어");
     assert.equal(filterPanel.hidden, true);
+    assert.equal(resultPanel.hidden, false);
     assert.match(overlay.textContent, /일치하는 메모가 없습니다/);
+    await change(searchInput, "검색 유지");
+    await change(searchInput, "");
+    assert.equal(filterPanel.hidden, false);
+    assert.equal(resultPanel.hidden, true);
     await change(searchInput, "검색 유지");
     assert.equal(document.querySelectorAll('[aria-label="검색 결과 목록"] button').length, 1);
     await change(document.getElementById("search-filter-start-date"), "2026-09-22");
