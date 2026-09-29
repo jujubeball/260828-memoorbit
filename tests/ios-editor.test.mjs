@@ -202,11 +202,35 @@ test("연속 가로 툴바·네 기본 도구·링크·포맷 시트의 세 닫�
     assert.equal(document.querySelector('[aria-label="형광펜"]'), null);
     assert.equal(formatRows.length, 4);
     for (const row of [formatRows[0], formatRows[1], formatRows[2].parentElement]) {
-      for (const className of ["flex", "items-center", "gap-x-4", "overflow-x-auto", "whitespace-nowrap", "flex-nowrap", "scrollbar-hide", "px-2", "py-1"]) {
+      for (const className of ["items-center", "px-2", "py-3.5", "w-full"]) {
         assert(row.classList.contains(className), `${className} 누락`);
       }
       assert(!row.classList.contains("flex-wrap"));
     }
+    assert(formatRows[1].classList.contains("grid-cols-6"));
+    assert(formatRows[1].classList.contains("grid"));
+    for (const row of formatRows.slice(0, 2)) {
+      assert(row.classList.contains("border-b"));
+      assert(row.classList.contains("border-slate-800/60"));
+    }
+    assert(button("내어쓰기").disabled);
+    for (let level = 1; level <= 5; level++) {
+      await click("들여쓰기");
+      assert.equal(editor.querySelector("p").dataset.indentLevel, String(level));
+      assert.equal(document.getSelection().toString(), "안녕");
+    }
+    assert(button("들여쓰기").disabled);
+    await act(async () => editor.dispatchEvent(new dom.window.InputEvent("beforeinput", { inputType: "historyUndo", bubbles: true, cancelable: true })));
+    assert.equal(editor.querySelector("p").dataset.indentLevel, "4");
+    assert(!button("들여쓰기").disabled);
+    await act(async () => editor.dispatchEvent(new dom.window.InputEvent("beforeinput", { inputType: "historyRedo", bubbles: true, cancelable: true })));
+    assert.equal(editor.querySelector("p").dataset.indentLevel, "5");
+    assert(button("들여쓰기").disabled);
+    for (let level = 4; level >= 0; level--) {
+      await click("내어쓰기");
+      assert.equal(editor.querySelector("p").dataset.indentLevel, String(level));
+    }
+    assert(button("내어쓰기").disabled);
     await click("제목");
     assert.equal(button("제목").getAttribute("aria-pressed"), "true");
     assert([...document.querySelectorAll('[aria-label="색상 선택"]')].every((item) => item.getAttribute("aria-pressed") === "false" && !item.classList.contains("bg-amber-500")));
@@ -235,7 +259,7 @@ test("연속 가로 툴바·네 기본 도구·링크·포맷 시트의 세 닫�
     const redChip = button("빨간색 글자");
     for (const name of ["w-6", "h-6", "rounded-full", "ring-2", "ring-amber-400", "ring-offset-2", "ring-offset-slate-900"]) assert(redChip.classList.contains(name));
     assert(!button("흰색 글자").classList.contains("ring-2"));
-    for (const name of ["w-7", "h-7", "rounded-full", "bg-slate-800"]) {
+    for (const name of ["w-7", "h-7", "rounded-full", "bg-slate-700/80", "text-slate-200", "shadow-sm"]) {
       assert(button("색상 선택 닫기").classList.contains(name));
       assert(button("포맷 닫기").classList.contains(name));
     }

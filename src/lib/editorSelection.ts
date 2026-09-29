@@ -17,10 +17,35 @@ export interface EditorFormatState {
   link: string | null;
   list: string | null;
   inset: boolean;
+  indentLevel: number | null;
+  canIndent: boolean;
+  canOutdent: boolean;
 }
 
 export const EMPTY_EDITOR_FORMAT: EditorFormatState = {
   bold: false, italic: false, underline: false, strikeThrough: false, block: null, color: null, highlight: false, link: null, list: null, inset: false,
+  indentLevel: 0, canIndent: true, canOutdent: false,
+};
+
+// 고정된 여섯 클래스만 사용해 저장된 HTML과 Tailwind가 같은 24px 간격을 사용하게 합니다.
+const INDENT_CLASSES = ["ml-0", "ml-[24px]", "ml-[48px]", "ml-[72px]", "ml-[96px]", "ml-[120px]"];
+
+// 저장된 단계가 없는 예전 ml-4 문단도 첫 단계로 읽어 다음 클릭부터 새 규격으로 이어갑니다.
+export const readEditorIndentLevel = (block: HTMLElement | null): number => {
+  if (!block) return 0;
+  const stored = Number(block.dataset.indentLevel);
+  if (Number.isInteger(stored) && stored >= 0 && stored <= 5) return stored;
+  const matched = INDENT_CLASSES.findIndex((name) => block.classList.contains(name));
+  return matched >= 0 ? matched : block.classList.contains("ml-4") ? 1 : 0;
+};
+
+// 💡 [다단 들여쓰기 저장]
+// 클릭으로 계산한 단계를 0~5 안에 고정하고, 실제 여백과 저장/재열기에 사용할 속성을 함께 갱신합니다.
+export const setEditorIndentLevel = (block: HTMLElement, level: number): void => {
+  const next = Math.max(0, Math.min(5, Math.trunc(level)));
+  block.classList.remove("ml-4", ...INDENT_CLASSES);
+  block.classList.add(INDENT_CLASSES[next]);
+  block.dataset.indentLevel = String(next);
 };
 
 const SIMPLE_TAGS: Record<string, string[]> = {
@@ -56,6 +81,10 @@ const formatAtNode = (editor: HTMLElement, node: Node): EditorFormatState => {
   const result = { ...EMPTY_EDITOR_FORMAT };
   const found = new Set<string>();
   let element = node.nodeType === 1 ? node as HTMLElement : node.parentElement;
+  const indentBlock = element?.closest<HTMLElement>("li, p, h1, h2, h3, pre, div") ?? null;
+  result.indentLevel = readEditorIndentLevel(indentBlock === editor ? null : indentBlock);
+  result.canIndent = result.indentLevel < 5;
+  result.canOutdent = result.indentLevel > 0;
   while (element && element !== editor) {
     for (const command of ["bold", "italic", "underline", "strikeThrough", "highlight"] as const) {
       if (found.has(command)) continue;
@@ -97,7 +126,8 @@ export const readEditorFormat = (editor: HTMLElement, range: Range | null): Edit
   if (!range || !isEditorRange(editor, range)) return { ...EMPTY_EDITOR_FORMAT };
   let caretNode = range.startContainer;
   if (range.collapsed && caretNode.nodeType === 1) {
-    caretNode = caretNode.childNodes.item(Math.max(0, range.startOffset - 1)) ?? caretNode;
+    caretNode = caretNode.childNodes.item(range.startOffset)
+      ?? caretNode.childNodes.item(Math.max(0, range.startOffset - 1)) ?? caretNode;
   }
   const nodes = range.collapsed ? [caretNode] : selectedTextParts(editor, range).map((part) => part.node);
   if (!nodes.length) return { ...EMPTY_EDITOR_FORMAT };
@@ -111,6 +141,9 @@ export const readEditorFormat = (editor: HTMLElement, range: Range | null): Edit
     link: states.every((state) => state.link === states[0].link) ? states[0].link : null,
     list: states.every((state) => state.list === states[0].list) ? states[0].list : null,
     color: states.every((state) => state.color === states[0].color) ? states[0].color : null,
+    indentLevel: states.every((state) => state.indentLevel === states[0].indentLevel) ? states[0].indentLevel : null,
+    canIndent: states.some((state) => state.canIndent),
+    canOutdent: states.some((state) => state.canOutdent),
   };
 };
 
@@ -222,14 +255,19 @@ const formatEditorBlock = (editor: HTMLElement, range: Range, value: string): Ra
     targets = [paragraph];
   }
   targets.forEach((block) => {
+    const indentLevel = readEditorIndentLevel(block);
+    const hasIndent = block.dataset.indentLevel !== undefined || indentLevel > 0;
     if (block.tagName === "LI") {
       block.dataset.formatBlock = value;
       block.className = classes;
+      if (hasIndent) setEditorIndentLevel(block, indentLevel);
       return;
     }
     const replacement = document.createElement(value);
     replacement.dataset.formatBlock = value;
     replacement.className = classes;
+    // 문단을 제목이나 코드 블록으로 바꾸어도 사용자가 지정한 들여쓰기 단계는 함께 옮깁니다.
+    if (hasIndent) setEditorIndentLevel(replacement, indentLevel);
     const source = block.tagName === "PRE" && block.firstElementChild?.tagName === "CODE"
       ? block.firstElementChild
       : block;

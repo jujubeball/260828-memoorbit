@@ -1,4 +1,4 @@
-import { isEditorRange } from "@/src/lib/editorSelection";
+import { isEditorRange, readEditorIndentLevel, setEditorIndentLevel } from "@/src/lib/editorSelection";
 
 // 💡 [선택한 문단에 목록 적용]
 // 선택 범위의 문단만 옮겨 목록과 들여쓰기를 적용하고 새 선택 범위를 작성 모달로 돌려줍니다.
@@ -14,6 +14,9 @@ export function formatEditorList(editor: HTMLElement, range: Range, command: str
     const node = walker.currentNode as Text;
     const readOnlyParent = node.parentElement?.closest('[contenteditable="false"]');
     if (!range.intersectsNode(node) || (readOnlyParent && readOnlyParent !== editor)) continue;
+    // 선택 끝이 다음 문단의 첫 글자 앞이면 그 문단까지 변경하지 않습니다.
+    if (!collapsed && ((node === range.startContainer && range.startOffset === node.length)
+      || (node === range.endContainer && range.endOffset === 0))) continue;
     selectedNodes.push(node);
   }
   // 문단을 옮기면 살아 있는 Range도 변하므로 양 끝의 글자 노드와 인덱스를 먼저 보관합니다.
@@ -69,7 +72,6 @@ export function formatEditorList(editor: HTMLElement, range: Range, command: str
   const removeList = targets.every((block) => block.tagName === "LI" && block.parentElement?.tagName === tag
     && block.parentElement.classList.contains("dashed-list") === dashed);
   let caretTarget: HTMLElement = editor;
-  const outdentTails = new Map<HTMLElement, HTMLElement>();
   // 선택된 항목만 기존 목록에서 분리해 앞뒤의 선택되지 않은 목록을 유지합니다.
   const detachItem = (item: HTMLElement, replacement: HTMLElement): void => {
     const list = item.parentElement!;
@@ -86,32 +88,17 @@ export function formatEditorList(editor: HTMLElement, range: Range, command: str
       block.classList.toggle("editor-inset", !removeInset);
       return;
     }
-    if (command === "indent") {
-      const previous = block.previousElementSibling;
-      if (block.tagName === "LI" && previous?.tagName === "LI") {
-        const listTag = block.parentElement!.tagName;
-        const nested = previous.lastElementChild?.tagName === listTag
-          ? previous.lastElementChild
-          : previous.appendChild(document.createElement(listTag.toLowerCase()));
-        nested.className = block.parentElement!.className;
-        nested.append(block);
-      } else if (block.tagName !== "LI") block.classList.add("ml-4");
+    if (command === "indent" || command === "outdent") {
+      // 앞 항목의 유무와 관계없이 현재 블록의 단계만 증감하여 첫 목록 항목도 다섯 번 이동합니다.
+      const level = readEditorIndentLevel(block);
+      setEditorIndentLevel(block, level + (command === "indent" ? 1 : -1));
       return;
     }
-    if (command === "outdent" && block.tagName !== "LI") {
-      block.classList.remove("ml-4");
-      return;
-    }
-    if (command === "outdent" && block.parentElement?.parentElement?.tagName === "LI") {
-      const list = block.parentElement;
-      const parentItem = list.parentElement!;
-      (outdentTails.get(parentItem) ?? parentItem).after(block);
-      outdentTails.set(parentItem, block);
-      if (!list.hasChildNodes()) list.remove();
-      return;
-    }
-    if (removeList || command === "outdent") {
+    if (removeList) {
       const paragraph = document.createElement("p");
+      if (block.dataset.indentLevel !== undefined || readEditorIndentLevel(block) > 0) {
+        setEditorIndentLevel(paragraph, readEditorIndentLevel(block));
+      }
       paragraph.append(...block.childNodes);
       detachItem(block, paragraph);
       caretTarget = paragraph;
@@ -124,6 +111,9 @@ export function formatEditorList(editor: HTMLElement, range: Range, command: str
         ? "dashed-list list-[dash] pl-5"
         : "list-disc pl-5";
     const item = document.createElement("li");
+    if (block.dataset.indentLevel !== undefined || readEditorIndentLevel(block) > 0) {
+      setEditorIndentLevel(item, readEditorIndentLevel(block));
+    }
     item.append(...block.childNodes);
     list.append(item);
     caretTarget = item;

@@ -11,7 +11,7 @@ export function LayerCloseButton(props: LayerCloseButtonProps): React.JSX.Elemen
     <button
       {...props}
       type="button"
-      className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors shrink-0"
+      className="w-7 h-7 rounded-full bg-slate-700/80 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-600 transition-colors shadow-sm shrink-0"
     >
       <EditorIcon name="close" className="w-4 h-4" />
     </button>

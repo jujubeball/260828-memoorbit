@@ -96,7 +96,7 @@ test("500개 태그 검색·선택 요약·날짜 역전 교정·전체 초기�
     const resultFeed = document.querySelector('[aria-label="검색 결과 목록"]');
     for (const name of ["flex-1", "overflow-y-auto", "px-4", "py-2"]) assert(resultFeed.classList.contains(name));
     assert.deepEqual([...searchHeader.children].map((item) => item.tagName), ["LABEL", "BUTTON"]);
-    for (const name of ["w-7", "h-7", "rounded-full", "bg-slate-800"]) {
+    for (const name of ["w-7", "h-7", "rounded-full", "bg-slate-700/80", "text-slate-200", "shadow-sm"]) {
       assert(searchHeader.querySelector('[aria-label="검색 닫기"]').classList.contains(name));
     }
     const summary = document.querySelector('[aria-label="선택한 필터"]');

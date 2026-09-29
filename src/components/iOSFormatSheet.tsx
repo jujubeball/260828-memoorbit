@@ -66,7 +66,7 @@ export function IOSFormatSheet({
           />
         </div>
         <div
-          className="flex items-center gap-x-4 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide px-2 py-1 overscroll-x-contain rounded-lg bg-white/5 touch-pan-x"
+          className="flex items-center gap-x-4 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide px-2 py-3.5 w-full border-b border-slate-800/60 overscroll-x-contain rounded-lg bg-white/5 touch-pan-x"
           role="group"
           aria-label="문단 스타일"
         >
@@ -86,7 +86,7 @@ export function IOSFormatSheet({
           ))}
         </div>
         <div
-          className="flex items-center gap-x-4 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide px-2 py-1 mt-2 overscroll-x-contain touch-pan-x"
+          className="grid grid-cols-6 items-center text-center w-full px-2 py-3.5 border-b border-slate-800/60"
           role="group"
           aria-label="인라인 서식"
         >
@@ -100,7 +100,7 @@ export function IOSFormatSheet({
           />
 
         </div>
-        <div className="flex items-center gap-x-4 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide px-2 py-1 mt-2 border-t border-white/10 pt-2 touch-pan-x overscroll-x-contain">
+        <div className="flex items-center gap-x-4 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-hide px-2 py-3.5 w-full touch-pan-x overscroll-x-contain">
           <div
             className="flex shrink-0 flex-[3] gap-1"
             role="group"
@@ -133,7 +133,7 @@ export function IOSFormatSheet({
               <button
                 key={command}
                 type="button"
-                disabled={disabled}
+                disabled={disabled || (command === "indent" && !activeFormat.canIndent) || (command === "outdent" && !activeFormat.canOutdent)}
                 onPointerDown={onKeepSelection}
                 onClick={() => onFormat(command)}
                 aria-label={label}

@@ -73,7 +73,8 @@ test("목록의 들여쓰기와 내어쓰기는 커서 글자 인덱스를 유�
   range.setStart(editor.querySelectorAll("li")[1].firstChild, 1);
   range.collapse(true);
   const indented = formatEditorList(editor, range, "indent");
-  assert.equal(editor.querySelector("li > ul > li").textContent, "운동");
+  assert.equal(editor.querySelectorAll("li")[1].dataset.indentLevel, "1");
+  assert(editor.querySelectorAll("li")[1].classList.contains("ml-[24px]"));
   assert(indented.collapsed);
   assert.equal(indented.startOffset, 1);
   const restored = formatEditorList(editor, indented, "outdent");
@@ -81,6 +82,81 @@ test("목록의 들여쓰기와 내어쓰기는 커서 글자 인덱스를 유�
   assert.equal(editor.querySelector("li > ul"), null);
   assert(restored.collapsed);
   assert.equal(restored.startOffset, 1);
+  dom.window.close();
+});
+
+for (const [label, html, selector] of [
+  ["일반 문단", "<p>운동</p><p>뒤</p>", "p"],
+  ["첫 목록 항목", "<ul><li>운동</li><li>뒤</li></ul>", "li"],
+  ["빈 문단", "<p><br></p><p>뒤</p>", "p"],
+]) {
+  test(`${label}은 24px씩 다섯 단계까지 왕복하고 저장된 단계와 커서를 보존한다`, () => {
+    const { editor, range, dom, document } = setup(html);
+    const block = editor.querySelector(selector);
+    range.selectNodeContents(block);
+    range.collapse(true);
+    let selected = range;
+    assert.equal(readEditorFormat(editor, selected).canOutdent, false);
+    for (let level = 1; level <= 5; level++) {
+      selected = formatEditorList(editor, selected, "indent");
+      assert.equal(block.dataset.indentLevel, String(level));
+      assert(block.classList.contains(`ml-[${24 * level}px]`));
+      assert.equal(readEditorFormat(editor, selected).indentLevel, level);
+      assert(selected.collapsed);
+    }
+    assert.equal(readEditorFormat(editor, selected).canIndent, false);
+    selected = formatEditorList(editor, selected, "indent");
+    assert.equal(block.dataset.indentLevel, "5");
+    const reloaded = document.createElement("div");
+    reloaded.innerHTML = editor.innerHTML;
+    const reloadedRange = document.createRange();
+    reloadedRange.selectNodeContents(reloaded.querySelector(selector));
+    reloadedRange.collapse(true);
+    assert.equal(readEditorFormat(reloaded, reloadedRange).indentLevel, 5);
+    for (let level = 4; level >= 0; level--) {
+      selected = formatEditorList(editor, selected, "outdent");
+      assert.equal(readEditorFormat(editor, selected).indentLevel, level);
+      assert.equal(block.dataset.indentLevel, String(level));
+    }
+    formatEditorList(editor, selected, "outdent");
+    assert.equal(block.dataset.indentLevel, "0");
+    assert.equal(readEditorFormat(editor, selected).canOutdent, false);
+    assert.equal(editor.querySelectorAll(selector)[1].outerHTML, `<${selector}>뒤</${selector}>`);
+    dom.window.close();
+  });
+}
+
+test("여러 문단의 서로 다른 단계는 각 한계에서 멈추고 끝 경계의 다음 문단을 건드리지 않는다", () => {
+  const { editor, range, dom } = setup('<p data-indent-level="4" class="ml-[96px]">앞</p><p data-indent-level="5" class="ml-[120px]">중간</p><p>뒤</p>');
+  range.setStart(editor.children[0].firstChild, 0);
+  range.setEnd(editor.children[2].firstChild, 0);
+  assert.equal(readEditorFormat(editor, range).indentLevel, null);
+  assert.equal(readEditorFormat(editor, range).canIndent, true);
+  const selected = formatEditorList(editor, range, "indent");
+  assert.equal(selected.toString(), "앞중간");
+  assert.equal(editor.children[0].dataset.indentLevel, "5");
+  assert.equal(editor.children[1].dataset.indentLevel, "5");
+  assert.equal(editor.children[2].outerHTML, "<p>뒤</p>");
+  assert.equal(readEditorFormat(editor, selected).canIndent, false);
+  const outdented = formatEditorList(editor, selected, "outdent");
+  assert.equal(readEditorFormat(editor, outdented).indentLevel, 4);
+  dom.window.close();
+});
+
+test("빈 문단 경계의 커서와 문단·목록·제목 전환에서도 단계가 일치한다", () => {
+  const { editor, range, dom } = setup('<p>앞</p><p class="ml-4"><br></p><p>뒤</p>');
+  range.setStart(editor, 1);
+  range.collapse(true);
+  assert.equal(readEditorFormat(editor, range).indentLevel, 1);
+  let selected = formatEditorList(editor, range, "indent");
+  assert.equal(editor.children[1].dataset.indentLevel, "2");
+  selected = formatEditorList(editor, selected, "insertUnorderedList");
+  assert.equal(editor.querySelector("li").dataset.indentLevel, "2");
+  selected = formatEditorList(editor, selected, "insertUnorderedList");
+  selected = formatEditorRange(editor, selected, "formatBlock", "h1");
+  assert.equal(editor.querySelector("h1").dataset.indentLevel, "2");
+  assert.equal(readEditorFormat(editor, selected).indentLevel, 2);
+  assert(editor.querySelector("h1").classList.contains("ml-[48px]"));
   dom.window.close();
 });
 
